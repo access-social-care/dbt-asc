@@ -1,7 +1,21 @@
 # dbt-asc Implementation Status
 
 **Date:** 2026-03-11  
-**Session:** Initial setup with two chatbot mart models
+**Session:** Initial setup with ANALYTICS.PUBLIC architecture
+
+## Architecture Decision
+
+**Final architecture: ANALYTICS.PUBLIC** (separate database for all marts)
+
+- **AVA.PUBLIC** → Raw chatbot data (owned by chatbot_data ETL)
+- **CASEWORK.PUBLIC** → Raw casework data (owned by advicePro_queries ETL)
+- **ANALYTICS.PUBLIC** → All dbt marts (chatbot, casework, unified)
+
+**Rationale** (see [docs/devils_advocate_discussion.md](docs/devils_advocate_discussion.md)):
+- Clean separation: ETL repos own raw data databases, dbt owns analytics database
+- No favoritism — ANALYTICS is its own domain, not "part of AVA"
+- Standard dbt pattern: source data in raw databases, transformed data in analytics database
+- Model organization via folder structure (`marts/chatbot/`, `marts/casework/`, `marts/unified/`), not schemas
 
 ## What's Been Completed
 
@@ -18,32 +32,34 @@
 
 ### 3. Snowflake Setup Scripts ✅
 - **`setup/snowflake_permissions.sql`**: Complete infrastructure setup
-  - Creates AVA database + ANALYTICS schema
-  - Creates ROLE_DBT_TRANSFORM with appropriate permissions
+  - Creates ANALYTICS database (separate from raw data)
+  - Grants read on AVA.PUBLIC and CASEWORK.PUBLIC
+  - Grants write on ANALYTICS.PUBLIC
+  - Creates ROLE_DBT_TRANSFORM
   - Grants to ETL_USER and ROLE_PBI_READ
   - Includes verification queries
 - **`setup/profiles.yml.template`**: Connection config template for `~/.dbt/profiles.yml`
 - **`setup/SETUP_GUIDE.md`**: Step-by-step deployment instructions (11 steps)
 
 ### 4. Source Definitions ✅
-- **`models/sources.yml`**: Declares AVA.ACCESSAVA.ACCESSAVA as source
+- **`models/sources.yml`**: Declares AVA.PUBLIC.ACCESSAVA as source
   - Includes freshness checks (warn after 36 hours)
   - Documents schema and data quality characteristics
   - Notes that ~15K conversations/year, demographics <5% complete
 
 ### 5. Mart Models (SQL) ✅
-- **`models/marts/mart_chatbot_conversations_by_tenant_monthly.sql`**:
+- **`models/marts/chatbot/mart_chatbot_conversations_by_tenant_monthly.sql`**:
   - Aggregates conversations by tenant and month
   - Includes conversation counts, first/last dates
-  - **Note**: Uses placeholder `organisation_name` - needs verification
+  - Uses verified column name: `tenant_name`
   
-- **`models/marts/mart_chatbot_conversations_by_tenant_total.sql`**:
+- **`models/marts/chatbot/mart_chatbot_conversations_by_tenant_total.sql`**:
   - All-time totals by tenant
   - Includes days_active calculation
-  - **Note**: Uses placeholder `organisation_name` - needs verification
+  - Uses verified column name: `tenant_name`
 
 ### 6. Model Documentation & Tests ✅
-- **`models/marts/schema.yml`**: 
+- **`models/marts/chatbot/schema.yml`**: 
   - Column-level descriptions
   - not_null tests on key fields
   - unique tests on primary keys
@@ -102,8 +118,8 @@
 7. **Verify** (2 min):
    ```sql
    -- In Snowflake
-   SELECT * FROM AVA.ANALYTICS.MART_CHATBOT_CONVERSATIONS_BY_TENANT_MONTHLY LIMIT 5;
-   SELECT * FROM AVA.ANALYTICS.MART_CHATBOT_CONVERSATIONS_BY_TENANT_TOTAL LIMIT 5;
+   SELECT * FROM ANALYTICS.PUBLIC.MART_CHATBOT_CONVERSATIONS_BY_TENANT_MONTHLY LIMIT 5;
+   SELECT * FROM ANALYTICS.PUBLIC.MART_CHATBOT_CONVERSATIONS_BY_TENANT_TOTAL LIMIT 5;
    ```
 
 8. **Add to cron** (3 min):
@@ -122,11 +138,11 @@
 
 2. **AVA database may not exist**: Snowflake setup not confirmed
    - **Risk**: dbt debug will fail with "database does not exist"
-   - **Fix**: Run setup/snowflake_permissions.sql as ACCOUNTADMIN
+   - **Fix**: Run setup/snowflake_permissions.sql as ACCOUNTADMIN (creates AVA, CASEWORK, ANALYTICS databases)
 
 3. **No dev environment**: Only prod target configured
-   - **Risk**: Local development modifies production tables
-   - **Future**: Add ANALYTICS_DEV schema for safer testing
+   - **Risk**: Local development modifies production tables  
+   - **Future**: Use `--target dev` which writes to ANALYTICS.DEV schema
 
 4. **No incremental models**: All models use full refresh (materialized='table')
    - **Impact**: Fine at current scale (~15K rows), won't scale to millions
@@ -140,12 +156,16 @@ dbt-asc/
 ├── README.md                     # Full documentation with Mermaid diagram
 ├── dbt_project.yml               # Main project config
 ├── packages.yml                  # dbt-utils dependency
+├── IMPLEMENTATION_STATUS.md      # This file
+├── docs/
+│   └── devils_advocate_discussion.md  # Architecture decision rationale
 ├── models/
 │   ├── sources.yml               # Raw Snowflake table definitions
 │   └── marts/
-│       ├── schema.yml            # Model docs and tests
-│       ├── mart_chatbot_conversations_by_tenant_monthly.sql
-│       └── mart_chatbot_conversations_by_tenant_total.sql
+│       └── chatbot/
+│           ├── schema.yml            # Model docs and tests
+│           ├── mart_chatbot_conversations_by_tenant_monthly.sql
+│           └── mart_chatbot_conversations_by_tenant_total.sql
 └── setup/
     ├── SETUP_GUIDE.md            # 11-step deployment guide
     ├── profiles.yml.template     # Connection config template

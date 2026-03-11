@@ -23,22 +23,27 @@ models:
   asc:
     # Config defaults for all models
     +materialized: table
-    +schema: analytics
+    +schema: public
     
     staging:
       # Staging models - light transformations of source data
       +materialized: view
-      +schema: staging
+      +schema: public
       
     marts:
       # Business logic and aggregations
       +materialized: table
-      +schema: analytics
+      +schema: public
+      
+      chatbot:
+        # Chatbot-specific marts
+        +materialized: table
+        +schema: public
 
 # Seeds configuration (CSV files loaded as tables)
 seeds:
   asc:
-    +schema: seeds
+    +schema: public
 
 # Quoting behavior
 # Snowflake identifiers are case-insensitive by default, but dbt quotes them

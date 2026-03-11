@@ -50,9 +50,10 @@ dbt deps  # Installs dbt-utils and other dependencies
 ### Run Snowflake setup (one-time)
 
 Execute `setup/snowflake_permissions.sql` as Snowflake ACCOUNTADMIN to:
-- Create `AVA` database and `ANALYTICS` schema
+- Create `ANALYTICS` database (separate from raw data)
 - Create `ROLE_DBT_TRANSFORM` role
-- Grant appropriate permissions
+- Grant read permissions on AVA.PUBLIC and CASEWORK.PUBLIC
+- Grant write permissions on ANALYTICS.PUBLIC
 - Configure Power BI read access
 
 ## Overview
@@ -62,12 +63,14 @@ Execute `setup/snowflake_permissions.sql` as Snowflake ACCOUNTADMIN to:
 **Current state**: Proof-of-concept with two chatbot mart tables. Will expand to casework, helplines, and cross-source analytical models.
 
 **Workflow**:
-1. Source ETL repos load raw data to Snowflake (ACCESSAVA, CASEWORK schemas)
+1. Source ETL repos load raw data to Snowflake (AVA.PUBLIC, CASEWORK.PUBLIC)
 2. dbt runs transformations daily via cron (after ETL completes)
-3. dbt writes transformed tables to ANALYTICS schema
-4. Web products and Power BI query ANALYTICS schema (not raw schemas)
+3. dbt writes transformed tables to ANALYTICS.PUBLIC
+4. Web products and Power BI query ANALYTICS.PUBLIC (not raw schemas)
 
 **Governance model**: Business logic defined in SQL models with approval workflow via GitHub PRs. Each model documents owner and approval requirements in comments and schema.yml.
+
+**Architecture principle**: Raw data databases (AVA, CASEWORK) owned by ETL repos. ANALYTICS database owned by dbt. Clean separation between extraction and transformation layers.
 
 ## Conceptual Flow
 
@@ -84,8 +87,8 @@ graph TB
     end
     
     subgraph Snowflake["Snowflake — RAW"]
-        ACC[(AVA.ACCESSAVA<br/>Raw fact tables)]
-        CAS[(AVA.CASEWORK<br/>Raw fact tables)]
+        ACC[(AVA.PUBLIC<br/>Raw fact tables)]
+        CAS[(CASEWORK.PUBLIC<br/>Raw fact tables)]
     end
     
     subgraph DBT["dbt-asc Transformations"]
@@ -94,7 +97,7 @@ graph TB
     end
     
     subgraph SnowflakeAnalytics["Snowflake — ANALYTICS"]
-        ANALY[(AVA.ANALYTICS<br/>Mart tables)]
+        ANALY[(ANALYTICS.PUBLIC<br/>Mart tables)]
     end
     
     subgraph Consumers["Consumers"]
@@ -157,12 +160,12 @@ dbt-asc/
    - Defines freshness checks (warn if >36 hours stale)
    - Provides documentation and schema for raw data
 
-2. **Mart models** (`models/marts/*.sql`):
+2. **Mart models** (`models/marts/chatbot/*.sql`):
    - Reference source using `{{ source('accessava', 'accessava') }}` macro
    - Contain business logic (GROUP BY, aggregations)
-   - Build as tables in `AVA.ANALYTICS` schema
+   - Build as tables in `ANALYTICS.PUBLIC` schema
 
-3. **Tests** (`models/marts/schema.yml`):
+3. **Tests** (`models/marts/chatbot/schema.yml`):
    - not_null checks on key columns
    - unique checks on primary keys
    - unique_combination_of_columns for composite keys
@@ -194,10 +197,11 @@ dbt test                  # Run data quality tests
   - Rows: ~15,000 conversations/year
   - Key columns: transcript_id (PK), created_at, tenant_name, persona, categories, etc.
 
-- **AVA.CASEWORK.*** - Legal casework tables (future)
+- **CASEWORK.PUBLIC.*** - Legal casework tables (future)
   - Loaded by: [advicePro_queries/load_advicepro_to_snowflake.R](../advicePro_queries/load_advicepro_to_snowflake.R)
   - Refresh: Monthly (manual)
   - Rows: ~2,500 cases/year
+  - Note: CASEWORK is a separate database from AVA
 
 ### Environment Variables
 
@@ -209,16 +213,21 @@ No new credentials required - dbt uses same authentication as R ETL jobs.
 
 ## Outputs
 
-### Snowflake Tables (AVA.ANALYTICS schema)
+### Snowflake Tables (ANALYTICS.PUBLIC schema)
 
-**Current**:
+**Current** (Chatbot marts):
 - `MART_CHATBOT_CONVERSATIONS_BY_TENANT_MONTHLY` - Monthly conversation counts per tenant
 - `MART_CHATBOT_CONVERSATIONS_BY_TENANT_TOTAL` - All-time conversation totals per tenant
 
-**Planned**:
+**Planned** (Casework marts):
 - `MART_CASEWORK_BY_MEMBER` - Legal casework aggregations by member organization
+- `MART_CASEWORK_REFERRALS_BY_LA` - Referral patterns by local authority
+
+**Planned** (Unified marts - cross-database):
 - `MART_UNIFIED_LOCAL_AUTHORITIES` - Canonical LA dimension across sources
 - `MART_CITIZEN_JOURNEY` - Cross-source unified view (chatbot → casework linkage)
+
+**Note**: All marts live in single `ANALYTICS.PUBLIC` schema. Organization by domain (chatbot/casework/unified) happens via folder structure and table naming conventions, not separate schemas.
 
 ### Documentation Site
 
@@ -254,21 +263,25 @@ Can be hosted permanently for team access (e.g., on Azure App Service or VM ngin
 
 ### Downstream Consumers
 
-Systems that query `AVA.ANALYTICS` schema:
+Systems that query `ANALYTICS.PUBLIC` schema:
 - **data_portal** - Web-based data access for external users
 - **Power BI** - Internal dashboards via `ROLE_PBI_READ`
 - **Report generators** - R Markdown reports can query mart tables instead of raw data
 
+**Connection pattern**: Consumers point to `ANALYTICS.PUBLIC.*` (not AVA or CASEWORK). This creates clean separation - if raw schemas change, consumers are insulated as long as mart contracts remain stable.
+
 ### Cross-Repo Coordination
 
-- **ascFuncs** - Shared R package for Snowflake connections (not used by dbt, but maintains same schemas)
+- **ascFuncs** - Shared R package for Snowflake connections (not used by dbt, but provides helper functions for R consumers of ANALYTICS tables)
 - **admin** - Strategy docs, Snowflake credentials, cron registry
-- **chatbot_data**, **advicePro_queries** - Own raw data loading; dbt consumes their outputs
+- **chatbot_data**, **advicePro_queries** - Own raw data loading to AVA/CASEWORK databases; dbt consumes their outputs
+- **data_portal** - Consumes ANALYTICS.PUBLIC tables for web products
 
 ## Change Log
 
 | Date | Version | Changes |
-|------|---------|---------|
+|------|---------|---------|  
+| 2026-03-11 | 0.2.0 | **Architecture change**: ANALYTICS.PUBLIC (separate database) instead of AVA.ANALYTICS |
 | 2026-03-11 | 0.1.0 | Initial setup: dbt project structure, two chatbot mart models, Snowflake permissions, README |
 
 ## Caveats
@@ -283,7 +296,7 @@ Systems that query `AVA.ANALYTICS` schema:
 
 3. **No dev environment yet**: Only prod target defined. Local development currently writes to prod schemas.
    - **Risk**: Accidental prod modification during testing
-   - **Fix**: Add ANALYTICS_DEV schema and configure dev target in profiles.yml
+   - **Fix**: Switch to `--target dev` which writes to ANALYTICS.DEV schema
 
 4. **Full refresh only**: All models use `materialized='table'` which rebuilds entire table each run.
    - **Performance**: Fine at current scale (~15K rows), but won't scale to millions

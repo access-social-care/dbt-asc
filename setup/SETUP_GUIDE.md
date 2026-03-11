@@ -23,8 +23,8 @@ Complete setup instructions for deploying dbt transformation layer to ASC infras
 
 **Verify**:
 ```sql
-SHOW DATABASES;  -- Should see AVA
-SHOW SCHEMAS IN DATABASE AVA;  -- Should see ACCESSAVA, ANALYTICS
+SHOW DATABASES;  -- Should see AVA, CASEWORK, ANALYTICS
+SHOW SCHEMAS IN DATABASE ANALYTICS;  -- Should see PUBLIC
 SHOW GRANTS TO ROLE ROLE_DBT_TRANSFORM;  -- Should see permissions
 SHOW GRANTS TO USER ETL_USER;  -- Should see ROLE_DBT_TRANSFORM granted
 ```
@@ -93,7 +93,7 @@ dbt debug
 
 **Troubleshooting**:
 - `dbt: command not found` → Run `pip3 install dbt-core dbt-snowflake`
-- `Database 'AVA' does not exist` → Run Step 1 (Snowflake setup)
+- `Database 'ANALYTICS' does not exist` → Run Step 1 (Snowflake setup)
 - `SNOWFLAKE_USER environment variable not set` → Source `.snowflake_env`: `source ~/.snowflake_env && dbt debug`
 
 ## Step 5: Install dbt Packages
@@ -121,8 +121,8 @@ SELECT * FROM AVA.PUBLIC.ACCESSAVA LIMIT 1;
 ```
 
 **If column name is different**:
-1. Edit `models/marts/mart_chatbot_conversations_by_tenant_monthly.sql`
-2. Edit `models/marts/mart_chatbot_conversations_by_tenant_total.sql`
+1. Edit `models/marts/chatbot/mart_chatbot_conversations_by_tenant_monthly.sql`
+2. Edit `models/marts/chatbot/mart_chatbot_conversations_by_tenant_total.sql`
 3. Replace `organisation_name` with actual column name
 4. Remove `-- TODO: Verify column name` comments
 5. Commit changes
@@ -150,10 +150,10 @@ dbt run --target prod
 **Verify tables created**:
 ```sql
 -- In Snowflake
-SHOW TABLES IN SCHEMA AVA.ANALYTICS;
+SHOW TABLES IN SCHEMA ANALYTICS.PUBLIC;
 -- Should see: MART_CHATBOT_CONVERSATIONS_BY_TENANT_MONTHLY, MART_CHATBOT_CONVERSATIONS_BY_TENANT_TOTAL
 
-SELECT * FROM AVA.ANALYTICS.MART_CHATBOT_CONVERSATIONS_BY_TENANT_MONTHLY LIMIT 5;
+SELECT * FROM ANALYTICS.PUBLIC.MART_CHATBOT_CONVERSATIONS_BY_TENANT_MONTHLY LIMIT 5;
 -- Should return aggregated data
 ```
 
@@ -174,7 +174,7 @@ dbt test
 
 **If tests fail**:
 - Check error message for which test failed
-- Examine data: `SELECT * FROM AVA.ANALYTICS.[table_name] WHERE [failing_condition]`
+- Examine data: `SELECT * FROM ANALYTICS.PUBLIC.[table_name] WHERE [failing_condition]`
 - Fix source data issue or adjust test expectations
 
 ## Step 9: Generate Documentation
@@ -241,7 +241,7 @@ Update these files:
    ```markdown
    ## Phase 2: dbt Transformation Layer (COMPLETE)
    - Repo: dbt-asc
-   - Schema: AVA.ANALYTICS
+   - Schema: ANALYTICS.PUBLIC
    - Status: Production (2 chatbot mart models)
    ```
 

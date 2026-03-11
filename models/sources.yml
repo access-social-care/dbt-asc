@@ -16,6 +16,7 @@ sources:
     tables:
       - name: accessava
         description: |
+          Main fact table in AVA database.
           Fact table containing all chatbot conversations.
           One row = one conversation transcript.
           Loaded daily by chatbot_data/data_uploader.R at 05:00 UTC.
