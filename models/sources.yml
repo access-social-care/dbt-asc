@@ -4,7 +4,7 @@ sources:
   - name: accessava
     description: AccessAva chatbot conversation data loaded by chatbot_data ETL
     database: ava
-    schema: accessava
+    schema: public
     
     # Freshness checks - warn if data is stale
     freshness:
@@ -37,10 +37,9 @@ sources:
             tests:
               - not_null
           
-          # NOTE: Column names below need verification from actual Snowflake table
-          # Run: SELECT * FROM AVA.ACCESSAVA.ACCESSAVA LIMIT 1
-          # Common expected columns based on chatbot_data/data_uploader.R:
-          # - organisation_name or tenant (tenant organization name)
+          # Verified column names from actual Snowflake table:
+          # - tenant_name (tenant organization name)
+          # Common columns based on chatbot_data/data_uploader.R:
           # - persona, supercategories, categories, csis, topic_entry_point
           # - letterCode, consumed_resources, local_authority_name
           # - age, ethnicity, religion, disability (demographics - mostly NULL)

@@ -88,14 +88,10 @@
    dbt deps  # Installs dbt-utils
    ```
 
-5. **VERIFY COLUMN NAMES** (5 min) ⚠️ CRITICAL:
-   ```sql
-   -- In Snowflake
-   SELECT * FROM AVA.ACCESSAVA.ACCESSAVA LIMIT 1;
-   ```
-   - If tenant column is NOT `organisation_name`, edit both .sql files
-   - Replace `organisation_name` with correct column name
-   - Commit changes
+5. **Column names verified** ✅:
+   - Table location: `AVA.PUBLIC.ACCESSAVA` (not AVA.ACCESSAVA.ACCESSAVA)
+   - Tenant column: `tenant_name` (correct in SQL models)
+   - No SQL changes needed
 
 6. **Test run** (2 min):
    ```bash
@@ -122,9 +118,7 @@
 
 ## Known Issues / TODOs
 
-1. **Column names not verified**: SQL models use `organisation_name` as placeholder
-   - **Risk**: dbt run will fail if column name is different
-   - **Fix**: Query Snowflake before first run, update SQL files
+1. ~~**Column names not verified**~~ ✅ RESOLVED: Schema is AVA.PUBLIC (not AVA.ACCESSAVA), column is tenant_name
 
 2. **AVA database may not exist**: Snowflake setup not confirmed
    - **Risk**: dbt debug will fail with "database does not exist"

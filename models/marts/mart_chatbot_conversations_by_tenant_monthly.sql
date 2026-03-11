@@ -11,19 +11,18 @@
   Owner: Product & Innovation team
   Approval required from: [PM name - update this]
   
-  **IMPORTANT**: Column names need verification from actual Snowflake table.
-  Replace 'organisation_name' with correct tenant column name.
-  Run: SELECT * FROM AVA.ACCESSAVA.ACCESSAVA LIMIT 1
+  **Column names verified**: tenant_name is correct.
+  Table location: AVA.PUBLIC.ACCESSAVA
 */
 
 SELECT
-  organisation_name AS tenant_name,  -- TODO: Verify column name
+  tenant_name,
   DATE_TRUNC('MONTH', created_at) AS conversation_month,
   COUNT(*) AS conversation_count,
   COUNT(DISTINCT transcript_id) AS unique_conversations,
   MIN(created_at) AS first_conversation_date,
   MAX(created_at) AS last_conversation_date
 FROM {{ source('accessava', 'accessava') }}
-WHERE organisation_name IS NOT NULL  -- TODO: Verify column name
+WHERE tenant_name IS NOT NULL
 GROUP BY 1, 2
 ORDER BY 2 DESC, 1

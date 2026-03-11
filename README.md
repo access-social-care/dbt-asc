@@ -188,11 +188,11 @@ dbt test                  # Run data quality tests
 
 ### Primary Data Sources (via dbt sources)
 
-- **AVA.ACCESSAVA.ACCESSAVA** - Chatbot conversation fact table
+- **AVA.PUBLIC.ACCESSAVA** - Chatbot conversation fact table
   - Loaded by: [chatbot_data/data_uploader.R](../chatbot_data/data_uploader.R)
   - Refresh: Daily at 05:00 UTC
   - Rows: ~15,000 conversations/year
-  - Key columns: transcript_id (PK), created_at, organisation_name, persona, categories, etc.
+  - Key columns: transcript_id (PK), created_at, tenant_name, persona, categories, etc.
 
 - **AVA.CASEWORK.*** - Legal casework tables (future)
   - Loaded by: [advicePro_queries/load_advicepro_to_snowflake.R](../advicePro_queries/load_advicepro_to_snowflake.R)

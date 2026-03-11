@@ -117,7 +117,7 @@ Current SQL models use placeholder column name `organisation_name` for tenant. N
 
 ```sql
 -- Connect to Snowflake
-SELECT * FROM AVA.ACCESSAVA.ACCESSAVA LIMIT 1;
+SELECT * FROM AVA.PUBLIC.ACCESSAVA LIMIT 1;
 ```
 
 **If column name is different**:
