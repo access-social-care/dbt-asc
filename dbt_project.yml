@@ -1,0 +1,49 @@
+name: 'asc'
+version: '1.0.0'
+config-version: 2
+
+# This setting configures which "profile" dbt uses for this project.
+profile: 'asc'
+
+# These configurations specify where dbt should look for different types of files
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"  # directory which will store compiled SQL files
+clean-targets:         # directories to be removed by `dbt clean`
+  - "target"
+  - "dbt_packages"
+
+# Configuring models
+models:
+  asc:
+    # Config defaults for all models
+    +materialized: table
+    +schema: analytics
+    
+    staging:
+      # Staging models - light transformations of source data
+      +materialized: view
+      +schema: staging
+      
+    marts:
+      # Business logic and aggregations
+      +materialized: table
+      +schema: analytics
+
+# Seeds configuration (CSV files loaded as tables)
+seeds:
+  asc:
+    +schema: seeds
+
+# Quoting behavior
+# Snowflake identifiers are case-insensitive by default, but dbt quotes them
+# We'll use unquoted lowercase to match Snowflake conventions
+quoting:
+  database: false
+  schema: false
+  identifier: false

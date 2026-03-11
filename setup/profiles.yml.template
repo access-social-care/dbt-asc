@@ -1,0 +1,50 @@
+# profiles.yml template for dbt-asc
+#
+# This file should be copied to ~/.dbt/profiles.yml (Linux/Mac) or C:\Users\<your name>\.dbt\profiles.yml (Windows)
+# DO NOT commit profiles.yml to Git - it's in .gitignore for safety
+#
+# On VM: /home/amit/.dbt/profiles.yml
+
+asc:
+  target: prod
+  
+  outputs:
+    prod:
+      type: snowflake
+      account: RWPQBWL-QD95964  # Snowflake account identifier
+      user: "{{ env_var('SNOWFLAKE_USER') }}"  # Reuses ETL_USER
+      role: ROLE_DBT_TRANSFORM  # New role with read+write permissions
+      warehouse: COMPUTE_WH
+      database: AVA
+      schema: ANALYTICS  # Where dbt writes its models
+      
+      # JWT authentication using RSA key pair (not password)
+      authenticator: SNOWFLAKE_JWT
+      private_key_path: "{{ env_var('SNOWFLAKE_KEY_FILE') }}"
+      
+      # Connection settings
+      threads: 4  # Number of parallel model builds
+      client_session_keep_alive: False
+      query_tag: dbt_asc
+    
+    dev:
+      type: snowflake
+      account: RWPQBWL-QD95964
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      role: ROLE_DBT_TRANSFORM
+      warehouse: COMPUTE_WH
+      database: AVA
+      schema: ANALYTICS_DEV  # Separate schema for development work
+      
+      authenticator: SNOWFLAKE_JWT
+      private_key_path: "{{ env_var('SNOWFLAKE_KEY_FILE') }}"
+      
+      threads: 4
+      client_session_keep_alive: False
+      query_tag: dbt_asc_dev
+
+# Environment variables required (from /home/amit/.snowflake_env on VM):
+# - SNOWFLAKE_USER (should be "ETL_USER")
+# - SNOWFLAKE_KEY_FILE (path to /home/amit/.ssh/snowflake/rsa_key.p8)
+#
+# These are already set up for existing ETL jobs - dbt reuses them.

@@ -1,0 +1,93 @@
+version: 2
+
+models:
+  - name: mart_chatbot_conversations_by_tenant_monthly
+    description: |
+      Monthly aggregation of chatbot conversation counts by tenant organization.
+      
+      **Purpose**: Tracks conversation volume trends over time for each tenant.
+      Used by: data portal, tenant reports, executive dashboards
+      
+      **Refresh**: Daily (rebuilds entire table from source)
+      **Grain**: One row per tenant per month
+      
+      **Business Rules**:
+      - Month calculated using DATE_TRUNC('MONTH', created_at)
+      - Only includes conversations with non-null tenant names
+      - Ordered by month DESC (most recent first), then tenant name
+      
+      **Owner**: Product & Innovation team
+      **Approval workflow**: Changes require PM sign-off via GitHub PR
+    
+    columns:
+      - name: tenant_name
+        description: Organization name from tenant configuration
+        tests:
+          - not_null
+      
+      - name: conversation_month
+        description: First day of the month (YYYY-MM-01)
+        tests:
+          - not_null
+      
+      - name: conversation_count
+        description: Total number of conversations in this month
+        tests:
+          - not_null
+      
+      - name: unique_conversations
+        description: Count of distinct transcript_ids (should match conversation_count)
+      
+      - name: first_conversation_date
+        description: Earliest conversation date in this month for this tenant
+      
+      - name: last_conversation_date
+        description: Latest conversation date in this month for this tenant
+    
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - tenant_name
+            - conversation_month
+
+  - name: mart_chatbot_conversations_by_tenant_total
+    description: |
+      All-time conversation counts by tenant organization.
+      
+      **Purpose**: Summary view of total tenant engagement across all time.
+      Used by: data portal overview page, tenant comparison reports
+      
+      **Refresh**: Daily (rebuilds entire table from source)
+      **Grain**: One row per tenant
+      
+      **Business Rules**:
+      - Includes all conversations since chatbot launch
+      - Only includes conversations with non-null tenant names
+      - Ordered by total_conversations DESC (most active tenants first)
+      
+      **Owner**: Product & Innovation team
+      **Approval workflow**: Changes require PM sign-off via GitHub PR
+    
+    columns:
+      - name: tenant_name
+        description: Organization name from tenant configuration
+        tests:
+          - unique
+          - not_null
+      
+      - name: total_conversations
+        description: Total conversation count across all time
+        tests:
+          - not_null
+      
+      - name: unique_conversations
+        description: Count of distinct transcript_ids (should match total_conversations)
+      
+      - name: first_conversation_date
+        description: Date of first recorded conversation for this tenant
+      
+      - name: last_conversation_date
+        description: Date of most recent conversation for this tenant
+      
+      - name: days_active
+        description: Number of days between first and last conversation

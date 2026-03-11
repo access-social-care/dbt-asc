@@ -1,0 +1,46 @@
+version: 2
+
+sources:
+  - name: accessava
+    description: AccessAva chatbot conversation data loaded by chatbot_data ETL
+    database: ava
+    schema: accessava
+    
+    # Freshness checks - warn if data is stale
+    freshness:
+      warn_after: {count: 36, period: hour}  # Daily ETL runs at 05:00 UTC
+      error_after: {count: 72, period: hour}
+    
+    # Loaded to {count: false}  # Don't check freshness on first run
+    
+    tables:
+      - name: accessava
+        description: |
+          Fact table containing all chatbot conversations.
+          One row = one conversation transcript.
+          Loaded daily by chatbot_data/data_uploader.R at 05:00 UTC.
+          
+          **Data Quality**:
+          - Core fields 100% complete (transcript_id, created_at)
+          - Demographics <5% complete (known limitation)
+          - ~15,000 conversations/year
+        
+        columns:
+          - name: transcript_id
+            description: Primary key - unique conversation identifier
+            tests:
+              - unique
+              - not_null
+          
+          - name: created_at
+            description: Date conversation started (Date type, not timestamp)
+            tests:
+              - not_null
+          
+          # NOTE: Column names below need verification from actual Snowflake table
+          # Run: SELECT * FROM AVA.ACCESSAVA.ACCESSAVA LIMIT 1
+          # Common expected columns based on chatbot_data/data_uploader.R:
+          # - organisation_name or tenant (tenant organization name)
+          # - persona, supercategories, categories, csis, topic_entry_point
+          # - letterCode, consumed_resources, local_authority_name
+          # - age, ethnicity, religion, disability (demographics - mostly NULL)

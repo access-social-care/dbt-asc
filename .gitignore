@@ -1,0 +1,36 @@
+# dbt artifacts
+target/
+dbt_packages/
+logs/
+dbt_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.Rproj
+.Rproj.user/
+.Rhistory
+.RData
+
+# Credentials - NEVER commit profiles.yml (should be in ~/.dbt/)
+profiles.yml
+
+# Environment
+.env
+.env.local
