@@ -16,12 +16,12 @@
 */
 
 SELECT
-  "tenant_name",
-  DATE_TRUNC('MONTH', "created_at") AS conversation_month,
-  COUNT(*) AS conversation_count,
-  COUNT(DISTINCT "transcript_id") AS unique_conversations,
-  MIN("created_at") AS first_conversation_date,
-  MAX("created_at") AS last_conversation_date
+  "tenant_name" AS "tenant_name",
+  DATE_TRUNC('MONTH', "created_at") AS "conversation_month",
+  COUNT(*) AS "conversation_count",
+  COUNT(DISTINCT "transcript_id") AS "unique_conversations",
+  MIN("created_at") AS "first_conversation_date",
+  MAX("created_at") AS "last_conversation_date"
 FROM {{ source('accessava', 'accessava') }}
 WHERE "tenant_name" IS NOT NULL
 GROUP BY 1, 2
