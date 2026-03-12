@@ -27,13 +27,13 @@ sources:
           - ~15,000 conversations/year
         
         columns:
-          - name: transcript_id
+          - name: "transcript_id"
             description: Primary key - unique conversation identifier
             tests:
               - unique
               - not_null
           
-          - name: created_at
+          - name: "created_at"
             description: Date conversation started (Date type, not timestamp)
             tests:
               - not_null
