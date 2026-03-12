@@ -5,6 +5,12 @@ config-version: 2
 # This setting configures which "profile" dbt uses for this project.
 profile: 'asc'
 
+# Force quoted identifiers to match ETL output (lowercase columns)
+quoting:
+  database: false
+  schema: false
+  identifier: true  # Always quote column/table names
+
 # These configurations specify where dbt should look for different types of files
 model-paths: ["models"]
 analysis-paths: ["analyses"]
