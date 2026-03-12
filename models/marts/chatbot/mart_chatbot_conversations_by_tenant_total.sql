@@ -16,13 +16,13 @@
 */
 
 SELECT
-  "tenant_name" AS "tenant_name",
-  COUNT(*) AS "total_conversations",
-  COUNT(DISTINCT "transcript_id") AS "unique_conversations",
-  MIN("created_at") AS "first_conversation_date",
-  MAX("created_at") AS "last_conversation_date",
-  DATEDIFF('day', MIN("created_at"), MAX("created_at")) AS "days_active"
+  TENANT_NAME,
+  COUNT(*) AS TOTAL_CONVERSATIONS,
+  COUNT(DISTINCT TRANSCRIPT_ID) AS UNIQUE_CONVERSATIONS,
+  MIN(CREATED_AT) AS FIRST_CONVERSATION_DATE,
+  MAX(CREATED_AT) AS LAST_CONVERSATION_DATE,
+  DATEDIFF('day', MIN(CREATED_AT), MAX(CREATED_AT)) AS DAYS_ACTIVE
 FROM {{ source('accessava', 'accessava') }}
-WHERE "tenant_name" IS NOT NULL
+WHERE TENANT_NAME IS NOT NULL
 GROUP BY 1
 ORDER BY 2 DESC

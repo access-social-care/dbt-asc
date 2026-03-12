@@ -41,9 +41,9 @@ seeds:
   asc:
 
 # Quoting behavior
-# Force quoted identifiers to match ETL output (lowercase column names)
-# The ETL writes columns as quoted lowercase, so dbt must quote them too
+# Use Snowflake defaults (unquoted = UPPERCASE)
+# This matches Snowflake's standard behavior and simplifies identifier handling
 quoting:
   database: false
   schema: false
-  identifier: true
+  identifier: false

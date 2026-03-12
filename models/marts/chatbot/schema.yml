@@ -20,35 +20,35 @@ models:
       **Approval workflow**: Changes require PM sign-off via GitHub PR
     
     columns:
-      - name: "tenant_name"
+      - name: TENANT_NAME
         description: Organization name from tenant configuration
         tests:
           - not_null
       
-      - name: "conversation_month"
+      - name: CONVERSATION_MONTH
         description: First day of the month (YYYY-MM-01)
         tests:
           - not_null
       
-      - name: "conversation_count"
+      - name: CONVERSATION_COUNT
         description: Total number of conversations in this month
         tests:
           - not_null
       
-      - name: "unique_conversations"
+      - name: UNIQUE_CONVERSATIONS
         description: Count of distinct transcript_ids (should match conversation_count)
       
-      - name: "first_conversation_date"
+      - name: FIRST_CONVERSATION_DATE
         description: Earliest conversation date in this month for this tenant
       
-      - name: "last_conversation_date"
+      - name: LAST_CONVERSATION_DATE
         description: Latest conversation date in this month for this tenant
     
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
-            - "tenant_name"
-            - "conversation_month"
+            - TENANT_NAME
+            - CONVERSATION_MONTH
 
   - name: mart_chatbot_conversations_by_tenant_total
     description: |
@@ -69,25 +69,25 @@ models:
       **Approval workflow**: Changes require PM sign-off via GitHub PR
     
     columns:
-      - name: "tenant_name"
+      - name: TENANT_NAME
         description: Organization name from tenant configuration
         tests:
           - unique
           - not_null
       
-      - name: "total_conversations"
+      - name: TOTAL_CONVERSATIONS
         description: Total conversation count across all time
         tests:
           - not_null
       
-      - name: "unique_conversations"
+      - name: UNIQUE_CONVERSATIONS
         description: Count of distinct transcript_ids (should match total_conversations)
       
-      - name: "first_conversation_date"
+      - name: FIRST_CONVERSATION_DATE
         description: Date of first recorded conversation for this tenant
       
-      - name: "last_conversation_date"
+      - name: LAST_CONVERSATION_DATE
         description: Date of most recent conversation for this tenant
       
-      - name: "days_active"
+      - name: DAYS_ACTIVE
         description: Number of days between first and last conversation
