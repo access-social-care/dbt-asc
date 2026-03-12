@@ -25,30 +25,30 @@ models:
         tests:
           - not_null
       
-      - name: conversation_month
+      - name: "conversation_month"
         description: First day of the month (YYYY-MM-01)
         tests:
           - not_null
       
-      - name: conversation_count
+      - name: "conversation_count"
         description: Total number of conversations in this month
         tests:
           - not_null
       
-      - name: unique_conversations
+      - name: "unique_conversations"
         description: Count of distinct transcript_ids (should match conversation_count)
       
-      - name: first_conversation_date
+      - name: "first_conversation_date"
         description: Earliest conversation date in this month for this tenant
       
-      - name: last_conversation_date
+      - name: "last_conversation_date"
         description: Latest conversation date in this month for this tenant
     
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
             - "tenant_name"
-            - conversation_month
+            - "conversation_month"
 
   - name: mart_chatbot_conversations_by_tenant_total
     description: |
@@ -75,19 +75,19 @@ models:
           - unique
           - not_null
       
-      - name: total_conversations
+      - name: "total_conversations"
         description: Total conversation count across all time
         tests:
           - not_null
       
-      - name: unique_conversations
+      - name: "unique_conversations"
         description: Count of distinct transcript_ids (should match total_conversations)
       
-      - name: first_conversation_date
+      - name: "first_conversation_date"
         description: Date of first recorded conversation for this tenant
       
-      - name: last_conversation_date
+      - name: "last_conversation_date"
         description: Date of most recent conversation for this tenant
       
-      - name: days_active
+      - name: "days_active"
         description: Number of days between first and last conversation
