@@ -5,12 +5,6 @@ config-version: 2
 # This setting configures which "profile" dbt uses for this project.
 profile: 'asc'
 
-# Force quoted identifiers to match ETL output (lowercase columns)
-quoting:
-  database: false
-  schema: false
-  identifier: true  # Always quote column/table names
-
 # These configurations specify where dbt should look for different types of files
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -47,9 +41,9 @@ seeds:
   asc:
 
 # Quoting behavior
-# Snowflake identifiers are case-insensitive by default, but dbt quotes them
-# We'll use unquoted lowercase to match Snowflake conventions
+# Force quoted identifiers to match ETL output (lowercase column names)
+# The ETL writes columns as quoted lowercase, so dbt must quote them too
 quoting:
   database: false
   schema: false
-  identifier: false
+  identifier: true
