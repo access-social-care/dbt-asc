@@ -54,7 +54,7 @@ git push -u origin main
 **Time**: ~2 minutes
 
 ```bash
-ssh amit@data.accesscharity.org.uk
+ssh amit@control.accesscharity.org.uk
 
 cd /srv/projects
 git clone git@github.com:access-social-care/dbt-asc.git
@@ -186,9 +186,11 @@ dbt test
 ```bash
 cd /srv/projects/dbt-asc
 dbt docs generate
-dbt docs serve --port 8081
+dbt docs serve --host 0.0.0.0 --port 8082
 
-# Open browser to: http://data.accesscharity.org.uk:8081
+# Access via SSH tunnel:
+# ssh -L 8082:localhost:8082 amit@control.accesscharity.org.uk
+# Then visit http://localhost:8082
 # Browse lineage DAG, model descriptions
 ```
 
