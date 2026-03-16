@@ -211,6 +211,12 @@ Reuses existing Snowflake ETL credentials sourced from `/home/amit/.snowflake_en
 
 No new credentials required - dbt uses same authentication as R ETL jobs.
 
+### Developer Access
+
+For developers querying ANALYTICS.PUBLIC tables (Python, Node.js, JDBC, etc.), see:
+- **Setup**: [setup/create_tenant_reports_user.sql](setup/create_tenant_reports_user.sql) - Creates `TENANT_REPORTS_USER` and `ROLE_TENANT_REPORTS_READ`
+- **Connection guide**: [../admin/snowflake_developer_connection_guide.md](../admin/snowflake_developer_connection_guide.md) - Environment setup and code examples
+
 ## Outputs
 
 ### Snowflake Tables (ANALYTICS.PUBLIC schema)
