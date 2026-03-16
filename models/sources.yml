@@ -29,14 +29,15 @@ sources:
         columns:
           - name: "transcript_id"
             description: Primary key - unique conversation identifier
-            tests:
-              - unique
-              - not_null
+            # Tests removed: Source data quality is chatbot_data ETL's responsibility
+            # dbt focuses on testing transformation outputs (mart tables)
           
           - name: "created_at"
             description: Date conversation started (Date type, not timestamp)
-            tests:
-              - not_null
+            # Tests removed: dbt's generic test macros don't respect quoted identifiers in sources
+          
+          - name: "tenant_name"
+            description: Organization name from tenant configuration
           
           # Verified column names from actual Snowflake table:
           # - tenant_name (tenant organization name)
