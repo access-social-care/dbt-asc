@@ -47,6 +47,18 @@ dbt --version
 dbt deps  # Installs dbt-utils and other dependencies
 ```
 
+### Install docs service (optional but recommended)
+
+Set up dbt documentation server as a systemd service for 24/7 availability:
+
+```bash
+# On VM as root/sudo
+cd /srv/projects/dbt-asc
+sudo bash setup/install_docs_service.sh
+```
+
+This installs a systemd service that auto-starts on boot and restarts on failure. See [Documentation Site](#documentation-site) section for usage details.
+
 ### Run Snowflake setup (one-time)
 
 Execute `setup/snowflake_permissions.sql` as Snowflake ACCOUNTADMIN to:
@@ -237,13 +249,29 @@ For developers querying ANALYTICS.PUBLIC tables (Python, Node.js, JDBC, etc.), s
 
 ### Documentation Site
 
-Interactive lineage and data dictionary UI:
+Interactive lineage and data dictionary UI served as a systemd service for 24/7 availability.
 
+**Initial setup (one-time)**:
 ```bash
-# On VM
+# On VM as root/sudo
 cd /srv/projects/dbt-asc
-dbt docs generate
-dbt docs serve --port 8082  # Uses 8082 to avoid conflict with RStudio (8787) and other services
+sudo bash setup/install_docs_service.sh
+```
+
+This installs `dbt-docs.service` which:
+- Auto-generates docs on startup via `dbt docs generate`
+- Serves docs on port 8082
+- Restarts automatically on failure
+- Starts on boot
+- Logs to systemd journal
+
+**Managing the service**:
+```bash
+sudo systemctl status dbt-docs    # Check status
+sudo systemctl stop dbt-docs      # Stop service
+sudo systemctl start dbt-docs     # Start service  
+sudo systemctl restart dbt-docs   # Restart (e.g., after model changes)
+sudo journalctl -u dbt-docs -f    # View logs (follow mode)
 ```
 
 **Access**:
@@ -257,7 +285,10 @@ dbt docs serve --port 8082  # Uses 8082 to avoid conflict with RStudio (8787) an
 - Compiled SQL for each model
 - Test results and documentation
 
-**Note**: Server must stay running (use `screen` or `tmux` for persistent session, or set up as systemd service for production).
+**Refresh docs after model changes**:
+```bash
+sudo systemctl restart dbt-docs  # Regenerates docs and restarts server
+```
 
 ### Logs
 
@@ -301,6 +332,7 @@ Systems that query `ANALYTICS.PUBLIC` schema:
 
 | Date | Version | Changes |
 |------|---------|---------|  
+| 2026-03-16 | 0.2.1 | **Infrastructure**: Added systemd service for dbt docs server (`setup/dbt-docs.service`, `setup/install_docs_service.sh`) for 24/7 availability |
 | 2026-03-11 | 0.2.0 | **Architecture change**: ANALYTICS.PUBLIC (separate database) instead of AVA.ANALYTICS |
 | 2026-03-11 | 0.1.0 | Initial setup: dbt project structure, two chatbot mart models, Snowflake permissions, README |
 
@@ -328,7 +360,7 @@ Systems that query `ANALYTICS.PUBLIC` schema:
 6. **Business owner placeholders**: `schema.yml` includes `[PM name - update this]` placeholder for approval workflow owner.
    - **Fix**: Update with actual PM name once governance process is confirmed
 
-7. **dbt docs port**: Documentation server runs on port 8082 (not default 8080/8081) to avoid common conflicts.
+7. **dbt docs service**: Documentation server runs as systemd service on port 8082 (not default 8080/8081) to avoid common conflicts. Service file at `setup/dbt-docs.service` manages automatic startup, restart on failure, and logging.
    - **Note**: Documented in admin for VM infrastructure reference
 
 ### Data Quality Limitations
