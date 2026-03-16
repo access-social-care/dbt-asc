@@ -1,0 +1,22 @@
+[Unit]
+Description=dbt Documentation Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=amit
+Group=datausers
+WorkingDirectory=/srv/projects/dbt-asc
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/home/amit/.snowflake_env
+ExecStartPre=/usr/local/bin/dbt docs generate
+ExecStart=/usr/local/bin/dbt docs serve --port 8082
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dbt-docs
+
+[Install]
+WantedBy=multi-user.target
