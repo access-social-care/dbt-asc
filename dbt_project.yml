@@ -23,10 +23,6 @@ models:
   asc:
     # Config defaults for all models
     +materialized: table
-    
-    staging:
-      # Staging models - light transformations of source data
-      +materialized: view
       
     marts:
       # Business logic and aggregations
@@ -35,10 +31,6 @@ models:
       chatbot:
         # Chatbot-specific marts
         +materialized: table
-
-# Seeds configuration (CSV files loaded as tables)
-seeds:
-  asc:
 
 # Quoting behavior
 # Use Snowflake defaults (unquoted = UPPERCASE)

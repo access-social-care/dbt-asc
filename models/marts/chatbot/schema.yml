@@ -46,9 +46,10 @@ models:
     
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - TENANT_NAME
-            - CONVERSATION_MONTH
+          arguments:
+            combination_of_columns:
+              - TENANT_NAME
+              - CONVERSATION_MONTH
 
   - name: mart_chatbot_conversations_by_tenant_total
     description: |
