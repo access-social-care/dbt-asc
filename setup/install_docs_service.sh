@@ -6,6 +6,11 @@ set -e
 
 echo "Installing dbt documentation service..."
 
+# Copy systemd-compatible environment file (no 'export' keywords)
+cp /srv/projects/dbt-asc/setup/snowflake_env_systemd.template /home/amit/.snowflake_env_systemd
+chown amit:datausers /home/amit/.snowflake_env_systemd
+chmod 600 /home/amit/.snowflake_env_systemd
+
 # Copy service file to systemd directory
 cp /srv/projects/dbt-asc/setup/dbt-docs.service /etc/systemd/system/
 

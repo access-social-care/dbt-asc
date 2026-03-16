@@ -1,0 +1,11 @@
+# systemd-compatible environment file for dbt service
+# Copy this to /home/amit/.snowflake_env_systemd on the VM
+# Format: KEY=VALUE (NO export keyword - systemd doesn't accept it)
+
+SNOWFLAKE_SERVER=RWPQBWL-QD95964.snowflakecomputing.com
+SNOWFLAKE_WAREHOUSE=COMPUTE_WH
+SNOWFLAKE_DATABASE=AVA
+SNOWFLAKE_SCHEMA=PUBLIC
+SNOWFLAKE_USER=ETL_USER
+SNOWFLAKE_ROLE=ROLE_ETL_WRITE
+SNOWFLAKE_KEY_FILE=/home/amit/.ssh/snowflake/rsa_key.p8

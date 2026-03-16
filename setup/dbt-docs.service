@@ -9,7 +9,7 @@ User=amit
 Group=datausers
 WorkingDirectory=/srv/projects/dbt-asc
 Environment="PATH=/home/amit/.local/bin:/usr/local/bin:/usr/bin:/bin"
-EnvironmentFile=/home/amit/.snowflake_env
+EnvironmentFile=/home/amit/.snowflake_env_systemd
 ExecStartPre=/home/amit/.local/bin/dbt docs generate
 ExecStart=/home/amit/.local/bin/dbt docs serve --port 8082
 Restart=on-failure
