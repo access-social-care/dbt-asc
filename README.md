@@ -231,13 +231,27 @@ No new credentials required - dbt uses same authentication as R ETL jobs.
 
 ### Documentation Site
 
+Interactive lineage and data dictionary UI:
+
 ```bash
+# On VM
+cd /srv/projects/dbt-asc
 dbt docs generate
-dbt docs serve --port 8081
-# Open http://localhost:8081 to browse lineage and column descriptions
+dbt docs serve --port 8082  # Uses 8082 to avoid conflict with RStudio (8787) and other services
 ```
 
-Can be hosted permanently for team access (e.g., on Azure App Service or VM nginx).
+**Access**:
+- **Direct** (if port open): http://data.accesscharity.org.uk:8082
+- **SSH tunnel** (if blocked): `ssh -L 8082:localhost:8082 amit@data.accesscharity.org.uk` then visit http://localhost:8082
+- **VS Code**: Forward port 8082 via Command Palette → "Forward a Port"
+
+**Features**:
+- Visual lineage DAG (source → staging → marts)
+- Searchable data dictionary with column descriptions
+- Compiled SQL for each model
+- Test results and documentation
+
+**Note**: Server must stay running (use `screen` or `tmux` for persistent session, or set up as systemd service for production).
 
 ### Logs
 
@@ -307,6 +321,9 @@ Systems that query `ANALYTICS.PUBLIC` schema:
 
 6. **Business owner placeholders**: `schema.yml` includes `[PM name - update this]` placeholder for approval workflow owner.
    - **Fix**: Update with actual PM name once governance process is confirmed
+
+7. **dbt docs port**: Documentation server runs on port 8082 (not default 8080/8081) to avoid common conflicts.
+   - **Note**: Documented in admin for VM infrastructure reference
 
 ### Data Quality Limitations
 
