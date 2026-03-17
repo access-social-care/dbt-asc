@@ -275,8 +275,7 @@ sudo journalctl -u dbt-docs -f    # View logs (follow mode)
 ```
 
 **Access**:
-- **SSH tunnel**: `ssh -L 8082:localhost:8082 amit@control.accesscharity.org.uk` then visit http://localhost:8082
-- **VS Code**: Forward port 8082 via Command Palette → "Forward a Port"
+- https://control.accesscharity.org.uk/p/ff1934c2/#!/overview
 
 **Features**:
 - Visual lineage DAG (source → staging → marts)
