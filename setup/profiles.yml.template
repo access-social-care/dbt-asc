@@ -33,8 +33,12 @@ asc:
       user: "{{ env_var('SNOWFLAKE_USER') }}"
       role: ROLE_DBT_TRANSFORM
       warehouse: COMPUTE_WH
-      database: ANALYTICS
-      schema: DEV  # Separate schema for development work
+      database: ANALYTICS_DEV  # Separate database (not schema) for dev isolation
+      schema: PUBLIC            # Keep PUBLIC within the dev database
+      
+      # Why a separate database and not just a DEV schema in ANALYTICS?
+      # Independent RBAC, cloneable from prod, no accidental cross-env joins.
+      # Provision with: CREATE DATABASE ANALYTICS_DEV CLONE ANALYTICS;
       
       authenticator: SNOWFLAKE_JWT
       private_key_path: "{{ env_var('SNOWFLAKE_KEY_FILE') }}"

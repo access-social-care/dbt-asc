@@ -50,13 +50,6 @@ sources:
     database: casework
     schema: public
 
-    config:
-      # Freshness checks - ETL is run manually on demand, warn if not refreshed in 2 weeks
-      freshness:
-        warn_after: {count: 336, period: hour}
-        error_after: {count: 720, period: hour}
-      loaded_at_field: case_open_month
-
     tables:
       - name: advicepro_casework
         description: |
