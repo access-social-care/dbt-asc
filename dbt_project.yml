@@ -24,6 +24,10 @@ models:
     # Config defaults for all models
     +materialized: table
       
+    staging:
+      # Thin selection/rename layer over raw sources
+      +materialized: table
+
     marts:
       # Business logic and aggregations
       +materialized: table

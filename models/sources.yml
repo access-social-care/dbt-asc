@@ -44,3 +44,53 @@ sources:
           # - persona, supercategories, categories, csis, topic_entry_point
           # - letterCode, consumed_resources, local_authority_name
           # - age, ethnicity, religion, disability (demographics - mostly NULL)
+
+  - name: casework
+    description: AdvicePro casework data loaded by advicePro_queries ETL
+    database: casework
+    schema: public
+
+    tables:
+      - name: advicepro_casework
+        description: |
+          Main casework fact table.
+          One row = one case (case_reference is the primary key).
+          Loaded by advicePro_queries/load_advicepro_to_snowflake.R.
+
+          **Grain**: One row per case_reference.
+          Multi-valued fields (super_category, case_specific_issues, case_outcome) are
+          semicolon-joined in this table. Use the corresponding BRIDGE/DIM tables
+          (SUPER_CATEGORY_BRIDGE, CSI_BRIDGE, OUTCOME_BRIDGE, etc.) for analytics joins.
+
+          **Data Quality**:
+          - case_reference uniqueness is enforced by the ETL collapse step
+          - case_outcome is NULL for open/active cases
+          - Topics (super_category etc.) are NULL where not recorded
+
+        columns:
+          - name: case_reference
+            description: Primary key - unique case identifier
+          - name: case_open_month
+            description: Month the case was opened (YYYY/MM format)
+          - name: case_close_month
+            description: Month the case was closed (YYYY/MM), or 9999/12 if still open
+          - name: case_status
+            description: Current case status (Active, Enquiry, or closed value)
+          - name: case_level
+            description: Case level classification
+          - name: case_outcome
+            description: |
+              Semicolon-joined outcome values. NULL for open/active cases.
+              Use OUTCOME_BRIDGE + OUTCOME_DIM for analytics joins on individual outcomes.
+          - name: number_of_cases
+            description: Always 1 - one row per case, used for simple SUM aggregation
+          - name: referred_from_account
+            description: Raw AdvicePro member name
+          - name: member_canonical_name
+            description: Canonical member name mapped from referred_from_account
+          - name: local_authority
+            description: Standardised CASSR local authority name
+          - name: la_code
+            description: ONS local authority code
+          - name: la_name_original
+            description: Original pre-standardisation local authority value
