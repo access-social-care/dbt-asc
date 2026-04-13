@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  dbt-parse:
+    name: Validate dbt project
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dbt-snowflake
+        run: pip install "dbt-snowflake>=1.7,<2.0"
+
+      - name: dbt deps
+        run: dbt deps
+        env:
+          SNOWFLAKE_USER: ci-dummy
+          SNOWFLAKE_KEY_FILE: /dev/null
+
+      - name: Set up CI profiles.yml
+        # dbt parse validates project structure without connecting to Snowflake.
+        # env vars just need to be non-empty for env_var() resolution - no real creds needed.
+        run: |
+          mkdir -p ~/.dbt
+          cp setup/profiles.yml.template ~/.dbt/profiles.yml
+
+      - name: dbt parse
+        # Validates: YAML schema, ref()/source() resolution, model configs, test names.
+        # Does NOT execute any SQL or connect to Snowflake.
+        run: dbt parse
+        env:
+          SNOWFLAKE_USER: ci-dummy
+          SNOWFLAKE_KEY_FILE: /dev/null
