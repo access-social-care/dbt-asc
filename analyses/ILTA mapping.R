@@ -1,4 +1,4 @@
-﻿## Prototype ILTA mapping script - reads source data from both Snowflake
+## Prototype ILTA mapping script - reads source data from both Snowflake
 ## databases (AVA and CASEWORK) before transformation.
 
 library(ascFuncs)
@@ -194,4 +194,26 @@ new_casework_rows <- tibble::tibble(
 con_ref <- ascFuncs::connect_snowflake(database = "REFERENCE")
 DBI::dbWriteTable(con_ref, "ILTA_MAP_AVA", new_ava_rows, append = TRUE)
 DBI::dbWriteTable(con_ref, "ILTA_MAP_CASEWORK", new_casework_rows, append = TRUE)
+
+
+
+# For Fin: Letters/factsheets/thingie -------------------------------------
+
+a <- readRDS("/srv/projects/data/chatbot/latestData.RDS")
+
+letters_downloaded <- a %>%
+  filter(
+    created_at >= "2025-10-01", created_at <= "2026-03-31", letter_downloaded) %>% nrow()
+
+easyreads_and_factsheets <- a %>%
+  filter(
+    created_at >= "2025-10-01", created_at <= "2026-03-31",
+    !is.na(consumed_resources)
+  ) %>%
+  pull(consumed_resources) %>%
+  strsplit("\\|") %>%
+  unlist() %>%
+  .[grepl("^(easyread|factsheet)$", .)] %>% length
+
+letters_downloaded + easyreads_and_factsheets
 
