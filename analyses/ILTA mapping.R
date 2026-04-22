@@ -69,7 +69,7 @@ casework_counts <- df_casework_demo %>%
   # filter(!is.na(CASEWORK)) %>% 
   select(-FEATURE) %>% 
   left_join(ilta_map_casework)%>%
-  mutate(ifelse(FEATURE == "Do you have a disability", "disability_n_y", FEATURE)) %>%
+  mutate(FEATURE = ifelse(FEATURE == "Do you have a disability", "disability_n_y", FEATURE)) %>%
   count(FEATURE, ILTA)
   
 total_counts <- ava_counts %>% 
@@ -179,21 +179,7 @@ logger::log_info(
 
 
 
-new_ava_rows <- tibble::tibble(
-  FEATURE   = "disability_n_y",
-  ACCESSAVA = c("Y", "N"),
-  ILTA      = c("Yes", "No")
-)
 
-new_casework_rows <- tibble::tibble(
-  FEATURE   = "Do you have a disability",
-  CASEWORK = c("Yes", "No"),
-  ILTA      = c("Yes", "No")
-)
-
-con_ref <- ascFuncs::connect_snowflake(database = "REFERENCE")
-DBI::dbWriteTable(con_ref, "ILTA_MAP_AVA", new_ava_rows, append = TRUE)
-DBI::dbWriteTable(con_ref, "ILTA_MAP_CASEWORK", new_casework_rows, append = TRUE)
 
 
 
