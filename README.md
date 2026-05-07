@@ -277,6 +277,20 @@ sudo journalctl -u dbt-docs -f    # View logs (follow mode)
 **Access**:
 - https://control.accesscharity.org.uk/p/ff1934c2/#!/overview
 
+**Troubleshooting "connection refused"**:  
+The `/p/ff1934c2/` path is proxied by **nginx** via a location block in `/etc/nginx/sites-enabled/default`. If the URL fails but `dbt-docs.service` is running:
+```bash
+# 1. Verify dbt-docs is up
+sudo systemctl status dbt-docs
+
+# 2. Check nginx config and reload
+sudo nginx -t
+sudo systemctl reload nginx
+
+# 3. Check the location block exists
+grep -A5 'ff1934c2' /etc/nginx/sites-enabled/default
+```
+
 **Features**:
 - Visual lineage DAG (source → staging → marts)
 - Searchable data dictionary with column descriptions
