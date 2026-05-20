@@ -1,13 +1,9 @@
 #!/bin/bash
-START=$(date +%s)
-
-# change path to working directory
+# Runs dbt pipeline. All output overwrites dbt_run.log — do not call directly from cron.
+# Use run_dbt.sh wrapper instead (handles timing + cc timeRun output).
 cd /srv/projects/dbt-asc
 
-# run dbt transformations and tests
-dbt run --target prod > dbt_run.log 2>&1
-dbt test >> dbt_run.log 2>&1
-
-END=$(date +%s)
-DIFF=$(( $END - $START ))
-echo "XXX dbt_run $START $DIFF"
+dbt deps  > logs/dbt_run.log 2>&1
+dbt run --target prod >> logs/dbt_run.log 2>&1
+dbt test  >> logs/dbt_run.log 2>&1
+dbt docs generate >> logs/dbt_run.log 2>&1
