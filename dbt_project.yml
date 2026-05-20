@@ -2,6 +2,9 @@ name: 'asc'
 version: '1.0.0'
 config-version: 2
 
+flags:
+  send_anonymous_usage_stats: false
+
 # This setting configures which "profile" dbt uses for this project.
 profile: 'asc'
 
@@ -28,6 +31,11 @@ models:
       # Thin selection/rename layer over raw sources
       +materialized: table
 
+      la_product:
+        # Combined cross-source staging for LA Data Product
+        +materialized: table
+        +schema: la_product_staging
+
     marts:
       # Business logic and aggregations
       +materialized: table
@@ -35,6 +43,12 @@ models:
       chatbot:
         # Chatbot-specific marts
         +materialized: table
+
+      la_product:
+        # Pre-materialized views for LA Data Product PoC (35 models = 7 views x 5 windows)
+        # RBAC: grant SELECT on this schema to ANALYTICS_LA_READER role only
+        +materialized: table
+        +schema: la_product
 
 # Quoting behavior
 # Use Snowflake defaults (unquoted = UPPERCASE)
