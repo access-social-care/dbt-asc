@@ -112,9 +112,11 @@ log_info("Querying AdvicePro report {REPORT_KEY}")
 ap_raw <- ascFuncs::query_advicepro_report(REPORT_KEY)
 log_info("AdvicePro returned {nrow(ap_raw)} rows")
 
+ap_raw <- ap_raw %>% set_names(names(.) %>% gsub(" ", "_", .) %>% tolower())
+log_info("Columns in report: {paste(names(ap_raw), collapse = ', ')}")
+
 ap <- ap_raw %>%
-  set_names(names(.) %>% gsub(" ", "_", .) %>% tolower()) %>%
-  dplyr::select(case_reference, postcode = client_postcode) %>%
+  dplyr::select(case_reference, postcode) %>%
   dplyr::filter(!is.na(postcode), trimws(postcode) != "")
 
 log_info("{nrow(ap)} rows with a postcode ({n_distinct(ap$case_reference)} unique case_references)")
