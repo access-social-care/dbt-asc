@@ -113,6 +113,7 @@ ap_raw <- ascFuncs::query_advicepro_report(REPORT_KEY)
 log_info("AdvicePro returned {nrow(ap_raw)} rows")
 
 ap <- ap_raw %>%
+  set_names(names(.) %>% gsub(" ", "_", .) %>% tolower()) %>%
   dplyr::select(case_reference, postcode = client_postcode) %>%
   dplyr::filter(!is.na(postcode), trimws(postcode) != "")
 
