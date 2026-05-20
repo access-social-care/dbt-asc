@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs dbt pipeline. All output overwrites dbt_run.log — do not call directly from cron.
+# Runs dbt pipeline. All output overwrites logs/dbt_run.log — do not call directly from cron.
 # Use run_dbt.sh wrapper instead (handles timing + cc timeRun output).
 cd /srv/projects/dbt-asc
 

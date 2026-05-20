@@ -1,6 +1,93 @@
 # dbt-asc
 
-dbt (data build tool) transformation layer for Access Social Care's Snowflake data warehouse. Creates governed business logic transformations and aggregated mart tables for web products, Power BI, and reporting.
+dbt transformation layer for Access Social Care's Snowflake data warehouse. Combines raw data from three sources (chatbot, AdvicePro casework, helplines) into governed mart and staging tables for web products, Power BI, and reporting.
+
+**Repo also contains the Snowflake loaders** (`loaders/`) — R scripts that pull from upstream APIs and write raw tables to Snowflake before dbt runs.
+
+---
+
+## Architecture
+
+```
+APIs / DBs  →  loaders/ (R)  →  Snowflake RAW  →  dbt models  →  ANALYTICS.PUBLIC  →  consumers
+```
+
+Three raw databases feed into dbt:
+
+| Database | Schema | Loaded by | Schedule |
+|---|---|---|---|
+| `AVA` | `PUBLIC` | `chatbot_data` repo (`data_uploader.R`) | Daily ~05:00 |
+| `CASEWORK` | `PUBLIC` | `loaders/run_all_loaders.sh` (this repo) | Daily 06:00 |
+| `HELPLINES` | `PUBLIC` | `helplines_data` repo | Daily ~05:00 |
+
+dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed by web products and Power BI.
+
+---
+
+## Daily Pipeline (Cron)
+
+```
+06:00  run_all_loaders.sh   — pull from AdvicePro API → write CASEWORK.PUBLIC tables
+08:30  run_dbt.sh           — dbt deps + run + test + docs generate → ANALYTICS.PUBLIC
+```
+
+The 2.5-hour gap ensures loaders finish before dbt starts.
+
+**Crontab entries** (on the VM — edit with `crontab -e`):
+```
+0 6 * * * /srv/projects/dbt-asc/loaders/run_all_loaders.sh >> /srv/projects/cc/run_all_loaders.timeRun.txt 2>&1
+30 8 * * * /srv/projects/dbt-asc/run_dbt.sh >> /srv/projects/cc/dbt_run.timeRun.txt 2>&1
+```
+
+---
+
+## Repository Structure
+
+```
+dbt-asc/
+├── dbt_project.yml           # Main project config (anonymous stats disabled)
+├── packages.yml              # dbt package dependencies (dbt-utils)
+│
+├── run_dbt.sh                # CRONTAB ENTRY — times dbt_pipeline.sh, outputs to cc
+├── dbt_pipeline.sh           # Pure dbt runner (deps → run → test → docs generate)
+│                             #   writes to logs/dbt_run.log (overwrites each run)
+│
+├── loaders/                  # R scripts: extract from APIs, load to Snowflake RAW
+│   ├── run_all_loaders.sh    # CRONTAB ENTRY — master loader, runs all below in order
+│   ├── load_casework_locality_to_snowflake.R   # AdvicePro report PWVDK69X → CASEWORK.PUBLIC.CASEWORK_LOCALITY
+│   ├── load_member_orgs_to_snowflake.R         # Member org reference data → CASEWORK.PUBLIC
+│   └── report_schemas.yml   # Schema registry: raw API column names → normalized names → target table
+│
+├── models/
+│   ├── sources.yml           # dbt source declarations for all raw Snowflake tables
+│   ├── staging/
+│   │   └── la_product/
+│   │       └── stg_la_queries.sql    # One row per interaction across all three sources
+│   └── marts/
+│       └── chatbot/
+│           ├── mart_chatbot_conversations_by_tenant_monthly.sql
+│           └── mart_chatbot_conversations_by_tenant_total.sql
+│
+├── macros/
+│   └── la_product/           # Reusable SQL logic for LA product models
+│       ├── la_activity_summary.sql
+│       ├── la_demographics.sql
+│       ├── la_legal_letters.sql
+│       ├── la_locality_overview.sql
+│       ├── la_queries_over_time.sql
+│       ├── la_query_segments.sql
+│       ├── la_query_source.sql
+│       └── la_suppress.sql
+│
+├── logs/                     # Runtime logs (git-ignored)
+│   └── dbt_run.log           # Full dbt output, overwritten each run
+│
+└── setup/
+    ├── profiles.yml.template
+    └── snowflake_permissions.sql
+```
+
+---
 
 ## Installation
 
@@ -9,392 +96,113 @@ dbt (data build tool) transformation layer for Access Social Care's Snowflake da
 - **dbt-core** >= 1.7.0
 - **dbt-snowflake** adapter >= 1.7.0
 - **Python** 3.8+ (for dbt)
-- **Snowflake access**: Credentials via environment variables (same as existing ETL jobs)
+- **R** with `ascFuncs`, `logger`, `DBI`, `httr` packages (for loaders)
+- **Snowflake access**: credentials in `~/.asc_secrets` on the VM
 
 ### Install dbt
 
 ```bash
-# On VM (Linux)
 pip3 install dbt-core dbt-snowflake
-
-# Verify installation
 dbt --version
 ```
 
 ### Configure connection
 
-1. Copy profiles template to standard dbt location:
-   ```bash
-   mkdir -p ~/.dbt
-   cp setup/profiles.yml.template ~/.dbt/profiles.yml
-   ```
+```bash
+mkdir -p ~/.dbt
+cp setup/profiles.yml.template ~/.dbt/profiles.yml
+# Edit ~/.dbt/profiles.yml with Snowflake user/key path
+dbt debug   # Verify connection
+```
 
-2. Verify environment variables are set (should already exist for ETL jobs):
-   ```bash
-   echo $SNOWFLAKE_USER
-   echo $SNOWFLAKE_KEY_FILE
-   ```
-
-3. Test connection:
-   ```bash
-   cd /srv/projects/dbt-asc  # On VM
-   dbt debug
-   ```
+Credentials are sourced from `~/.asc_secrets` (same file as R ETL jobs). Required variables: `SNOWFLAKE_USER`, `SNOWFLAKE_KEY_FILE`.
 
 ### Install dbt packages
 
 ```bash
-dbt deps  # Installs dbt-utils and other dependencies
+dbt deps
 ```
 
-### Install docs service (optional but recommended)
+### One-time Snowflake setup
 
-Set up dbt documentation server as a systemd service for 24/7 availability:
+Run `setup/snowflake_permissions.sql` as ACCOUNTADMIN to create the ANALYTICS database, roles, and grants.
 
-```bash
-# On VM as root/sudo
-cd /srv/projects/dbt-asc
-sudo bash setup/install_docs_service.sh
+Also grant schema creation to the ETL role:
+```sql
+GRANT CREATE SCHEMA ON DATABASE ANALYTICS TO ROLE ROLE_ETL_WRITE;
 ```
 
-This installs a systemd service that auto-starts on boot and restarts on failure. See [Documentation Site](#documentation-site) section for usage details.
+---
 
-### Run Snowflake setup (one-time)
+## Loaders
 
-Execute `setup/snowflake_permissions.sql` as Snowflake ACCOUNTADMIN to:
-- Create `ANALYTICS` database (separate from raw data)
-- Create `ROLE_DBT_TRANSFORM` role
-- Grant read permissions on AVA.PUBLIC and CASEWORK.PUBLIC
-- Grant write permissions on ANALYTICS.PUBLIC
-- Configure Power BI read access
+R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowflake before dbt runs. All loaders are driven by `run_all_loaders.sh`.
 
-## Overview
+### Adding a new loader
 
-**Purpose**: Create a governed transformation layer on top of raw Snowflake tables loaded by ETL repos (chatbot_data, advicePro_queries, etc.). Transforms raw data into business-ready aggregate tables for web products and reporting.
+1. Create `loaders/load_{name}_to_snowflake.R`
+2. Add the loader name to the `run_loader` calls in `run_all_loaders.sh`
+3. Document the API report columns in `loaders/report_schemas.yml`
+4. Add the target table to `models/sources.yml`
 
-**Current state**: Proof-of-concept with two chatbot mart tables. Will expand to casework, helplines, and cross-source analytical models.
+### report_schemas.yml
 
-**Workflow**:
-1. Source ETL repos load raw data to Snowflake (AVA.PUBLIC, CASEWORK.PUBLIC)
-2. dbt runs transformations daily via cron (after ETL completes)
-3. dbt writes transformed tables to ANALYTICS.PUBLIC
-4. Web products and Power BI query ANALYTICS.PUBLIC (not raw schemas)
+Schema registry for all AdvicePro API reports. Documents the mapping between raw UI column names (with spaces) and normalized column names (tolower + gsub), plus which script consumes each report and where it writes. This is the canonical reference when debugging column name errors.
 
-**Governance model**: Business logic defined in SQL models with approval workflow via GitHub PRs. Each model documents owner and approval requirements in comments and schema.yml.
+---
 
-**Architecture principle**: Raw data databases (AVA, CASEWORK) owned by ETL repos. ANALYTICS database owned by dbt. Clean separation between extraction and transformation layers.
+## Models
 
-## Conceptual Flow
+### Staging — `models/staging/la_product/`
 
-```mermaid
-graph TB
-    subgraph External["Data Sources"]
-        PG[(PostgreSQL<br/>AccessAva)]
-        AP[(AdvicePro API<br/>Casework)]
-    end
-    
-    subgraph ETL["ETL Repositories"]
-        CB[chatbot_data<br/>data_uploader.R]
-        CW[advicePro_queries<br/>load_advicepro.R]
-    end
-    
-    subgraph Snowflake["Snowflake — RAW"]
-        ACC[(AVA.PUBLIC<br/>Raw fact tables)]
-        CAS[(CASEWORK.PUBLIC<br/>Raw fact tables)]
-    end
-    
-    subgraph DBT["dbt-asc Transformations"]
-        SRC[sources.yml<br/>Define raw tables]
-        MART1[marts/<br/>Business aggregations]
-    end
-    
-    subgraph SnowflakeAnalytics["Snowflake — ANALYTICS"]
-        ANALY[(ANALYTICS.PUBLIC<br/>Mart tables)]
-    end
-    
-    subgraph Consumers["Consumers"]
-        WEB[data_portal<br/>Web products]
-        PBI[Power BI<br/>Dashboards]
-        RPT[Report generators<br/>R Markdown]
-    end
-    
-    PG --> CB
-    AP --> CW
-    CB --> ACC
-    CW --> CAS
-    ACC --> SRC
-    CAS --> SRC
-    SRC --> MART1
-    MART1 --> ANALY
-    ANALY --> WEB
-    ANALY --> PBI
-    ANALY --> RPT
-    
-    classDef source fill:#f3e5f5
-    classDef process fill:#e1f5ff
-    classDef product fill:#fff4e1
-    classDef deliverable fill:#e8f5e9
-    classDef external fill:#e0f2f1
-    
-    class PG,AP source
-    class CB,CW,SRC,MART1 process
-    class ACC,CAS,ANALY product
-    class WEB,PBI,RPT deliverable
-```
+| Model | Description |
+|---|---|
+| `stg_la_queries.sql` | One row per interaction, unioned across AccessAva (chatbot), AdvicePro (casework), and Helplines. Columns: `LA_NAME`, `QUERY_DATE`, `SOURCE_SYSTEM`, `QUERY_COUNT`, `LOCALITY_NAME` (casework only). |
 
-## How Files Work Together
+### Marts — `models/marts/`
 
-### Project Structure
+| Model | Description |
+|---|---|
+| `mart_chatbot_conversations_by_tenant_monthly` | Monthly conversation counts per chatbot tenant |
+| `mart_chatbot_conversations_by_tenant_total` | All-time conversation totals per chatbot tenant |
 
-```
-dbt-asc/
-├── dbt_project.yml          # Main project config
-├── packages.yml             # dbt package dependencies (dbt-utils)
-├── models/
-│   ├── sources.yml          # Define raw Snowflake tables
-│   ├── staging/             # (Future) Light transformations of raw data
-│   └── marts/               # Business aggregations for end users
-│       ├── schema.yml       # Model documentation and tests
-│       ├── mart_chatbot_conversations_by_tenant_monthly.sql
-│       └── mart_chatbot_conversations_by_tenant_total.sql
-├── seeds/                   # (Future) CSV reference data loaded as tables
-├── macros/                  # (Future) Reusable SQL functions
-├── tests/                   # (Future) Custom data quality tests
-└── setup/
-    ├── profiles.yml.template   # Connection config template
-    └── snowflake_permissions.sql  # One-time Snowflake setup
-```
+### Macros — `macros/la_product/`
 
-### Execution Flow
+Reusable SQL logic called by LA product models. Each macro encapsulates a specific analytical pattern (activity summary, demographics, locality overview, SDC suppression, etc.).
 
-1. **Source definition** (`models/sources.yml`):
-   - Declares `AVA.ACCESSAVA.ACCESSAVA` as source table
-   - Defines freshness checks (warn if >36 hours stale)
-   - Provides documentation and schema for raw data
-
-2. **Mart models** (`models/marts/chatbot/*.sql`):
-   - Reference source using `{{ source('accessava', 'accessava') }}` macro
-   - Contain business logic (GROUP BY, aggregations)
-   - Build as tables in `ANALYTICS.PUBLIC` schema
-
-3. **Tests** (`models/marts/chatbot/schema.yml`):
-   - not_null checks on key columns
-   - unique checks on primary keys
-   - unique_combination_of_columns for composite keys
-   - Run via `dbt test`
-
-4. **Documentation** (`dbt docs generate`):
-   - Generates searchable site showing lineage DAG
-   - Column-level descriptions from schema.yml
-   - Business owner and approval requirements
-
-### Daily Workflow (Automated via Cron)
-
-```bash
-# 01:00-05:00 - Source ETL jobs run (chatbot_data, etc.)
-# 05:30 - dbt transformation layer runs
-cd /srv/projects/dbt-asc
-dbt run --target prod     # Build all models
-dbt test                  # Run data quality tests
-# Output logged to /var/log/dbt_run.log
-```
-
-## Inputs
-
-### Primary Data Sources (via dbt sources)
-
-- **AVA.PUBLIC.ACCESSAVA** - Chatbot conversation fact table
-  - Loaded by: [chatbot_data/data_uploader.R](../chatbot_data/data_uploader.R)
-  - Refresh: Daily at 05:00 UTC
-  - Rows: ~15,000 conversations/year
-  - Key columns: transcript_id (PK), created_at, tenant_name, persona, categories, etc.
-
-- **CASEWORK.PUBLIC.*** - Legal casework tables (future)
-  - Loaded by: [advicePro_queries/load_advicepro_to_snowflake.R](../advicePro_queries/load_advicepro_to_snowflake.R)
-  - Refresh: Monthly (manual)
-  - Rows: ~2,500 cases/year
-  - Note: CASEWORK is a separate database from AVA
-
-### Environment Variables
-
-Reuses existing Snowflake ETL credentials sourced from `/home/amit/.snowflake_env`:
-- `SNOWFLAKE_USER` - Should be `ETL_USER`
-- `SNOWFLAKE_KEY_FILE` - Path to RSA private key (`/home/amit/.ssh/snowflake/rsa_key.p8`)
-
-No new credentials required - dbt uses same authentication as R ETL jobs.
-
-### Developer Access
-
-For developers querying ANALYTICS.PUBLIC tables (Python, Node.js, JDBC, etc.), see:
-- **Setup**: [setup/create_tenant_reports_user.sql](setup/create_tenant_reports_user.sql) - Creates `TENANT_REPORTS_USER` and `ROLE_TENANT_REPORTS_READ`
-- **Connection guide**: [../admin/snowflake_developer_connection_guide.md](../admin/snowflake_developer_connection_guide.md) - Environment setup and code examples
+---
 
 ## Outputs
 
-### Snowflake Tables (ANALYTICS.PUBLIC schema)
+All models write to `ANALYTICS.PUBLIC` in Snowflake. Web products and Power BI connect to this schema only — never directly to AVA, CASEWORK, or HELPLINES.
 
-**Current** (Chatbot marts):
-- `MART_CHATBOT_CONVERSATIONS_BY_TENANT_MONTHLY` - Monthly conversation counts per tenant
-- `MART_CHATBOT_CONVERSATIONS_BY_TENANT_TOTAL` - All-time conversation totals per tenant
+### dbt Docs
 
-**Planned** (Casework marts):
-- `MART_CASEWORK_BY_MEMBER` - Legal casework aggregations by member organization
-- `MART_CASEWORK_REFERRALS_BY_LA` - Referral patterns by local authority
+`dbt docs generate` runs daily as part of `dbt_pipeline.sh`. Output lands in `target/`. To serve:
 
-**Planned** (Unified marts - cross-database):
-- `MART_UNIFIED_LOCAL_AUTHORITIES` - Canonical LA dimension across sources
-- `MART_CITIZEN_JOURNEY` - Cross-source unified view (chatbot → casework linkage)
-
-**Note**: All marts live in single `ANALYTICS.PUBLIC` schema. Organization by domain (chatbot/casework/unified) happens via folder structure and table naming conventions, not separate schemas.
-
-### Documentation Site
-
-Interactive lineage and data dictionary UI served as a systemd service for 24/7 availability.
-
-**Initial setup (one-time)**:
-```bash
-# On VM as root/sudo
-cd /srv/projects/dbt-asc
-sudo bash setup/install_docs_service.sh
+```nginx
+# nginx config (add to existing server block on VM)
+location /dbt-docs/ {
+    alias /srv/projects/dbt-asc/target/;
+    index index.html;
+}
 ```
 
-This installs `dbt-docs.service` which:
-- Auto-generates docs on startup via `dbt docs generate`
-- Serves docs on port 8082
-- Restarts automatically on failure
-- Starts on boot
-- Logs to systemd journal
+---
 
-**Managing the service**:
-```bash
-sudo systemctl status dbt-docs    # Check status
-sudo systemctl stop dbt-docs      # Stop service
-sudo systemctl start dbt-docs     # Start service  
-sudo systemctl restart dbt-docs   # Restart (e.g., after model changes)
-sudo journalctl -u dbt-docs -f    # View logs (follow mode)
-```
+## Monitoring (Command Centre)
 
-**Access**:
-- https://control.accesscharity.org.uk/p/ff1934c2/#!/overview
+The cc dashboard at `data.accesscharity.org.uk/cc.html` monitors this repo:
 
-**Troubleshooting "connection refused"**:  
-The `/p/ff1934c2/` path is proxied by **nginx** via a location block in `/etc/nginx/sites-enabled/default`. If the URL fails but `dbt-docs.service` is running:
-```bash
-# 1. Verify dbt-docs is up
-sudo systemctl status dbt-docs
+- **Errors**: scans `logs/dbt_run.log` for ERROR lines (dbt's internal `logs/dbt.log` is excluded — too verbose)
+- **Runtime**: reads `dbt_run.timeRun.txt` populated by `run_dbt.sh`
 
-# 2. Check nginx config and reload
-sudo nginx -t
-sudo systemctl reload nginx
+If dbt fails, cc will open a GitHub issue in this repo automatically.
 
-# 3. Check the location block exists
-grep -A5 'ff1934c2' /etc/nginx/sites-enabled/default
-```
+---
 
-**Features**:
-- Visual lineage DAG (source → staging → marts)
-- Searchable data dictionary with column descriptions
-- Compiled SQL for each model
-- Test results and documentation
+## Developer Access
 
-**Refresh docs after model changes**:
-```bash
-sudo systemctl restart dbt-docs  # Regenerates docs and restarts server
-```
-
-### Logs
-
-- **Manual runs**: Output to console
-- **Cron runs**: `/var/log/dbt_run.log`
-
-## Flow and Other Dependencies
-
-### Upstream Dependencies
-
-**MUST run before dbt**:
-- [chatbot_data/data_uploader.R](../chatbot_data/data_uploader.R) - Loads ACCESSAVA tables (cron: 05:00)
-- (Future) [advicePro_queries/load_advicepro_to_snowflake.R](../advicePro_queries/load_advicepro_to_snowflake.R)
-
-**Cron scheduling**:
-```cron
-# Existing: chatbot ETL
-00 5 * * * /srv/projects/chatbot_data/data_uploader.sh >> /var/log/chatbot_snowflake_etl.log 2>&1
-
-# New: dbt transformations (runs after chatbot ETL)
-30 5 * * * cd /srv/projects/dbt-asc && dbt run --target prod >> /var/log/dbt_run.log 2>&1
-```
-
-### Downstream Consumers
-
-Systems that query `ANALYTICS.PUBLIC` schema:
-- **data_portal** - Web-based data access for external users
-- **Power BI** - Internal dashboards via `ROLE_PBI_READ`
-- **Report generators** - R Markdown reports can query mart tables instead of raw data
-
-**Connection pattern**: Consumers point to `ANALYTICS.PUBLIC.*` (not AVA or CASEWORK). This creates clean separation - if raw schemas change, consumers are insulated as long as mart contracts remain stable.
-
-### Cross-Repo Coordination
-
-- **ascFuncs** - Shared R package for Snowflake connections (not used by dbt, but provides helper functions for R consumers of ANALYTICS tables)
-- **admin** - Strategy docs, Snowflake credentials, cron registry
-- **chatbot_data**, **advicePro_queries** - Own raw data loading to AVA/CASEWORK databases; dbt consumes their outputs
-- **data_portal** - Consumes ANALYTICS.PUBLIC tables for web products
-
-## Change Log
-
-| Date | Version | Changes |
-|------|---------|---------|  
-| 2026-03-16 | 0.2.1 | **Infrastructure**: Added systemd service for dbt docs server (`setup/dbt-docs.service`, `setup/install_docs_service.sh`) for 24/7 availability |
-| 2026-03-11 | 0.2.0 | **Architecture change**: ANALYTICS.PUBLIC (separate database) instead of AVA.ANALYTICS |
-| 2026-03-11 | 0.1.0 | Initial setup: dbt project structure, two chatbot mart models, Snowflake permissions, README |
-
-## Caveats
-
-### Known Issues
-
-1. **Column names not verified**: SQL models use placeholder column name `organisation_name` for tenant field. Need to verify actual column name in Snowflake before first dbt run.
-   - **Fix**: Run `SELECT * FROM AVA.ACCESSAVA.ACCESSAVA LIMIT 1` and update SQL models
-
-2. **AVA database may not exist**: Initial Snowflake setup not confirmed - database might need creation.
-   - **Fix**: Run `setup/snowflake_permissions.sql` as ACCOUNTADMIN
-
-3. **No dev environment yet**: Only prod target defined. Local development currently writes to prod schemas.
-   - **Risk**: Accidental prod modification during testing
-   - **Fix**: Switch to `--target dev` which writes to ANALYTICS.DEV schema
-
-4. **Full refresh only**: All models use `materialized='table'` which rebuilds entire table each run.
-   - **Performance**: Fine at current scale (~15K rows), but won't scale to millions
-   - **Future**: Switch to `materialized='incremental'` for large fact tables
-
-5. **No alerting**: Cron job failures only visible by manually checking logs.
-   - **Fix**: Add Slack/email notifications on failure, or adopt dbt Cloud for built-in alerting
-
-6. **Business owner placeholders**: `schema.yml` includes `[PM name - update this]` placeholder for approval workflow owner.
-   - **Fix**: Update with actual PM name once governance process is confirmed
-
-7. **dbt docs service**: Documentation server runs as systemd service on port 8082 (not default 8080/8081) to avoid common conflicts. Service file at `setup/dbt-docs.service` manages automatic startup, restart on failure, and logging.
-   - **Note**: Documented in admin for VM infrastructure reference
-
-### Data Quality Limitations
-
-These are inherited from source data, not dbt-specific:
-- Demographics <5% complete in ACCESSAVA (can't filter/aggregate by age/ethnicity reliably)
-- Local authority data ~20% complete in chatbot, 90% in casework
-- No cross-source identifiers for citizen journey tracking (planned future work)
-
-### Future Enhancements
-
-Track these separately in GitHub issues:
-- [ ] Verify and fix column names in SQL models
-- [ ] Add staging models for standardization (e.g., LA name cleaning)
-- [ ] Create intermediate models for reusable business logic
-- [ ] Add casework mart tables once advicePro_queries Snowflake ETL is production-ready
-- [ ] Build cross-source unified models (citizen journey, canonical dimensions)
-- [ ] Implement incremental models for performance
-- [ ] Set up dbt Cloud for UI/monitoring (vs. cron)
-- [ ] Add macro for common aggregation patterns
-- [ ] Create seed tables for reference data (member name mapping, ONS lookups)
-
-## Tags
-
-`dbt` `snowflake` `etl` `transformation` `data-warehouse` `analytics` `governance` `chatbot` `casework` `business-intelligence`
+For querying `ANALYTICS.PUBLIC` from Python, R, or BI tools, see:
+- `setup/create_tenant_reports_user.sql` — creates `TENANT_REPORTS_USER` + `ROLE_TENANT_REPORTS_READ`
+- `../admin/snowflake_developer_connection_guide.md` — connection setup and examples
