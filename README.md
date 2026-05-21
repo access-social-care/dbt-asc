@@ -70,16 +70,12 @@ dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed 
 ```
 06:00  load_primary_data.sh   — AdvicePro API + Monday.com → CASEWORK/AVA/REFERENCE tables
 06:30  load_synthetic_views.sh — case postcodes → findthatpostcode.uk → CASEWORK_LOCALITY
-08:30  run_dbt.sh             — dbt deps + run + test + docs generate → ANALYTICS.PUBLIC
 ```
-
-The 2-hour gap between loaders finishing and dbt starting ensures all raw data is ready.
 
 **Crontab entries** (on the VM — edit with `crontab -e`):
 ```
 0  6 * * * /srv/projects/dbt-asc/loaders/load_primary_data.sh >> /srv/projects/cc/load_primary_data.timeRun.txt 2>&1
 30 6 * * * /srv/projects/dbt-asc/loaders/load_synthetic_views.sh >> /srv/projects/cc/load_synthetic_views.timeRun.txt 2>&1
-30 8 * * * /srv/projects/dbt-asc/run_dbt.sh >> /srv/projects/cc/dbt_run.timeRun.txt 2>&1
 ```
 
 ---
@@ -91,8 +87,7 @@ dbt-asc/
 ├── dbt_project.yml           # Main project config (anonymous stats disabled)
 ├── packages.yml              # dbt package dependencies (dbt-utils)
 │
-├── run_dbt.sh                # CRONTAB ENTRY — times dbt_pipeline.sh, outputs to cc
-├── dbt_pipeline.sh           # Pure dbt runner (deps → run → test → docs generate)
+├── dbt_pipeline.sh           # dbt runner (deps → run → test → docs generate)
 │                             #   writes to logs/dbt_run.log (overwrites each run)
 │
 ├── loaders/                  # R scripts: extract from APIs, load to Snowflake RAW
@@ -279,7 +274,7 @@ location /dbt-docs/ {
 The cc dashboard at `data.accesscharity.org.uk/cc.html` monitors this repo:
 
 - **Errors**: scans `logs/dbt_run.log` for ERROR lines (dbt's internal `logs/dbt.log` is excluded — too verbose)
-- **Runtime**: reads `dbt_run.timeRun.txt` populated by `run_dbt.sh`
+- **Runtime**: reads `dbt_run.timeRun.txt` written by `dbt_pipeline.sh`
 
 If dbt fails, cc will open a GitHub issue in this repo automatically.
 
