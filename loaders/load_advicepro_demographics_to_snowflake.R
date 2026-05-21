@@ -94,7 +94,7 @@ log_info("Final: {nrow(df)} rows ready for upload")
 
 cli::cli_h2("Uploading to Snowflake")
 log_info("Connecting to {TARGET_DB}")
-con <- ascFuncs::connect_snowflake(database = TARGET_DB)
+con <- ascFuncs::connect_snowflake(database = TARGET_DB, role = NULL)
 on.exit(DBI::dbDisconnect(con), add = TRUE)
 
 session_info <- DBI::dbGetQuery(
