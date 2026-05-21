@@ -75,6 +75,11 @@ if (!"case_reference" %in% names(df)) {
   )
 }
 
+## Normalise case_reference before dedup — trim whitespace and uppercase
+## to catch duplicates that differ only by padding or case (common in AdvicePro exports)
+df <- df %>%
+  mutate(case_reference = toupper(trimws(case_reference)))
+
 ## Dedup on case_reference — keep the first occurrence if duplicates exist
 n_before <- nrow(df)
 df <- df %>% distinct(case_reference, .keep_all = TRUE)
