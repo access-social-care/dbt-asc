@@ -87,9 +87,6 @@ dbt-asc/
 ├── dbt_project.yml           # Main project config (anonymous stats disabled)
 ├── packages.yml              # dbt package dependencies (dbt-utils)
 │
-├── dbt_pipeline.sh           # dbt runner (deps → run → test → docs generate)
-│                             #   writes to logs/dbt_run.log (overwrites each run)
-│
 ├── loaders/                  # R scripts: extract from APIs, load to Snowflake RAW
 │   ├── load_primary_data.sh                      # CRONTAB 06:00 — source system loads
 │   ├── load_synthetic_views.sh                   # CRONTAB 06:30 — derived/lookup loads
@@ -257,7 +254,7 @@ All models write to `ANALYTICS.PUBLIC` in Snowflake. Web products and Power BI c
 
 ### dbt Docs
 
-`dbt docs generate` runs daily as part of `dbt_pipeline.sh`. Output lands in `target/`. To serve:
+`dbt docs generate` runs as part of the daily dbt cron entry (see `crontab -e` on VM). Output lands in `target/`. To serve:
 
 ```nginx
 # nginx config (add to existing server block on VM)
@@ -274,7 +271,9 @@ location /dbt-docs/ {
 The cc dashboard at `data.accesscharity.org.uk/cc.html` monitors this repo:
 
 - **Errors**: scans `logs/dbt_run.log` for ERROR lines (dbt's internal `logs/dbt.log` is excluded — too verbose)
-- **Runtime**: reads `dbt_run.timeRun.txt` written by `dbt_pipeline.sh`
+- **Runtime**: reads `dbt_run.timeRun.txt` written by the dbt cron entry
+
+> **Package updates**: if `packages.yml` changes, run `dbt deps` manually on the VM before the next cron run — it is not part of the daily pipeline.
 
 If dbt fails, cc will open a GitHub issue in this repo automatically.
 
