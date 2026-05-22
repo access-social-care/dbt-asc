@@ -67,7 +67,9 @@ dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed 
 ## Daily Pipeline (Cron)
 
 ```
-06:00  load_primary_data.sh  — AdvicePro API + Monday.com + findthatpostcode.uk → CASEWORK/AVA/REFERENCE tables
+06:00  load_primary_data.sh  — two-phase loader:
+           (1) source loads: AdvicePro casework + demographics, Monday.com member orgs
+           (2) derived load: case postcodes from (1) → findthatpostcode.uk → LA names
 06:45  run_dbt.sh            — dbt build → transforms everything → ANALYTICS.PUBLIC
 ```
 
@@ -173,7 +175,16 @@ GRANT CREATE SCHEMA ON DATABASE ANALYTICS TO ROLE ROLE_ETL_WRITE;
 
 ## Loaders
 
-R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowflake before dbt runs. All loaders are driven by `run_all_loaders.sh`.
+R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowflake before dbt runs. All loaders are driven by `load_primary_data.sh`, which runs them in two phases:
+
+**Phase 1 — source system loads** (no dependencies):
+- `load_member_orgs_to_snowflake.R` — Monday.com board → `REFERENCE.MEMBER_ORGANISATIONS`
+- `load_advicepro_demographics_to_snowflake.R` — AdvicePro API → `CASEWORK.ADVICEPRO_DEMOGRAPHICS` (full replace)
+
+**Phase 2 — derived/lookup loads** (must run after phase 1):
+- `load_casework_locality_to_snowflake.R` — reads case postcodes written by phase 1, looks each one up via [findthatpostcode.uk](https://findthatpostcode.uk), stores the resulting LA name as `CASEWORK.CASEWORK_LOCALITY`
+
+**Why is the postcode lookup needed?** AdvicePro stores cases with the client's postcode, not their local authority. There is no LA field in the raw AdvicePro data. The locality loader bridges this gap. AccessAva (the chatbot) is different — it already knows which LA a user belongs to (set at login), so no lookup is needed for that source.
 
 ### Adding a new loader
 
@@ -194,7 +205,7 @@ Schema registry for all AdvicePro API reports. Documents the mapping between raw
 
 | Model | Description |
 |---|---|
-| `stg_advicepro.sql` | Stage 1 — joins `ADVICEPRO_CASEWORK` + `ADVICEPRO_DEMOGRAPHICS` + `CASEWORK_LOCALITY` into one row per case |
+| `stg_advicepro.sql` | Stage 1 — joins `ADVICEPRO_CASEWORK` + `ADVICEPRO_DEMOGRAPHICS` + `CASEWORK_LOCALITY` into one row per case. `CASEWORK_LOCALITY` is the resolved LA name (postcode lookup output from the loader). |
 | `stg_la_queries.sql` | Stage 2 — UNION ALL of `stg_advicepro` and AccessAva. Single grain for all 7 mart models. Columns: `LA_NAME`, `QUERY_DATE`, `SOURCE_SYSTEM`, `QUERY_COUNT`, `SEGMENT`, `AGE_BAND`, `HAS_LETTER`, `LOCALITY_NAME` |
 
 ### Marts — `models/marts/`
@@ -276,6 +287,12 @@ The cc dashboard at `data.accesscharity.org.uk/cc.html` monitors this repo:
 > **Package updates**: if `packages.yml` changes, run `dbt deps` manually on the VM before the next cron run — it is not part of the daily pipeline.
 
 If dbt fails, cc will open a GitHub issue in this repo automatically.
+
+---
+
+## Further Reading
+
+- **[docs/pipeline-explainer.md](docs/pipeline-explainer.md)** — narrative technical walkthrough aimed at anyone unfamiliar with dbt: how each component works, the full data journey from API to Power BI, how to check the pipeline is healthy, how to make changes
 
 ---
 
