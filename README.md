@@ -4,6 +4,8 @@ dbt transformation layer for Access Social Care's Snowflake data warehouse. Comb
 
 **Repo also contains the Snowflake loaders** (`loaders/`) — R scripts that pull from upstream APIs and write raw tables to Snowflake before dbt runs.
 
+> **New to dbt?** Start with [docs/pipeline-explainer.md](docs/pipeline-explainer.md) — a narrative walkthrough covering what each component is, how data moves from API to Power BI, and how to check the pipeline is healthy.
+
 ---
 
 ## Architecture
@@ -34,7 +36,6 @@ graph LR
     CBD -->|"daily ~05:00"| AVA
 
     LPD --> CW
-    LPD --> AVA
 
     AVA --> RDT
     CW --> RDT
@@ -212,50 +213,16 @@ Schema registry for all AdvicePro API reports. Documents the mapping between raw
 
 | Model | Description |
 |---|---|
-| `mart_chatbot_*` (2 models) | Chatbot conversation counts by tenant (monthly + all-time) |
-| `mart_la_{view}` (7 models) | LA product views across 7 analytical angles. Each model contains all 5 time windows (1m, 3m, 6m, 9m, 12m) as rows in a `TIME_WINDOW_MONTHS` column — one table per view type rather than one table per view×window. |
+| `mart_chatbot_*` (2 models) | Chatbot operational metrics — conversation counts split by tenant (LA), monthly and all-time. These are internal chatbot-team tables, separate from the LA product. They count *conversations*, not queries or cases. |
+| `mart_la_{view}` (7 models) | LA product views — AdvicePro and AccessAva data combined into one grain (`stg_la_queries`), then aggregated across 7 analytical angles. Each model contains all 5 time windows (1m, 3m, 6m, 9m, 12m) as rows distinguished by `TIME_WINDOW_MONTHS`. |
+
+**How sources are distinguished in the LA product:** `mart_la_query_source` shows query counts split by `SOURCE_SYSTEM` ('AdvicePro' vs 'AccessAva'). This is the source breakdown for the LA product — not by chatbot tenant. The chatbot (AccessAva) and casework (AdvicePro) data are normalised into the same row shape at the `stg_la_queries` layer before any mart model sees them.
 
 ### Macros — `macros/la_product/`
 
-Reusable SQL logic called by LA product mart models. Each macro takes `months_back` as a parameter and returns a filtered, aggregated, SDC-suppressed view.
+Reusable SQL logic called by the LA product mart models. Each macro takes `months_back` as its only parameter and produces a filtered, aggregated, SDC-suppressed SELECT statement. The mart model files are just UNION ALL chains of five macro calls (1, 3, 6, 9, 12 months).
 
-```mermaid
-graph TD
-    CWORK["CASEWORK.PUBLIC<br>ADVICEPRO_CASEWORK"]:::source
-    DEMO["CASEWORK.PUBLIC<br>ADVICEPRO_DEMOGRAPHICS"]:::source
-    LOC["CASEWORK.PUBLIC<br>CASEWORK_LOCALITY"]:::source
-    AAVA["AVA.PUBLIC<br>ACCESSAVA"]:::source
-    AVLOC["AVA.PUBLIC<br>ACCESSAVA_LOCALITY"]:::source
-
-    SADV["stg_advicepro<br>1 row per AdvicePro case"]:::product
-    SLQ["stg_la_queries<br>UNION ALL — all sources"]:::product
-
-    M1["la_activity_summary<br>la_queries_over_time"]:::process
-    M2["la_locality_overview<br>la_query_source"]:::process
-    M3["la_demographics<br>la_query_segments<br>la_legal_letters"]:::process
-    SUPP["la_suppress()<br>counts < 5 → '1-5'"]:::process
-
-    MART["7 mart models<br>mart_la_{view} + TIME_WINDOW_MONTHS col"]:::final
-
-    CWORK --> SADV
-    DEMO --> SADV
-    LOC --> SADV
-    AAVA --> SLQ
-    AVLOC --> SLQ
-    SADV --> SLQ
-    SLQ --> M1
-    SLQ --> M2
-    SLQ --> M3
-    M1 --> MART
-    M2 --> MART
-    M3 --> MART
-    SUPP -.->|"applied in every macro"| MART
-
-    classDef source fill:#f3e5f5,stroke:#ce93d8
-    classDef product fill:#fff4e1,stroke:#ffcc80
-    classDef process fill:#e1f5ff,stroke:#81d4fa
-    classDef final fill:#e8f5e9,stroke:#a5d6a7
-```
+`la_suppress(expr)` is applied inside every macro: any count below 5 becomes the string `'1-5'`. Output columns that use it are `VARCHAR`, not numeric — Power BI must treat them as strings.
 
 ---
 
@@ -287,12 +254,6 @@ The cc dashboard at `data.accesscharity.org.uk/cc.html` monitors this repo:
 > **Package updates**: if `packages.yml` changes, run `dbt deps` manually on the VM before the next cron run — it is not part of the daily pipeline.
 
 If dbt fails, cc will open a GitHub issue in this repo automatically.
-
----
-
-## Further Reading
-
-- **[docs/pipeline-explainer.md](docs/pipeline-explainer.md)** — narrative technical walkthrough aimed at anyone unfamiliar with dbt: how each component works, the full data journey from API to Power BI, how to check the pipeline is healthy, how to make changes
 
 ---
 
