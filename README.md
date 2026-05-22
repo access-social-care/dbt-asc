@@ -68,17 +68,17 @@ dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed 
 ## Daily Pipeline (Cron)
 
 ```
-06:00  load_primary_data.sh  — two-phase loader:
-           (1) source loads: AdvicePro casework + demographics, Monday.com member orgs
-           (2) derived load: case postcodes from (1) → findthatpostcode.uk → LA names
-06:45  run_dbt.sh            — dbt build → transforms everything → ANALYTICS.PUBLIC
+06:00  run_pipeline.sh  — Stage 1: source loads (AdvicePro, Monday.com) → derived loads (postcode lookup)
+                          Stage 2: dbt build → transforms everything → ANALYTICS schema
+                          dbt only runs if all loaders succeed
 ```
 
-**Crontab entries** (on the VM — edit with `crontab -e`):
+**Crontab entry** (on the VM — edit with `crontab -e`):
 ```
-0  6 * * * /srv/projects/dbt-asc/loaders/load_primary_data.sh >> /srv/projects/cc/load_primary_data.timeRun.txt 2>&1
-45 6 * * * /srv/projects/dbt-asc/run_dbt.sh >> /srv/projects/cc/run_dbt.timeRun.txt 2>&1
+0 6 * * * /srv/projects/dbt-asc/run_pipeline.sh >> /srv/projects/cc/run_pipeline.timeRun.txt 2>&1
 ```
+
+`run_dbt.sh` and `loaders/load_primary_data.sh` are kept as manual utilities for re-running individual stages during debugging.
 
 ---
 
@@ -89,10 +89,11 @@ dbt-asc/
 ├── dbt_project.yml           # Main project config (anonymous stats disabled)
 ├── packages.yml              # dbt package dependencies (dbt-utils)
 │
-├── run_dbt.sh                # CRONTAB 06:45 — runs dbt build after loaders complete
+├── run_pipeline.sh           # CRONTAB 06:00 — full pipeline: loaders then dbt (single entry)
+├── run_dbt.sh                # Manual only — dbt build without re-loading raw data
 │
 ├── loaders/                  # R scripts: extract from APIs, load to Snowflake RAW
-│   ├── load_primary_data.sh                      # CRONTAB 06:00 — all source system + lookup loads
+│   ├── load_primary_data.sh                      # Manual only — loaders without running dbt
 │   ├── load_advicepro_demographics_to_snowflake.R  # AdvicePro FD7DXGL4 → CASEWORK.ADVICEPRO_DEMOGRAPHICS
 │   ├── load_casework_locality_to_snowflake.R       # AdvicePro PWVDK69X → CASEWORK.CASEWORK_LOCALITY
 │   ├── load_member_orgs_to_snowflake.R             # Monday.com → REFERENCE.MEMBER_ORGANISATIONS

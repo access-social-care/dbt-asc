@@ -1,10 +1,12 @@
 #!/bin/bash
 ##
-## Stage 2 of the daily pipeline: run dbt build across all models.
+## Runs dbt build across all models.
 ##
-## Pipeline order:
-##   Stage 1 — loaders/load_primary_data.sh (06:00)  R loaders → raw Snowflake tables
-##   Stage 2 — run_dbt.sh               (06:45)  dbt transforms → ANALYTICS schema
+## NOTE: For production cron, use run_pipeline.sh (repo root) instead.
+##   run_pipeline.sh runs loaders then dbt as a single pipeline, so a loader
+##   failure prevents dbt from running against stale data. This script is kept
+##   for manual re-runs of the dbt stage only (e.g. fixing a model without
+##   re-loading all raw data).
 ##
 ## Prerequisites:
 ##   - load_primary_data.sh must have completed successfully (raw tables must exist)
@@ -15,8 +17,6 @@
 ##
 ## Usage (manual):
 ##   bash run_dbt.sh
-## Usage (cron):
-##   45 6 * * * /srv/projects/dbt-asc/run_dbt.sh >> /srv/projects/cc/run_dbt.timeRun.txt 2>&1
 ##
 
 PROJECT_DIR="/srv/projects/dbt-asc"

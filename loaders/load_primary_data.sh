@@ -8,10 +8,13 @@
 ##
 ## Add derived loaders after the source loads they depend on.
 ##
-## Usage (manual):
+## Usage:
 ##   bash loaders/load_primary_data.sh
-## Usage (cron):
-##   0 6 * * * /srv/projects/dbt-asc/loaders/load_primary_data.sh >> /srv/projects/cc/load_primary_data.timeRun.txt 2>&1
+##
+## NOTE: For production cron, use run_pipeline.sh (repo root) instead.
+##   run_pipeline.sh runs loaders then dbt as a single pipeline, so a loader
+##   failure prevents dbt from running against stale data. This script is kept
+##   for manual re-runs of the loader stage only.
 ##
 
 SCRIPT_DIR="/srv/projects/dbt-asc/loaders"
