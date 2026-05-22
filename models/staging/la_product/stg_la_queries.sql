@@ -1,46 +1,20 @@
 {{
   config(
     materialized='table',
-    description='Combined LA query data: AccessAva + AdvicePro (Stage 2 of LA Data Product staging)'
+    description='Combined LA query data: AccessAva + AdvicePro (UNION ALL of staging models)'
   )
 }}
 
 /*
-  Stage 2: UNION ALL across service lines.
-  Each source is pre-staged to a common interface:
+  Stage 2: UNION ALL of pre-staged source models.
+  Each source model normalises to the same column interface:
     - stg_advicepro  → AdvicePro cases (casework + demographics + locality joined)
-    - accessava CTE  → AccessAva chatbot conversations
+    - stg_accessava  → AccessAva chatbot conversations
 
-  All macros in models/marts/la_product/ reference this model.
+  All macros in models/marts/la_product/ reference this model (or stg_la_queries_glos for PoC).
   Helplines excluded from PoC — re-add when UT1 → shared segment taxonomy is agreed.
-
-  LA name harmonisation NOT implemented in PoC:
-    AccessAva uses tenant_name; AdvicePro uses local_authority (CASSR-standardised by ETL).
-
-  AccessAva locality: joined via ACCESSAVA_LOCALITY on transcript_id.
-    la_name = LA name resolved from postcode lookup (analogous to casework_locality for AdvicePro).
 */
 
-WITH accessava AS (
-    SELECT
-        a."tenant_name"                                              AS LA_NAME,
-        a."created_at"::DATE                                         AS QUERY_DATE,
-        'AccessAva'                                                  AS SOURCE_SYSTEM,
-        1                                                            AS QUERY_COUNT,
-        a."categories"                                               AS SEGMENT,
-        a."age"                                                      AS AGE_BAND,
-        CASE WHEN a."letterCode" IS NOT NULL THEN 1 ELSE 0 END       AS HAS_LETTER,
-        COALESCE(l."la_name", 'Unknown')                             AS LOCALITY_NAME
-    FROM {{ source('accessava', 'accessava') }} a
-    LEFT JOIN {{ source('accessava', 'accessava_locality') }} l
-        ON a."transcript_id" = l."transcript_id"
-    WHERE a."tenant_name" IS NOT NULL
-),
-
-advicepro AS (
-    SELECT * FROM {{ ref('stg_advicepro') }}
-)
-
-SELECT * FROM accessava
+SELECT * FROM {{ ref('stg_advicepro') }}
 UNION ALL
-SELECT * FROM advicepro
+SELECT * FROM {{ ref('stg_accessava') }}

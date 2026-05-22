@@ -1,12 +1,11 @@
-# AdvicePro ReportRunner — upstream report schemas
+# AdvicePro ReportRunner and Monday.com board schemas
 #
-# This is the schema registry for all AdvicePro reports consumed by loaders
-# in this directory. Documents raw column names (as they appear in the
-# AdvicePro UI) and their normalized equivalents after tolower + gsub(" ","_",.)).
+# Schema registry for all upstream data sources consumed by loaders in this directory.
+# Documents raw column names (as they appear in the source API) and their normalized
+# equivalents after tolower + gsub(" ","_",.)).
 #
-# When you add a new loader that calls query_advicepro_report(), add an entry here.
-# This is the single source of truth for upstream API column names — not comments,
-# not assumptions in the loader code.
+# When you add a new loader, add an entry here.
+# This is the single source of truth for upstream API column names.
 
 reports:
 
@@ -50,3 +49,32 @@ reports:
       - name: "Postcode"
         normalized: postcode
         description: Client postcode (raw, unvalidated)
+
+# ── Monday.com board schemas ─────────────────────────────────────────────────
+# Not AdvicePro reports, but documented here as the same principle applies:
+# single source of truth for upstream column names before normalization.
+# Column names are as returned by the Monday.com GraphQL API (ascFuncs::query_monday_board).
+
+monday_boards:
+
+  - id: "6737029126"
+    name: Contracts board
+    description: |
+      One row per member organisation in the "Organisations with signed contract/agreement"
+      group. Used by load_member_orgs_to_snowflake.R to populate
+      REFERENCE.PUBLIC.MEMBER_ORGANISATIONS.
+      Consumed via ascFuncs::query_monday_board() — item_name + Service column only.
+    consumed_by: load_member_orgs_to_snowflake.R
+    target_table: REFERENCE.PUBLIC.MEMBER_ORGANISATIONS
+    columns:
+      - name: item_name
+        normalized: monday_name
+        description: Official organisation name (board item title)
+      - name: Service
+        normalized: service_type
+        description: |
+          Contract/membership type (raw Monday.com column value).
+          Standardised to Casework & Advice / Advice Membership etc. by case_when in loader.
+      - name: group_title
+        normalized: contract_group
+        description: Board group name — filtered to "Organisations with signed contract/agreement"
