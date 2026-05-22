@@ -53,12 +53,20 @@ sources:
           Loaded by chatbot_data/data_uploader.R via chatbot_locality() in ascFuncs.
           chatbot_locality() queries PostgreSQL actions_locality, dedupes by transcript_id,
           and renames local_authority_name -> la_name.
-          TODO: Wire into stg_la_queries once join to ACCESSAVA main table is confirmed.
+          Joined to ACCESSAVA on transcript_id in stg_accessava.
         columns:
           - name: transcript_id
-            description: Primary key - unique conversation/transcript identifier. FK to ACCESSAVA.
+            description: Primary key — unique conversation identifier. FK to ACCESSAVA.transcript_id.
           - name: la_name
-            description: LA name resolved from postcode lookup (renamed from local_authority_name). Analogous to casework_locality.la_name for AdvicePro.
+            description: LA name from postcode lookup (renamed from local_authority_name).
+          - name: ward
+            description: Ward name from postcode lookup. Used as LOCALITY_NAME in stg_accessava — matches the locality grain of stg_advicepro (ward from casework_locality).
+          - name: ward_code
+            description: ONS ward code.
+          - name: lso_area_name
+            description: LSOA name — available as finer locality grain if needed.
+          - name: mso_area_name
+            description: MSOA name — available as coarser locality grain if needed.
 
   - name: helplines
     description: Access Helplines call data loaded by helplines_data ETL

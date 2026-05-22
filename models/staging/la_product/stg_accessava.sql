@@ -11,11 +11,10 @@
   LA name: a."la_name" — the LA that deployed the AccessAva chatbot.
     (Not tenant_name — that is the tenancy identifier, not the CASSR name.)
 
-  LOCALITY_NAME: requires sub-LA geography from ACCESSAVA_LOCALITY.
-    The postcode lookup (chatbot_locality()) resolves postcodes to geography levels
-    (ward, district, LSOA, MSOA). Which field maps to the PoC locality grain
-    needs confirming via: DESCRIBE TABLE ACCESSAVA.PUBLIC.ACCESSAVA_LOCALITY;
-    Set NULL until confirmed — do not use la_name (that is the LA name, not a locality).
+  LOCALITY_NAME: ward from ACCESSAVA_LOCALITY joined on transcript_id.
+    Matches the locality grain used by stg_advicepro (ward from casework_locality).
+    ACCESSAVA_LOCALITY also has lso_area_name, mso_area_name, ward_code etc. if finer
+    or coarser grain is needed later.
 
   HAS_LETTER: 1 if letterCode is populated (a formal letter was generated), else 0.
     Only AccessAva produces this dimension — AdvicePro rows have HAS_LETTER = 0.
@@ -33,7 +32,9 @@ SELECT
     a."categories"                                                 AS SEGMENT,
     a."age"                                                        AS AGE_BAND,
     CASE WHEN a."letterCode" IS NOT NULL THEN 1 ELSE 0 END         AS HAS_LETTER,
-    NULL::VARCHAR                                                  AS LOCALITY_NAME  -- TODO: join ACCESSAVA_LOCALITY on transcript_id once sub-LA field confirmed
+    l."ward"                                                       AS LOCALITY_NAME
 
 FROM {{ source('accessava', 'accessava') }} a
+LEFT JOIN {{ source('accessava', 'accessava_locality') }} l
+    ON a."transcript_id" = l."transcript_id"
 WHERE a."la_name" IS NOT NULL
