@@ -1,6 +1,6 @@
 ## Load casework locality data to Snowflake via findthatpostcode.uk API
 ##
-## Source: AdvicePro ReportRunner report PWVDK69X (case_reference + client_postcode)
+## Source: AdvicePro ReportRunner report PWVDK69X — see loaders/report_schemas.yml
 ## Target: CASEWORK.PUBLIC.CASEWORK_LOCALITY
 ##
 ## Incremental logic:

@@ -17,7 +17,7 @@ models:
       - Ordered by month DESC (most recent first), then tenant name
       
       **Owner**: Product & Innovation team
-      **Approval workflow**: Changes require PM sign-off via GitHub PR
+      **Approval workflow**: Changes require sign-off from Finbar Mullholand (PM) via GitHub PR
     
     columns:
       - name: TENANT_NAME
@@ -67,7 +67,7 @@ models:
       - Ordered by total_conversations DESC (most active tenants first)
       
       **Owner**: Product & Innovation team
-      **Approval workflow**: Changes require PM sign-off via GitHub PR
+      **Approval workflow**: Changes require sign-off from Finbar Mullholand (PM) via GitHub PR
     
     columns:
       - name: TENANT_NAME

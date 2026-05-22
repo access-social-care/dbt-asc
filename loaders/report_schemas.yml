@@ -1,0 +1,52 @@
+# AdvicePro ReportRunner — upstream report schemas
+#
+# This is the schema registry for all AdvicePro reports consumed by loaders
+# in this directory. Documents raw column names (as they appear in the
+# AdvicePro UI) and their normalized equivalents after tolower + gsub(" ","_",.)).
+#
+# When you add a new loader that calls query_advicepro_report(), add an entry here.
+# This is the single source of truth for upstream API column names — not comments,
+# not assumptions in the loader code.
+
+reports:
+
+  - id: FD7DXGL4
+    name: Client demographics
+    description: |
+      One row per case with client demographic fields (age, age group, etc.).
+      Used by load_advicepro_demographics_to_snowflake.R to populate
+      CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS.
+      Joined to ADVICEPRO_CASEWORK on case_reference by stg_advicepro.
+      TODO: Verify exact column names once first fetch is confirmed.
+    consumed_by: load_advicepro_demographics_to_snowflake.R
+    target_table: CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS
+    columns:
+      - name: "Case Reference"
+        normalized: case_reference
+        description: Primary case identifier — joins to ADVICEPRO_CASEWORK.case_reference
+      - name: "Age Range"
+        normalized: age_range
+        description: Client age band (e.g. '18-24') — used as AGE_BAND in stg_advicepro
+      - name: "Gender"
+        normalized: gender
+      - name: "Do you have a disability"
+        normalized: do_you_have_a_disability
+      - name: "What type of disability do you consider you have"
+        normalized: what_type_of_disability_do_you_consider_you_have
+      - name: "Ethnic Origin"
+        normalized: ethnic_origin
+
+  - id: PWVDK69X
+    name: Casework postcode lookup
+    description: |
+      One row per case with client postcode. Used by load_casework_locality_to_snowflake.R
+      to resolve postcodes to geographic dimensions via findthatpostcode.uk.
+    consumed_by: load_casework_locality_to_snowflake.R
+    target_table: CASEWORK.PUBLIC.CASEWORK_LOCALITY
+    columns:
+      - name: "Case Reference"
+        normalized: case_reference
+        description: Primary case identifier — joins to ADVICEPRO_CASEWORK.case_reference
+      - name: "Postcode"
+        normalized: postcode
+        description: Client postcode (raw, unvalidated)

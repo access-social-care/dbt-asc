@@ -1,0 +1,18 @@
+#!/bin/sh
+# Pre-commit hook: block R history files from being committed.
+# These files contain interactive command history and must never be in version control.
+#
+# Enable this hook: git config core.hooksPath .githooks
+
+blocked=$(git diff --cached --name-only | grep -iE 'Rhistory$')
+
+if [ -n "$blocked" ]; then
+  echo ""
+  echo "COMMIT BLOCKED: R history file(s) detected in staged files:"
+  echo "$blocked"
+  echo ""
+  echo "These files must not be committed. To unstage:"
+  echo "  git rm --cached <filename>"
+  echo ""
+  exit 1
+fi

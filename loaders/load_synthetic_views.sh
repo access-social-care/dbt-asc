@@ -12,4 +12,4 @@ Rscript load_casework_locality_to_snowflake.R > load_casework_locality_to_snowfl
 
 END=$(date +%s)
 DIFF=$(( $END - $START ))
-echo "XXX load_casework_locality_to_snowflake $START $DIFF"
+echo "XXX load_synthetic_views $START $DIFF"

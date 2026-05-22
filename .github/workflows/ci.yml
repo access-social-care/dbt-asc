@@ -32,10 +32,10 @@ jobs:
           mkdir -p ~/.dbt
           cp setup/profiles.yml.template ~/.dbt/profiles.yml
 
-      - name: dbt parse
-        # Validates: YAML schema, ref()/source() resolution, model configs, test names.
-        # Does NOT execute any SQL or connect to Snowflake.
-        run: dbt parse
+      - name: dbt compile
+        # Validates: YAML schema, ref()/source() resolution, model configs, test names,
+        # Jinja rendering, and macro calls. Does NOT execute any SQL or connect to Snowflake.
+        run: dbt compile
         env:
           SNOWFLAKE_USER: ci-dummy
           SNOWFLAKE_KEY_FILE: /dev/null

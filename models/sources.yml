@@ -44,6 +44,44 @@ sources:
           # - persona, supercategories, categories, csis, topic_entry_point
           # - letterCode, consumed_resources, local_authority_name
           # - age, ethnicity, religion, disability (demographics - mostly NULL)
+          # - tenant_id (join key for accessava_locality)
+
+      - name: accessava_locality
+        description: |
+          Locality dimension table for AccessAva conversations.
+          One row = one tenant × locality combination.
+          Joined to accessava on tenant_id to resolve sub-LA locality names.
+          Used by the LA Data Product (stg_la_queries) for View 1 (localities overview).
+          TODO: Confirm column name LOCALITY_NAME in this table.
+        columns:
+          - name: TENANT_ID
+            description: Foreign key - joins to accessava.tenant_id
+          - name: LOCALITY_NAME
+            description: Sub-LA locality name (assumed column name - verify against actual table)
+
+  - name: helplines
+    description: Access Helplines call data loaded by helplines_data ETL
+    database: helplines
+    schema: public
+
+    tables:
+      - name: helplines_aggregated_full
+        description: |
+          Pre-aggregated helplines call counts by LA and month.
+          One row = one LA × month × UT1 call category combination.
+          Loaded by helplines_data/load_to_snowflake.R.
+
+          Note: This table is already aggregated (N = call count).
+          stg_la_queries uses SUM(N) to align grain with row-level sources.
+        columns:
+          - name: la_name
+            description: Local authority name
+          - name: month_date
+            description: End-of-month date for the aggregation period (YYYY-MM-DD)
+          - name: n
+            description: Number of calls in this LA × month × UT1 combination
+          - name: UT1
+            description: Top-level call category (helplines-specific taxonomy)
 
   - name: casework
     description: AdvicePro casework data loaded by advicePro_queries ETL
@@ -51,6 +89,51 @@ sources:
     schema: public
 
     tables:
+      - name: casework_locality
+        description: |
+          Postcode → geography lookup for AdvicePro cases.
+          One row per case_reference (incremental append, never updated).
+          Built by loaders/load_casework_locality_to_snowflake.R via findthatpostcode.uk API.
+          Joins to advicepro_casework on case_reference to add sub-LA geographic dimensions.
+        columns:
+          - name: case_reference
+            description: FK to advicepro_casework.case_reference
+          - name: postcode
+            description: Raw client postcode used for the lookup
+          - name: ward
+            description: Electoral ward name (sub-LA locality used in stg_la_queries)
+          - name: ward_code
+            description: ONS ward code
+          - name: lso_area_name
+            description: LSOA name (more granular sub-LA alternative to ward)
+          - name: lso_area_code
+            description: LSOA code
+          - name: mso_area_name
+            description: MSOA name
+          - name: la_name
+            description: LA name resolved from postcode (cross-check vs advicepro_casework.local_authority)
+
+      - name: advicepro_demographics
+        description: |
+          Client demographic fields per case.
+          One row per case_reference (full replace on each load).
+          Loaded by loaders/load_advicepro_demographics_to_snowflake.R from AdvicePro report FD7DXGL4.
+          Joined to advicepro_casework on case_reference in stg_advicepro.
+          117 rows as of first load (May 2026). Column names confirmed from live run.
+        columns:
+          - name: case_reference
+            description: FK to advicepro_casework.case_reference
+          - name: age_range
+            description: Client age band (e.g. '18-24') — used as AGE_BAND in stg_advicepro
+          - name: gender
+            description: Client gender
+          - name: do_you_have_a_disability
+            description: Disability flag (free-text yes/no)
+          - name: what_type_of_disability_do_you_consider_you_have
+            description: Disability type description
+          - name: ethnic_origin
+            description: Client ethnicity
+
       - name: advicepro_casework
         description: |
           Main casework fact table.
