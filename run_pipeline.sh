@@ -24,6 +24,7 @@
 
 LOADERS_DIR="/srv/projects/dbt-asc/loaders"
 PROJECT_DIR="/srv/projects/dbt-asc"
+LOG_DIR="/srv/projects/cc"
 PIPELINE_START=$(date +%s)
 FAILURES=0
 
@@ -44,14 +45,14 @@ run_loader() {
     loader_start=$(date +%s)
     echo "--- Starting $name at $(date '+%Y-%m-%d %H:%M:%S') ---"
 
-    Rscript "${name}.R" > "${name}.log" 2>&1
+    Rscript "${name}.R" > "${LOG_DIR}/${name}.log" 2>&1
     exit_code=$?
 
     loader_end=$(date +%s)
     loader_diff=$(( loader_end - loader_start ))
 
     if [ $exit_code -ne 0 ]; then
-        echo "ERROR: $name failed (exit $exit_code) in ${loader_diff}s — see ${LOADERS_DIR}/${name}.log"
+        echo "ERROR: $name failed (exit $exit_code) in ${loader_diff}s — see ${LOG_DIR}/${name}.log"
         FAILURES=$(( FAILURES + 1 ))
     else
         echo "OK: $name completed in ${loader_diff}s"
@@ -83,14 +84,15 @@ echo "OK: Stage 1 completed in ${STAGE1_DIFF}s"
 echo "=== Stage 2: dbt build starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
 cd "$PROJECT_DIR"
+mkdir -p "$PROJECT_DIR/logs"
 
-dbt build
+dbt build > "$PROJECT_DIR/logs/dbt_run.log" 2>&1
 DBT_EXIT=$?
 
 if [ $DBT_EXIT -ne 0 ]; then
     PIPELINE_END=$(date +%s)
     PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
-    echo "ERROR: Stage 2 failed — dbt build exited $DBT_EXIT"
+    echo "ERROR: Stage 2 failed — dbt build exited $DBT_EXIT (see $PROJECT_DIR/logs/dbt_run.log)"
     echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF (FAILED stage2)"
     exit 1
 fi
