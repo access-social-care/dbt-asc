@@ -199,7 +199,6 @@ if (table_exists) {
   log_info("Appended {nrow(new_locality)} rows to {target_full}")
 } else {
   DBI::dbWriteTable(con, table_id, new_locality)
-  ascFuncs::snowflake_grant_select(con, TARGET_TABLE, schema = "PUBLIC", database = TARGET_DB)
   log_info("Created {target_full} with {nrow(new_locality)} rows")
 }
 
