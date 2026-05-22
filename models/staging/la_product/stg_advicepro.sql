@@ -22,7 +22,7 @@
 */
 
 SELECT
-    c."local_authority"                                                               AS LA_NAME,
+    c."la_name"                                                                        AS LA_NAME,
     TO_DATE(REPLACE(c."case_open_month", '/', '-') || '-01', 'YYYY-MM-DD')            AS QUERY_DATE,
     'AdvicePro'                                                                       AS SOURCE_SYSTEM,
     1                                                                                 AS QUERY_COUNT,
@@ -39,4 +39,4 @@ LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
 LEFT JOIN {{ source('casework', 'casework_locality') }} loc
     ON c."case_reference" = loc.case_reference
 
-WHERE c."local_authority" IS NOT NULL
+WHERE c."la_name" IS NOT NULL

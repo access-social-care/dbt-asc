@@ -111,7 +111,7 @@ sources:
           - name: mso_area_name
             description: MSOA name
           - name: la_name
-            description: LA name resolved from postcode (cross-check vs advicepro_casework.local_authority)
+            description: LA name resolved from postcode (cross-check vs advicepro_casework.la_name)
 
       - name: advicepro_demographics
         description: |
@@ -171,8 +171,8 @@ sources:
             description: Raw AdvicePro member name
           - name: member_canonical_name
             description: Canonical member name mapped from referred_from_account
-          - name: local_authority
-            description: Standardised CASSR local authority name
+          - name: la_name
+            description: Standardised CASSR local authority name (renamed from local_authority by ETL)
           - name: la_code
             description: ONS local authority code
           - name: la_name_original
