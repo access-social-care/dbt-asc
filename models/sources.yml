@@ -49,15 +49,16 @@ sources:
       - name: accessava_locality
         description: |
           Locality dimension table for AccessAva conversations.
-          One row = one tenant × locality combination.
-          Joined to accessava on tenant_id to resolve sub-LA locality names.
-          Used by the LA Data Product (stg_la_queries) for View 1 (localities overview).
-          TODO: Confirm column name LOCALITY_NAME in this table.
+          One row = one transcript (conversation) with its resolved locality.
+          Loaded by chatbot_data/data_uploader.R via chatbot_locality() in ascFuncs.
+          chatbot_locality() queries PostgreSQL actions_locality, dedupes by transcript_id,
+          and renames local_authority_name -> la_name.
+          TODO: Wire into stg_la_queries once join to ACCESSAVA main table is confirmed.
         columns:
-          - name: TENANT_ID
-            description: Foreign key - joins to accessava.tenant_id
-          - name: LOCALITY_NAME
-            description: Sub-LA locality name (assumed column name - verify against actual table)
+          - name: transcript_id
+            description: Primary key - unique conversation/transcript identifier. FK to ACCESSAVA.
+          - name: la_name
+            description: Locality name (renamed from local_authority_name by chatbot_locality())
 
   - name: helplines
     description: Access Helplines call data loaded by helplines_data ETL
