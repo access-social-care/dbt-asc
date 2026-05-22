@@ -93,8 +93,7 @@ postcode_json_getter <- function(postcode) {
 cli::cli_h1("Casework Locality — incremental load")
 cli::cli_alert_info("Target: {TARGET_DB}.PUBLIC.{TARGET_TABLE}")
 
-con <- ascFuncs::connect_snowflake(database = TARGET_DB)
-on.exit(DBI::dbDisconnect(con), add = TRUE)
+con <- ascFuncs::connect_snowflake(database = TARGET_DB, role = NULL)
 
 session_info <- DBI::dbGetQuery(
   con,
@@ -105,6 +104,7 @@ log_info(
   "database={session_info[[1, 'CURRENT_DATABASE()']]} ",
   "user={session_info[[1, 'CURRENT_USER()']]}"
 )
+on.exit(DBI::dbDisconnect(con), add = TRUE)  # register disconnect only after confirmed good connection
 
 # Pull AdvicePro report ---------------------------------------------------
 

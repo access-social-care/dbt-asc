@@ -16,30 +16,29 @@ graph LR
     CBD["chatbot_data repo"]:::external
 
     LPD["load_primary_data.sh<br>06:00 daily"]:::process
-    LSV["load_synthetic_views.sh<br>06:30 daily"]:::process
+    RDT["run_dbt.sh<br>06:45 daily"]:::process
 
     AVA["AVA.PUBLIC<br>ACCESSAVA"]:::source
     CW["CASEWORK.PUBLIC<br>ADVICEPRO_CASEWORK<br>ADVICEPRO_DEMOGRAPHICS<br>CASEWORK_LOCALITY"]:::source
 
     STG1["stg_advicepro"]:::product
     STG2["stg_la_queries"]:::product
-    MART["35 LA product<br>mart models"]:::final
+    MART["7 LA product<br>mart models"]:::final
     ANA["ANALYTICS.PUBLIC<br>la_product schema"]:::final
 
     WEB["Power BI / web products"]:::external
 
     AP -->|"AdvicePro + demographics"| LPD
     MON -->|"member orgs"| LPD
-    AP --> LSV
-    FTPC -->|"postcode lookup"| LSV
+    FTPC -->|"postcode lookup"| LPD
     CBD -->|"daily ~05:00"| AVA
 
     LPD --> CW
     LPD --> AVA
-    LSV --> CW
 
-    AVA -->|"dbt run 08:30"| STG1
-    CW --> STG1
+    AVA --> RDT
+    CW --> RDT
+    RDT -->|"dbt build"| STG1
     STG1 --> STG2
     AVA --> STG2
     STG2 --> MART
@@ -58,7 +57,7 @@ Three raw databases feed into dbt:
 | Database | Schema | Loaded by | Schedule |
 |---|---|---|---|
 | `AVA` | `PUBLIC` | `chatbot_data` repo (`data_uploader.R`) | Daily ~05:00 |
-| `CASEWORK` | `PUBLIC` | `loaders/load_primary_data.sh` + `load_synthetic_views.sh` (this repo) | Daily 06:00-06:30 |
+| `CASEWORK` | `PUBLIC` | `loaders/load_primary_data.sh` (this repo) | Daily 06:00 |
 | `HELPLINES` | `PUBLIC` | `helplines_data` repo | Daily ~05:00 |
 
 dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed by web products and Power BI.
@@ -68,14 +67,14 @@ dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed 
 ## Daily Pipeline (Cron)
 
 ```
-06:00  load_primary_data.sh   — AdvicePro API + Monday.com → CASEWORK/AVA/REFERENCE tables
-06:30  load_synthetic_views.sh — case postcodes → findthatpostcode.uk → CASEWORK_LOCALITY
+06:00  load_primary_data.sh  — AdvicePro API + Monday.com + findthatpostcode.uk → CASEWORK/AVA/REFERENCE tables
+06:45  run_dbt.sh            — dbt build → transforms everything → ANALYTICS.PUBLIC
 ```
 
 **Crontab entries** (on the VM — edit with `crontab -e`):
 ```
 0  6 * * * /srv/projects/dbt-asc/loaders/load_primary_data.sh >> /srv/projects/cc/load_primary_data.timeRun.txt 2>&1
-30 6 * * * /srv/projects/dbt-asc/loaders/load_synthetic_views.sh >> /srv/projects/cc/load_synthetic_views.timeRun.txt 2>&1
+45 6 * * * /srv/projects/dbt-asc/run_dbt.sh >> /srv/projects/cc/run_dbt.timeRun.txt 2>&1
 ```
 
 ---
@@ -87,9 +86,10 @@ dbt-asc/
 ├── dbt_project.yml           # Main project config (anonymous stats disabled)
 ├── packages.yml              # dbt package dependencies (dbt-utils)
 │
+├── run_dbt.sh                # CRONTAB 06:45 — runs dbt build after loaders complete
+│
 ├── loaders/                  # R scripts: extract from APIs, load to Snowflake RAW
-│   ├── load_primary_data.sh                      # CRONTAB 06:00 — source system loads
-│   ├── load_synthetic_views.sh                   # CRONTAB 06:30 — derived/lookup loads
+│   ├── load_primary_data.sh                      # CRONTAB 06:00 — all source system + lookup loads
 │   ├── load_advicepro_demographics_to_snowflake.R  # AdvicePro FD7DXGL4 → CASEWORK.ADVICEPRO_DEMOGRAPHICS
 │   ├── load_casework_locality_to_snowflake.R       # AdvicePro PWVDK69X → CASEWORK.CASEWORK_LOCALITY
 │   ├── load_member_orgs_to_snowflake.R             # Monday.com → REFERENCE.MEMBER_ORGANISATIONS
@@ -178,7 +178,7 @@ R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowf
 ### Adding a new loader
 
 1. Create `loaders/load_{name}_to_snowflake.R`
-2. Add a `run_loader` call in `load_primary_data.sh` (source system) or `load_synthetic_views.sh` (derived/lookup)
+2. Add a `run_loader` call in `load_primary_data.sh`
 3. Document the API report columns in `loaders/report_schemas.yml`
 4. Add the target table to `models/sources.yml`
 
@@ -195,14 +195,14 @@ Schema registry for all AdvicePro API reports. Documents the mapping between raw
 | Model | Description |
 |---|---|
 | `stg_advicepro.sql` | Stage 1 — joins `ADVICEPRO_CASEWORK` + `ADVICEPRO_DEMOGRAPHICS` + `CASEWORK_LOCALITY` into one row per case |
-| `stg_la_queries.sql` | Stage 2 — UNION ALL of `stg_advicepro` and AccessAva. Single grain for all 35 mart models. Columns: `LA_NAME`, `QUERY_DATE`, `SOURCE_SYSTEM`, `QUERY_COUNT`, `SEGMENT`, `AGE_BAND`, `HAS_LETTER`, `LOCALITY_NAME` |
+| `stg_la_queries.sql` | Stage 2 — UNION ALL of `stg_advicepro` and AccessAva. Single grain for all 7 mart models. Columns: `LA_NAME`, `QUERY_DATE`, `SOURCE_SYSTEM`, `QUERY_COUNT`, `SEGMENT`, `AGE_BAND`, `HAS_LETTER`, `LOCALITY_NAME` |
 
 ### Marts — `models/marts/`
 
 | Model | Description |
 |---|---|
 | `mart_chatbot_*` (2 models) | Chatbot conversation counts by tenant (monthly + all-time) |
-| `mart_la_{view}_{N}m` (35 models) | LA product views across 7 analytical angles × 5 time windows (1m, 3m, 6m, 9m, 12m) |
+| `mart_la_{view}` (7 models) | LA product views across 7 analytical angles. Each model contains all 5 time windows (1m, 3m, 6m, 9m, 12m) as rows in a `TIME_WINDOW_MONTHS` column — one table per view type rather than one table per view×window. |
 
 ### Macros — `macros/la_product/`
 
@@ -224,7 +224,7 @@ graph TD
     M3["la_demographics<br>la_query_segments<br>la_legal_letters"]:::process
     SUPP["la_suppress()<br>counts < 5 → '1-5'"]:::process
 
-    MART["35 mart models<br>mart_la_{view}_{N}m"]:::final
+    MART["7 mart models<br>mart_la_{view} + TIME_WINDOW_MONTHS col"]:::final
 
     CWORK --> SADV
     DEMO --> SADV

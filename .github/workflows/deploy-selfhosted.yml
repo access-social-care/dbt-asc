@@ -1,0 +1,31 @@
+name: CD - Deploy to VM
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # --------------------------------------------------
+  # CD: deploy to VM via self-hosted runner
+  # Runs only on push to main (i.e. after a PR is merged)
+  # CI (dbt compile) is handled separately in ci.yml on ubuntu-latest
+  # --------------------------------------------------
+  deploy:
+    name: Deploy via Self-Hosted Runner
+    runs-on: self-hosted
+
+    steps:
+      - name: Deploy latest changes
+        run: |
+          cd /srv/projects/dbt-asc
+
+          # Ensure we are on main and in sync with remote
+          git fetch origin
+          git checkout main
+          git reset --hard origin/main
+
+          # Report status
+          echo "Deployment successful"
+          echo "Current commit: $(git rev-parse --short HEAD)"
+          echo "Last commit message: $(git log -1 --pretty=%B)"
