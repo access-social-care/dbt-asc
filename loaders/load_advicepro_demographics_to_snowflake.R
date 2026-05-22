@@ -95,7 +95,6 @@ log_info("Final: {nrow(df)} rows ready for upload")
 cli::cli_h2("Uploading to Snowflake")
 log_info("Connecting to {TARGET_DB}")
 con <- ascFuncs::connect_snowflake(database = TARGET_DB, role = NULL)
-on.exit(DBI::dbDisconnect(con), add = TRUE)
 
 session_info <- DBI::dbGetQuery(
   con,
@@ -116,8 +115,10 @@ ascFuncs::snowflake_write_table(
   schema     = "PUBLIC",
   overwrite  = TRUE
 )
+on.exit(DBI::dbDisconnect(con), add = TRUE)
 
 log_info("Upload complete: {nrow(df)} rows -> {TARGET_DB}.PUBLIC.{TARGET_TABLE}")
 cli::cli_alert_success(
   "ADVICEPRO_DEMOGRAPHICS loaded: {nrow(df)} rows"
 )
+
