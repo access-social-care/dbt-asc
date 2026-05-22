@@ -48,6 +48,8 @@ postcode_json_getter <- function(postcode) {
     log_warn("No result for postcode: {postcode}")
     return(tibble(
       postcode                              = postcode,
+      county_code                           = NA_character_,
+      county                                = NA_character_,
       la_name                               = NA_character_,
       local_authority_code                  = NA_character_,
       ward                                  = NA_character_,
@@ -69,6 +71,8 @@ postcode_json_getter <- function(postcode) {
 
   tibble(
     postcode                              = postcode,
+    county_code                           = a$cty                  %||% NA_character_,
+    county                                = a$cty_name             %||% NA_character_,
     la_name                               = a$laua_name            %||% NA_character_,
     local_authority_code                  = a$laua                 %||% NA_character_,
     ward                                  = a$ward_name            %||% NA_character_,
