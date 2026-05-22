@@ -87,14 +87,31 @@ cd "$PROJECT_DIR"
 dbt build
 DBT_EXIT=$?
 
-PIPELINE_END=$(date +%s)
-PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
-
 if [ $DBT_EXIT -ne 0 ]; then
+    PIPELINE_END=$(date +%s)
+    PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
     echo "ERROR: Stage 2 failed — dbt build exited $DBT_EXIT"
     echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF (FAILED stage2)"
     exit 1
 fi
 
-echo "OK: Stage 2 completed"
+echo "OK: dbt build completed"
+
+# ── Stage 3: regenerate dbt docs ─────────────────────────────────────────────
+
+echo "=== Stage 3: dbt docs generate at $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+dbt docs generate
+DOCS_EXIT=$?
+
+PIPELINE_END=$(date +%s)
+PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
+
+if [ $DOCS_EXIT -ne 0 ]; then
+    echo "WARN: dbt docs generate failed (exit $DOCS_EXIT) — build succeeded, docs may be stale"
+    echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF (docs FAILED)"
+    exit 0  # docs failure is not a pipeline failure
+fi
+
+echo "OK: dbt docs regenerated"
 echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF"

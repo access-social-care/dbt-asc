@@ -233,15 +233,9 @@ All models write to `ANALYTICS.PUBLIC` in Snowflake. Web products and Power BI c
 
 ### dbt Docs
 
-`dbt docs generate` runs as part of the daily dbt cron entry (see `crontab -e` on VM). Output lands in `target/`. To serve:
+Live docs: **`https://control.accesscharity.org.uk/p/ff1934c2/#!/overview`**
 
-```nginx
-# nginx config (add to existing server block on VM)
-location /dbt-docs/ {
-    alias /srv/projects/dbt-asc/target/;
-    index index.html;
-}
-```
+Docs are regenerated automatically as Stage 3 of `run_pipeline.sh` after every successful `dbt build`. Output lands in `target/` and is served via nginx on the VM.
 
 ---
 
