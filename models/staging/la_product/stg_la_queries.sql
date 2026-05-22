@@ -17,10 +17,8 @@
   LA name harmonisation NOT implemented in PoC:
     AccessAva uses tenant_name; AdvicePro uses local_authority (CASSR-standardised by ETL).
 
-  TODO: Wire up AccessAva locality join once column names confirmed.
-    ACCESSAVA_LOCALITY key = transcript_id (not tenant_id).
-    Locality column = la_name (renamed from local_authority_name by chatbot_locality()).
-    The ACCESSAVA main table column that links to transcript_id needs verifying.
+  AccessAva locality: joined via ACCESSAVA_LOCALITY on transcript_id.
+    la_name = LA name resolved from postcode lookup (analogous to casework_locality for AdvicePro).
 */
 
 WITH accessava AS (
@@ -32,8 +30,10 @@ WITH accessava AS (
         a."categories"                                               AS SEGMENT,
         a."age"                                                      AS AGE_BAND,
         CASE WHEN a."letterCode" IS NOT NULL THEN 1 ELSE 0 END       AS HAS_LETTER,
-        NULL::VARCHAR                                                AS LOCALITY_NAME  -- TODO: join ACCESSAVA_LOCALITY on transcript_id once columns confirmed
+        COALESCE(l."la_name", 'Unknown')                             AS LOCALITY_NAME
     FROM {{ source('accessava', 'accessava') }} a
+    LEFT JOIN {{ source('accessava', 'accessava_locality') }} l
+        ON a."transcript_id" = l."transcript_id"
     WHERE a."tenant_name" IS NOT NULL
 ),
 

@@ -58,7 +58,7 @@ sources:
           - name: transcript_id
             description: Primary key - unique conversation/transcript identifier. FK to ACCESSAVA.
           - name: la_name
-            description: Locality name (renamed from local_authority_name by chatbot_locality())
+            description: LA name resolved from postcode lookup (renamed from local_authority_name). Analogous to casework_locality.la_name for AdvicePro.
 
   - name: helplines
     description: Access Helplines call data loaded by helplines_data ETL
