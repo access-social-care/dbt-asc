@@ -17,9 +17,6 @@
 ## Usage (cron):
 ##   0 6 * * * /srv/projects/dbt-asc/run_pipeline.sh >> /srv/projects/cc/run_pipeline.timeRun.txt 2>&1
 ##
-## For manual re-runs of individual stages:
-##   bash loaders/load_primary_data.sh   (loaders only)
-##   bash run_dbt.sh                     (dbt only — assumes raw tables are already fresh)
 ##
 
 LOADERS_DIR="/srv/projects/dbt-asc/loaders"
@@ -88,7 +85,7 @@ DBT_EXIT=$?
 if [ $DBT_EXIT -ne 0 ]; then
     PIPELINE_END=$(date +%s)
     PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
-    echo "ERROR: Stage 2 failed — dbt build exited $DBT_EXIT (see $PROJECT_DIR/logs/dbt_run.log)"
+    echo "ERROR: Stage 2 failed — dbt build exited $DBT_EXIT"
     echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF (FAILED stage2)"
     exit 1
 fi
