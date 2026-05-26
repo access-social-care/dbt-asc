@@ -49,15 +49,24 @@ sources:
       - name: accessava_locality
         description: |
           Locality dimension table for AccessAva conversations.
-          One row = one tenant × locality combination.
-          Joined to accessava on tenant_id to resolve sub-LA locality names.
-          Used by the LA Data Product (stg_la_queries) for View 1 (localities overview).
-          TODO: Confirm column name LOCALITY_NAME in this table.
+          One row = one transcript (conversation) with its resolved locality.
+          Loaded by chatbot_data/data_uploader.R via chatbot_locality() in ascFuncs.
+          chatbot_locality() queries PostgreSQL actions_locality, dedupes by transcript_id,
+          and renames local_authority_name -> la_name.
+          Joined to ACCESSAVA on transcript_id in stg_accessava.
         columns:
-          - name: TENANT_ID
-            description: Foreign key - joins to accessava.tenant_id
-          - name: LOCALITY_NAME
-            description: Sub-LA locality name (assumed column name - verify against actual table)
+          - name: transcript_id
+            description: Primary key — unique conversation identifier. FK to ACCESSAVA.transcript_id.
+          - name: la_name
+            description: LA name from postcode lookup (renamed from local_authority_name).
+          - name: ward
+            description: Ward name from postcode lookup. Used as LOCALITY_NAME in stg_accessava — matches the locality grain of stg_advicepro (ward from casework_locality).
+          - name: ward_code
+            description: ONS ward code.
+          - name: lso_area_name
+            description: LSOA name — available as finer locality grain if needed.
+          - name: mso_area_name
+            description: MSOA name — available as coarser locality grain if needed.
 
   - name: helplines
     description: Access Helplines call data loaded by helplines_data ETL
@@ -111,7 +120,7 @@ sources:
           - name: mso_area_name
             description: MSOA name
           - name: la_name
-            description: LA name resolved from postcode (cross-check vs advicepro_casework.local_authority)
+            description: LA name resolved from postcode (cross-check vs advicepro_casework.la_name)
 
       - name: advicepro_demographics
         description: |
@@ -171,8 +180,8 @@ sources:
             description: Raw AdvicePro member name
           - name: member_canonical_name
             description: Canonical member name mapped from referred_from_account
-          - name: local_authority
-            description: Standardised CASSR local authority name
+          - name: la_name
+            description: Standardised CASSR local authority name (renamed from local_authority by ETL)
           - name: la_code
             description: ONS local authority code
           - name: la_name_original

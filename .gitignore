@@ -36,3 +36,4 @@ profiles.yml
 # Environment
 .env
 .env.local
+.positai

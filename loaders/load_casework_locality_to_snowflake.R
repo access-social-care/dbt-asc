@@ -48,6 +48,8 @@ postcode_json_getter <- function(postcode) {
     log_warn("No result for postcode: {postcode}")
     return(tibble(
       postcode                              = postcode,
+      county_code                           = NA_character_,
+      county                                = NA_character_,
       la_name                               = NA_character_,
       local_authority_code                  = NA_character_,
       ward                                  = NA_character_,
@@ -69,6 +71,8 @@ postcode_json_getter <- function(postcode) {
 
   tibble(
     postcode                              = postcode,
+    county_code                           = a$cty                  %||% NA_character_,
+    county                                = a$cty_name             %||% NA_character_,
     la_name                               = a$laua_name            %||% NA_character_,
     local_authority_code                  = a$laua                 %||% NA_character_,
     ward                                  = a$ward_name            %||% NA_character_,
@@ -93,8 +97,7 @@ postcode_json_getter <- function(postcode) {
 cli::cli_h1("Casework Locality — incremental load")
 cli::cli_alert_info("Target: {TARGET_DB}.PUBLIC.{TARGET_TABLE}")
 
-con <- ascFuncs::connect_snowflake(database = TARGET_DB)
-on.exit(DBI::dbDisconnect(con), add = TRUE)
+con <- ascFuncs::connect_snowflake(database = TARGET_DB, role = NULL)
 
 session_info <- DBI::dbGetQuery(
   con,
@@ -105,6 +108,7 @@ log_info(
   "database={session_info[[1, 'CURRENT_DATABASE()']]} ",
   "user={session_info[[1, 'CURRENT_USER()']]}"
 )
+on.exit(DBI::dbDisconnect(con), add = TRUE)  # register disconnect only after confirmed good connection
 
 # Pull AdvicePro report ---------------------------------------------------
 
@@ -199,7 +203,6 @@ if (table_exists) {
   log_info("Appended {nrow(new_locality)} rows to {target_full}")
 } else {
   DBI::dbWriteTable(con, table_id, new_locality)
-  ascFuncs::snowflake_grant_select(con, TARGET_TABLE, schema = "PUBLIC", database = TARGET_DB)
   log_info("Created {target_full} with {nrow(new_locality)} rows")
 }
 

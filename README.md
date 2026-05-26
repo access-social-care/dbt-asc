@@ -4,6 +4,8 @@ dbt transformation layer for Access Social Care's Snowflake data warehouse. Comb
 
 **Repo also contains the Snowflake loaders** (`loaders/`) — R scripts that pull from upstream APIs and write raw tables to Snowflake before dbt runs.
 
+> **New to dbt?** Start with [docs/pipeline-explainer.md](docs/pipeline-explainer.md) — a narrative walkthrough covering what each component is, how data moves from API to Power BI, and how to check the pipeline is healthy.
+
 ---
 
 ## Architecture
@@ -15,36 +17,40 @@ graph LR
     FTPC["findthatpostcode.uk"]:::external
     CBD["chatbot_data repo"]:::external
 
-    LPD["load_primary_data.sh<br>06:00 daily"]:::process
-    LSV["load_synthetic_views.sh<br>06:30 daily"]:::process
+    RPN["run_pipeline.sh<br>06:00 daily"]:::process
 
     AVA["AVA.PUBLIC<br>ACCESSAVA"]:::source
     CW["CASEWORK.PUBLIC<br>ADVICEPRO_CASEWORK<br>ADVICEPRO_DEMOGRAPHICS<br>CASEWORK_LOCALITY"]:::source
 
     STG1["stg_advicepro"]:::product
-    STG2["stg_la_queries"]:::product
-    MART["35 LA product<br>mart models"]:::final
-    ANA["ANALYTICS.PUBLIC<br>la_product schema"]:::final
+    STG2["stg_la_queries<br>(all LAs)"]:::product
+    GLOS["stg_la_queries_glos<br>(Gloucestershire only)"]:::product
 
-    WEB["Power BI / web products"]:::external
+    MART["7 mart_la_*<br>SDC suppressed<br>counts &lt; 5 → '1-5'"]:::final
+    MARTG["7 mart_glos_la_*<br>SDC suppressed<br>counts &lt; 5 → '1-5'"]:::final
+    ANA["ANALYTICS.PUBLIC"]:::final
 
-    AP -->|"AdvicePro + demographics"| LPD
-    MON -->|"member orgs"| LPD
-    AP --> LSV
-    FTPC -->|"postcode lookup"| LSV
+    PBI["Power BI"]:::external
+    LAP["LA Data Product<br>(web)"]:::external
+
+    AP -->|"AdvicePro + demographics"| RPN
+    MON -->|"member orgs"| RPN
+    FTPC -->|"postcode lookup"| RPN
     CBD -->|"daily ~05:00"| AVA
 
-    LPD --> CW
-    LPD --> AVA
-    LSV --> CW
+    RPN --> CW
 
-    AVA -->|"dbt run 08:30"| STG1
-    CW --> STG1
+    AVA --> STG1
+    CW -->|"dbt build"| STG1
     STG1 --> STG2
     AVA --> STG2
     STG2 --> MART
+    STG2 -->|"WHERE LA_NAME = 'Gloucestershire'"| GLOS
+    GLOS --> MARTG
     MART --> ANA
-    ANA --> WEB
+    MARTG --> ANA
+    ANA --> PBI
+    ANA -->|"Glos PoC tables"| LAP
 
     classDef external fill:#e0f2f1,stroke:#80cbc4
     classDef process fill:#e1f5ff,stroke:#81d4fa
@@ -58,7 +64,7 @@ Three raw databases feed into dbt:
 | Database | Schema | Loaded by | Schedule |
 |---|---|---|---|
 | `AVA` | `PUBLIC` | `chatbot_data` repo (`data_uploader.R`) | Daily ~05:00 |
-| `CASEWORK` | `PUBLIC` | `loaders/load_primary_data.sh` + `load_synthetic_views.sh` (this repo) | Daily 06:00-06:30 |
+| `CASEWORK` | `PUBLIC` | `run_pipeline.sh` Stage 1 (this repo) | Daily 06:00 |
 | `HELPLINES` | `PUBLIC` | `helplines_data` repo | Daily ~05:00 |
 
 dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed by web products and Power BI.
@@ -68,14 +74,14 @@ dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed 
 ## Daily Pipeline (Cron)
 
 ```
-06:00  load_primary_data.sh   — AdvicePro API + Monday.com → CASEWORK/AVA/REFERENCE tables
-06:30  load_synthetic_views.sh — case postcodes → findthatpostcode.uk → CASEWORK_LOCALITY
+06:00  run_pipeline.sh  — Stage 1: source loads (AdvicePro, Monday.com) → derived loads (postcode lookup)
+                          Stage 2: dbt build → transforms everything → ANALYTICS schema
+                          dbt only runs if all loaders succeed
 ```
 
-**Crontab entries** (on the VM — edit with `crontab -e`):
+**Crontab entry** (on the VM — edit with `crontab -e`):
 ```
-0  6 * * * /srv/projects/dbt-asc/loaders/load_primary_data.sh >> /srv/projects/cc/load_primary_data.timeRun.txt 2>&1
-30 6 * * * /srv/projects/dbt-asc/loaders/load_synthetic_views.sh >> /srv/projects/cc/load_synthetic_views.timeRun.txt 2>&1
+0 6 * * * /srv/projects/dbt-asc/run_pipeline.sh >> /srv/projects/cc/run_pipeline.timeRun.txt 2>&1
 ```
 
 ---
@@ -87,9 +93,9 @@ dbt-asc/
 ├── dbt_project.yml           # Main project config (anonymous stats disabled)
 ├── packages.yml              # dbt package dependencies (dbt-utils)
 │
+├── run_pipeline.sh           # CRONTAB 06:00 — full pipeline: loaders then dbt (single entry)
+│
 ├── loaders/                  # R scripts: extract from APIs, load to Snowflake RAW
-│   ├── load_primary_data.sh                      # CRONTAB 06:00 — source system loads
-│   ├── load_synthetic_views.sh                   # CRONTAB 06:30 — derived/lookup loads
 │   ├── load_advicepro_demographics_to_snowflake.R  # AdvicePro FD7DXGL4 → CASEWORK.ADVICEPRO_DEMOGRAPHICS
 │   ├── load_casework_locality_to_snowflake.R       # AdvicePro PWVDK69X → CASEWORK.CASEWORK_LOCALITY
 │   ├── load_member_orgs_to_snowflake.R             # Monday.com → REFERENCE.MEMBER_ORGANISATIONS
@@ -117,7 +123,6 @@ dbt-asc/
 │       └── la_suppress.sql
 │
 ├── logs/                     # Runtime logs (git-ignored)
-│   └── dbt_run.log           # Full dbt output, overwritten each run
 │
 └── setup/
     ├── profiles.yml.template
@@ -173,12 +178,21 @@ GRANT CREATE SCHEMA ON DATABASE ANALYTICS TO ROLE ROLE_ETL_WRITE;
 
 ## Loaders
 
-R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowflake before dbt runs. All loaders are driven by `run_all_loaders.sh`.
+R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowflake before dbt runs. All loaders are driven by Stage 1 of `run_pipeline.sh`, which runs them in two phases:
+
+**Phase 1 — source system loads** (no dependencies):
+- `load_member_orgs_to_snowflake.R` — Monday.com board → `REFERENCE.MEMBER_ORGANISATIONS`
+- `load_advicepro_demographics_to_snowflake.R` — AdvicePro API → `CASEWORK.ADVICEPRO_DEMOGRAPHICS` (full replace)
+
+**Phase 2 — derived/lookup loads** (must run after phase 1):
+- `load_casework_locality_to_snowflake.R` — reads case postcodes written by phase 1, looks each one up via [findthatpostcode.uk](https://findthatpostcode.uk), stores the resulting LA name as `CASEWORK.CASEWORK_LOCALITY`
+
+**Why is the postcode lookup needed?** AdvicePro stores cases with the client's postcode, not their local authority. There is no LA field in the raw AdvicePro data. The locality loader bridges this gap. AccessAva (the chatbot) is different — it already knows which LA a user belongs to (set at login), so no lookup is needed for that source.
 
 ### Adding a new loader
 
 1. Create `loaders/load_{name}_to_snowflake.R`
-2. Add a `run_loader` call in `load_primary_data.sh` (source system) or `load_synthetic_views.sh` (derived/lookup)
+2. Add a `run_loader` call in `run_pipeline.sh` (Stage 1)
 3. Document the API report columns in `loaders/report_schemas.yml`
 4. Add the target table to `models/sources.yml`
 
@@ -194,57 +208,23 @@ Schema registry for all AdvicePro API reports. Documents the mapping between raw
 
 | Model | Description |
 |---|---|
-| `stg_advicepro.sql` | Stage 1 — joins `ADVICEPRO_CASEWORK` + `ADVICEPRO_DEMOGRAPHICS` + `CASEWORK_LOCALITY` into one row per case |
-| `stg_la_queries.sql` | Stage 2 — UNION ALL of `stg_advicepro` and AccessAva. Single grain for all 35 mart models. Columns: `LA_NAME`, `QUERY_DATE`, `SOURCE_SYSTEM`, `QUERY_COUNT`, `SEGMENT`, `AGE_BAND`, `HAS_LETTER`, `LOCALITY_NAME` |
+| `stg_advicepro.sql` | Stage 1 — joins `ADVICEPRO_CASEWORK` + `ADVICEPRO_DEMOGRAPHICS` + `CASEWORK_LOCALITY` into one row per case. `CASEWORK_LOCALITY` is the resolved LA name (postcode lookup output from the loader). |
+| `stg_la_queries.sql` | Stage 2 — UNION ALL of `stg_advicepro` and AccessAva. Single grain for all 7 mart models. Columns: `LA_NAME`, `QUERY_DATE`, `SOURCE_SYSTEM`, `QUERY_COUNT`, `SEGMENT`, `AGE_BAND`, `HAS_LETTER`, `LOCALITY_NAME` |
 
 ### Marts — `models/marts/`
 
 | Model | Description |
 |---|---|
-| `mart_chatbot_*` (2 models) | Chatbot conversation counts by tenant (monthly + all-time) |
-| `mart_la_{view}_{N}m` (35 models) | LA product views across 7 analytical angles × 5 time windows (1m, 3m, 6m, 9m, 12m) |
+| `mart_chatbot_*` (2 models) | Chatbot operational metrics — conversation counts split by tenant (LA), monthly and all-time. These are internal chatbot-team tables, separate from the LA product. They count *conversations*, not queries or cases. |
+| `mart_la_{view}` (7 models) | LA product views — AdvicePro and AccessAva data combined into one grain (`stg_la_queries`), then aggregated across 7 analytical angles. Each model contains all 5 time windows (1m, 3m, 6m, 9m, 12m) as rows distinguished by `TIME_WINDOW_MONTHS`. |
+
+**How sources are distinguished in the LA product:** `mart_la_query_source` shows query counts split by `SOURCE_SYSTEM` ('AdvicePro' vs 'AccessAva'). This is the source breakdown for the LA product — not by chatbot tenant. The chatbot (AccessAva) and casework (AdvicePro) data are normalised into the same row shape at the `stg_la_queries` layer before any mart model sees them.
 
 ### Macros — `macros/la_product/`
 
-Reusable SQL logic called by LA product mart models. Each macro takes `months_back` as a parameter and returns a filtered, aggregated, SDC-suppressed view.
+Reusable SQL logic called by the LA product mart models. Each macro takes `months_back` as its only parameter and produces a filtered, aggregated, SDC-suppressed SELECT statement. The mart model files are just UNION ALL chains of five macro calls (1, 3, 6, 9, 12 months).
 
-```mermaid
-graph TD
-    CWORK["CASEWORK.PUBLIC<br>ADVICEPRO_CASEWORK"]:::source
-    DEMO["CASEWORK.PUBLIC<br>ADVICEPRO_DEMOGRAPHICS"]:::source
-    LOC["CASEWORK.PUBLIC<br>CASEWORK_LOCALITY"]:::source
-    AAVA["AVA.PUBLIC<br>ACCESSAVA"]:::source
-    AVLOC["AVA.PUBLIC<br>ACCESSAVA_LOCALITY"]:::source
-
-    SADV["stg_advicepro<br>1 row per AdvicePro case"]:::product
-    SLQ["stg_la_queries<br>UNION ALL — all sources"]:::product
-
-    M1["la_activity_summary<br>la_queries_over_time"]:::process
-    M2["la_locality_overview<br>la_query_source"]:::process
-    M3["la_demographics<br>la_query_segments<br>la_legal_letters"]:::process
-    SUPP["la_suppress()<br>counts < 5 → '1-5'"]:::process
-
-    MART["35 mart models<br>mart_la_{view}_{N}m"]:::final
-
-    CWORK --> SADV
-    DEMO --> SADV
-    LOC --> SADV
-    AAVA --> SLQ
-    AVLOC --> SLQ
-    SADV --> SLQ
-    SLQ --> M1
-    SLQ --> M2
-    SLQ --> M3
-    M1 --> MART
-    M2 --> MART
-    M3 --> MART
-    SUPP -.->|"applied in every macro"| MART
-
-    classDef source fill:#f3e5f5,stroke:#ce93d8
-    classDef product fill:#fff4e1,stroke:#ffcc80
-    classDef process fill:#e1f5ff,stroke:#81d4fa
-    classDef final fill:#e8f5e9,stroke:#a5d6a7
-```
+`la_suppress(expr)` is applied inside every macro: any count below 5 becomes the string `'1-5'`. Output columns that use it are `VARCHAR`, not numeric — Power BI must treat them as strings.
 
 ---
 
@@ -254,15 +234,9 @@ All models write to `ANALYTICS.PUBLIC` in Snowflake. Web products and Power BI c
 
 ### dbt Docs
 
-`dbt docs generate` runs as part of the daily dbt cron entry (see `crontab -e` on VM). Output lands in `target/`. To serve:
+Live docs: **`https://control.accesscharity.org.uk/p/ff1934c2/#!/overview`**
 
-```nginx
-# nginx config (add to existing server block on VM)
-location /dbt-docs/ {
-    alias /srv/projects/dbt-asc/target/;
-    index index.html;
-}
-```
+Docs are regenerated automatically as Stage 3 of `run_pipeline.sh` after every successful `dbt build`. Output lands in `target/` and is served via nginx on the VM.
 
 ---
 
@@ -270,8 +244,8 @@ location /dbt-docs/ {
 
 The cc dashboard at `data.accesscharity.org.uk/cc.html` monitors this repo:
 
-- **Errors**: scans `logs/dbt_run.log` for ERROR lines (dbt's internal `logs/dbt.log` is excluded — too verbose)
-- **Runtime**: reads `dbt_run.timeRun.txt` written by the dbt cron entry
+- **Errors**: scans `run_pipeline.timeRun.txt` for ERROR lines (dbt's internal `logs/dbt.log` is excluded — too verbose)
+- **Runtime**: reads `run_pipeline.timeRun.txt` written by the cron entry
 
 > **Package updates**: if `packages.yml` changes, run `dbt deps` manually on the VM before the next cron run — it is not part of the daily pipeline.
 

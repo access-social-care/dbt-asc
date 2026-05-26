@@ -109,23 +109,6 @@ ascFuncs::snowflake_write_table(
   overwrite  = TRUE
 )
 
-## dbt reads REFERENCE directly, so grant it here as well. This keeps the
-## table usable even before future grants are normalised in admin SQL.
-tryCatch(
-  {
-    ascFuncs::snowflake_grant_select(
-      con,
-      TARGET_TABLE,
-      schema = "PUBLIC",
-      database = TARGET_DB,
-      role = "ROLE_DBT_TRANSFORM"
-    )
-  },
-  error = function(e) {
-    log_warn("Could not grant SELECT on {TARGET_DB}.PUBLIC.{TARGET_TABLE} to ROLE_DBT_TRANSFORM: {conditionMessage(e)}")
-  }
-)
-
 row_count <- DBI::dbGetQuery(
   con,
   paste0("SELECT COUNT(*) AS n_rows FROM ", TARGET_DB, ".PUBLIC.", TARGET_TABLE)

@@ -1,21 +1,14 @@
-{% macro la_locality_overview(months_back) %}
+{% macro la_locality_overview(months_back, source_model='stg_la_queries') %}
 -- View 1: Localities overview
--- Grain: one row per LA × locality within the time window
--- AccessAva only: other sources have NULL LOCALITY_NAME in stg_la_queries
-WITH base AS (
-    SELECT
-        LA_NAME,
-        LOCALITY_NAME,
-        SUM(QUERY_COUNT) AS RAW_COUNT
-    FROM {{ ref('stg_la_queries') }}
-    WHERE QUERY_DATE >= DATEADD('month', -{{ months_back }}, CURRENT_DATE())
-      AND SOURCE_SYSTEM = 'AccessAva'
-    GROUP BY 1, 2
-)
+-- Grain: one row per LA x locality within the time window
+-- Both sources: AdvicePro locality = ward (from postcode lookup).
+--               AccessAva locality = NULL pending sub-LA field confirmation in ACCESSAVA_LOCALITY.
 SELECT
     LA_NAME,
     LOCALITY_NAME,
-    {{ la_suppress('RAW_COUNT') }} AS QUERY_COUNT_DISPLAY,
-    {{ months_back }}              AS TIME_WINDOW_MONTHS
-FROM base
+    {{ la_suppress('SUM(QUERY_COUNT)') }} AS QUERY_COUNT_DISPLAY,
+    {{ months_back }}                     AS TIME_WINDOW_MONTHS
+FROM {{ ref(source_model) }}
+WHERE QUERY_DATE >= DATEADD('month', -{{ months_back }}, CURRENT_DATE())
+GROUP BY 1, 2
 {% endmacro %}
