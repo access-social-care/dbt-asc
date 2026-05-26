@@ -27,7 +27,6 @@ Thumbs.db
 *.Rproj
 .Rproj.user/
 .Rhistory
-*.Rhistory
 .RData
 
 # Credentials - NEVER commit profiles.yml (should be in ~/.dbt/)
