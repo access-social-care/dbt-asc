@@ -28,16 +28,16 @@ dbt solves this with a few core ideas:
 
 ## The two-stage daily pipeline
 
-The pipeline runs every morning in two stages, 45 minutes apart:
+The pipeline runs every morning as a single entry point:
 
 ```
-06:00  load_primary_data.sh   →  Snowflake (raw tables)
-06:45  run_dbt.sh             →  Snowflake (ANALYTICS schema)
+06:00  run_pipeline.sh  →  Stage 1: loaders → Snowflake (raw tables)
+                           Stage 2: dbt build → Snowflake (ANALYTICS schema)
 ```
 
-These are deliberately separate. If a dbt model fails, you can re-run `run_dbt.sh` without re-pulling all the API data. If an API loader fails, dbt will fail gracefully on stale data rather than silently producing wrong numbers.
+The stages are sequential within the same script. dbt only runs if all loaders succeed — if a loader fails, the pipeline aborts before any transforms run against stale data. If you need to re-run just the dbt stage (e.g. to fix a model without re-pulling API data), you can run `dbt build` directly on the VM.
 
-### Stage 1 — Loaders (`load_primary_data.sh`)
+### Stage 1 — Loaders (`run_pipeline.sh`, Stage 1)
 
 Four R scripts run in dependency order:
 
@@ -51,9 +51,9 @@ Four R scripts run in dependency order:
 
 AccessAva (the chatbot) is different. It already knows which LA a user belongs to because that's set when the LA signs up. So no postcode lookup is needed for that source — the LA name comes through directly.
 
-### Stage 2 — dbt (`run_dbt.sh`)
+### Stage 2 — dbt (`run_pipeline.sh`, Stage 2)
 
-`run_dbt.sh` does exactly one thing: runs `dbt build`. That single command:
+Stage 2 runs `dbt build`. That single command:
 1. Resolves the full dependency graph across all models
 2. Runs every model in order (no model runs before its dependencies are ready)
 3. Runs all configured tests
@@ -68,11 +68,11 @@ Here is the full path a single piece of AdvicePro casework data takes:
 ```
 AdvicePro API
     │
-    │  (load_advicepro_demographics_to_snowflake.R, daily 06:00)
+    │  (run_pipeline.sh Stage 1: load_advicepro_demographics_to_snowflake.R, daily 06:00)
     ▼
 CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS
     │
-    │  (load_casework_locality_to_snowflake.R, daily 06:00, reads postcodes, writes LA names)
+    │  (run_pipeline.sh Stage 1: load_casework_locality_to_snowflake.R, daily 06:00, reads postcodes, writes LA names)
     ▼
 CASEWORK.PUBLIC.CASEWORK_LOCALITY  ─────────────────────────────┐
                                                                   │
