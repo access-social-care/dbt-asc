@@ -23,11 +23,15 @@ graph LR
     CW["CASEWORK.PUBLIC<br>ADVICEPRO_CASEWORK<br>ADVICEPRO_DEMOGRAPHICS<br>CASEWORK_LOCALITY"]:::source
 
     STG1["stg_advicepro"]:::product
-    STG2["stg_la_queries"]:::product
-    MART["7 LA product<br>mart models"]:::final
-    ANA["ANALYTICS.PUBLIC<br>la_product schema"]:::final
+    STG2["stg_la_queries<br>(all LAs)"]:::product
+    GLOS["stg_la_queries_glos<br>(Gloucestershire only)"]:::product
 
-    WEB["Power BI / web products"]:::external
+    MART["7 mart_la_*<br>SDC suppressed<br>counts &lt; 5 → '1-5'"]:::final
+    MARTG["7 mart_glos_la_*<br>SDC suppressed<br>counts &lt; 5 → '1-5'"]:::final
+    ANA["ANALYTICS.PUBLIC"]:::final
+
+    PBI["Power BI"]:::external
+    LAP["LA Data Product<br>(web)"]:::external
 
     AP -->|"AdvicePro + demographics"| RPN
     MON -->|"member orgs"| RPN
@@ -41,8 +45,12 @@ graph LR
     STG1 --> STG2
     AVA --> STG2
     STG2 --> MART
+    STG2 -->|"WHERE LA_NAME = 'Gloucestershire'"| GLOS
+    GLOS --> MARTG
     MART --> ANA
-    ANA --> WEB
+    MARTG --> ANA
+    ANA --> PBI
+    ANA -->|"Glos PoC tables"| LAP
 
     classDef external fill:#e0f2f1,stroke:#80cbc4
     classDef process fill:#e1f5ff,stroke:#81d4fa
