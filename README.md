@@ -17,40 +17,34 @@ graph LR
     FTPC["findthatpostcode.uk"]:::external
     CBD["chatbot_data repo"]:::external
 
-    RPN["run_pipeline.sh<br>06:00 daily"]:::process
+    LPD["load_primary_data.sh<br>06:00 daily"]:::process
+    RDT["run_dbt.sh<br>06:45 daily"]:::process
 
     AVA["AVA.PUBLIC<br>ACCESSAVA"]:::source
     CW["CASEWORK.PUBLIC<br>ADVICEPRO_CASEWORK<br>ADVICEPRO_DEMOGRAPHICS<br>CASEWORK_LOCALITY"]:::source
 
     STG1["stg_advicepro"]:::product
-    STG2["stg_la_queries<br>(all LAs)"]:::product
-    GLOS["stg_la_queries_glos<br>(Gloucestershire only)"]:::product
+    STG2["stg_la_queries"]:::product
+    MART["7 LA product<br>mart models"]:::final
+    ANA["ANALYTICS.PUBLIC<br>la_product schema"]:::final
 
-    MART["7 mart_la_*<br>SDC suppressed<br>counts &lt; 5 → '1-5'"]:::final
-    MARTG["7 mart_glos_la_*<br>SDC suppressed<br>counts &lt; 5 → '1-5'"]:::final
-    ANA["ANALYTICS.PUBLIC"]:::final
+    WEB["Power BI / web products"]:::external
 
-    PBI["Power BI"]:::external
-    LAP["LA Data Product<br>(web)"]:::external
-
-    AP -->|"AdvicePro + demographics"| RPN
-    MON -->|"member orgs"| RPN
-    FTPC -->|"postcode lookup"| RPN
+    AP -->|"AdvicePro + demographics"| LPD
+    MON -->|"member orgs"| LPD
+    FTPC -->|"postcode lookup"| LPD
     CBD -->|"daily ~05:00"| AVA
 
-    RPN --> CW
+    LPD --> CW
 
-    AVA --> STG1
-    CW -->|"dbt build"| STG1
+    AVA --> RDT
+    CW --> RDT
+    RDT -->|"dbt build"| STG1
     STG1 --> STG2
     AVA --> STG2
     STG2 --> MART
-    STG2 -->|"WHERE LA_NAME = 'Gloucestershire'"| GLOS
-    GLOS --> MARTG
     MART --> ANA
-    MARTG --> ANA
-    ANA --> PBI
-    ANA -->|"Glos PoC tables"| LAP
+    ANA --> WEB
 
     classDef external fill:#e0f2f1,stroke:#80cbc4
     classDef process fill:#e1f5ff,stroke:#81d4fa
@@ -64,7 +58,7 @@ Three raw databases feed into dbt:
 | Database | Schema | Loaded by | Schedule |
 |---|---|---|---|
 | `AVA` | `PUBLIC` | `chatbot_data` repo (`data_uploader.R`) | Daily ~05:00 |
-| `CASEWORK` | `PUBLIC` | `run_pipeline.sh` Stage 1 (this repo) | Daily 06:00 |
+| `CASEWORK` | `PUBLIC` | `loaders/load_primary_data.sh` (this repo) | Daily 06:00 |
 | `HELPLINES` | `PUBLIC` | `helplines_data` repo | Daily ~05:00 |
 
 dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed by web products and Power BI.
@@ -84,6 +78,8 @@ dbt transforms all three into `ANALYTICS.PUBLIC` — the single schema consumed 
 0 6 * * * /srv/projects/dbt-asc/run_pipeline.sh >> /srv/projects/cc/run_pipeline.timeRun.txt 2>&1
 ```
 
+`run_dbt.sh` and `loaders/load_primary_data.sh` are kept as manual utilities for re-running individual stages during debugging.
+
 ---
 
 ## Repository Structure
@@ -94,8 +90,10 @@ dbt-asc/
 ├── packages.yml              # dbt package dependencies (dbt-utils)
 │
 ├── run_pipeline.sh           # CRONTAB 06:00 — full pipeline: loaders then dbt (single entry)
+├── run_dbt.sh                # Manual only — dbt build without re-loading raw data
 │
 ├── loaders/                  # R scripts: extract from APIs, load to Snowflake RAW
+│   ├── load_primary_data.sh                      # Manual only — loaders without running dbt
 │   ├── load_advicepro_demographics_to_snowflake.R  # AdvicePro FD7DXGL4 → CASEWORK.ADVICEPRO_DEMOGRAPHICS
 │   ├── load_casework_locality_to_snowflake.R       # AdvicePro PWVDK69X → CASEWORK.CASEWORK_LOCALITY
 │   ├── load_member_orgs_to_snowflake.R             # Monday.com → REFERENCE.MEMBER_ORGANISATIONS
@@ -123,6 +121,7 @@ dbt-asc/
 │       └── la_suppress.sql
 │
 ├── logs/                     # Runtime logs (git-ignored)
+│   └── dbt_run.log           # Full dbt output, overwritten each run
 │
 └── setup/
     ├── profiles.yml.template
@@ -178,7 +177,7 @@ GRANT CREATE SCHEMA ON DATABASE ANALYTICS TO ROLE ROLE_ETL_WRITE;
 
 ## Loaders
 
-R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowflake before dbt runs. All loaders are driven by Stage 1 of `run_pipeline.sh`, which runs them in two phases:
+R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowflake before dbt runs. All loaders are driven by `load_primary_data.sh`, which runs them in two phases:
 
 **Phase 1 — source system loads** (no dependencies):
 - `load_member_orgs_to_snowflake.R` — Monday.com board → `REFERENCE.MEMBER_ORGANISATIONS`
@@ -192,7 +191,7 @@ R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowf
 ### Adding a new loader
 
 1. Create `loaders/load_{name}_to_snowflake.R`
-2. Add a `run_loader` call in `run_pipeline.sh` (Stage 1)
+2. Add a `run_loader` call in `load_primary_data.sh`
 3. Document the API report columns in `loaders/report_schemas.yml`
 4. Add the target table to `models/sources.yml`
 
@@ -244,7 +243,7 @@ Docs are regenerated automatically as Stage 3 of `run_pipeline.sh` after every s
 
 The cc dashboard at `data.accesscharity.org.uk/cc.html` monitors this repo:
 
-- **Errors**: scans all `.log` and `.timeRun.txt` files under `/srv/projects/` for `Error`/`error` and `command not found` lines — including `logs/dbt.log`. Noise lines (e.g. `running dbt with arguments`) are filtered out.
+- **Errors**: scans all `.log` and `.timeRun.txt` files under `/srv/projects/` for `Error`/`error` and `command not found` lines (dbt's internal `logs/dbt.log` is excluded — too verbose)
 - **Runtime**: reads `run_pipeline.timeRun.txt` written by the cron entry
 
 > **Package updates**: if `packages.yml` changes, run `dbt deps` manually on the VM before the next cron run — it is not part of the daily pipeline.
