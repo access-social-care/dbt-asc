@@ -244,7 +244,7 @@ Docs are regenerated automatically as Stage 3 of `run_pipeline.sh` after every s
 
 The cc dashboard at `data.accesscharity.org.uk/cc.html` monitors this repo:
 
-- **Errors**: scans `run_pipeline.timeRun.txt` for ERROR lines (dbt's internal `logs/dbt.log` is excluded — too verbose)
+- **Errors**: scans all `.log` and `.timeRun.txt` files under `/srv/projects/` for `Error`/`error` and `command not found` lines — including `logs/dbt.log`. Noise lines (e.g. `running dbt with arguments`) are filtered out.
 - **Runtime**: reads `run_pipeline.timeRun.txt` written by the cron entry
 
 > **Package updates**: if `packages.yml` changes, run `dbt deps` manually on the VM before the next cron run — it is not part of the daily pipeline.
