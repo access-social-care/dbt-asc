@@ -28,10 +28,6 @@ LOG_DIR="/srv/projects/cc"
 PIPELINE_START=$(date +%s)
 FAILURES=0
 
-# Load credentials (not stored in repo — must exist on the VM at ~/.asc_secrets)
-# shellcheck source=/dev/null
-source ~/.asc_secrets
-
 # ── Stage 1: Load raw data ────────────────────────────────────────────────────
 
 echo "=== Stage 1: Loaders starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
@@ -86,7 +82,7 @@ echo "=== Stage 2: dbt build starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
 cd "$PROJECT_DIR"
 mkdir -p "$PROJECT_DIR/logs"
 
-dbt build > "$PROJECT_DIR/logs/dbt_run.log" 2>&1
+dbt build
 DBT_EXIT=$?
 
 if [ $DBT_EXIT -ne 0 ]; then
@@ -116,4 +112,3 @@ if [ $DOCS_EXIT -ne 0 ]; then
 fi
 
 echo "OK: dbt docs regenerated"
-echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF"
