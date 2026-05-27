@@ -21,7 +21,7 @@
 
 LOADERS_DIR="/srv/projects/dbt-asc/loaders"
 PROJECT_DIR="/srv/projects/dbt-asc"
-LOG_DIR="/srv/projects/cc"
+LOG_DIR="/srv/projects/dbt-asc/logs/"
 PIPELINE_START=$(date +%s)
 FAILURES=0
 
