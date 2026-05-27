@@ -9,6 +9,10 @@ LOG_DIR="/srv/projects/dbt-asc/logs/"
 PIPELINE_START=$(date +%s)
 FAILURES=0
 
+# Load credentials (not stored in repo — must exist on the VM at ~/.asc_secrets)
+# shellcheck source=/dev/null
+source ~/.asc_secrets
+
 # ── Stage 1: Load raw data ────────────────────────────────────────────────────
 
 echo "=== Stage 1: Loaders starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
@@ -74,7 +78,7 @@ DBT_EXIT=$?
 if [ $DBT_EXIT -ne 0 ]; then
     PIPELINE_END=$(date +%s)
     PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
-    echo "ERROR: Stage 2 failed — dbt build exited $DBT_EXIT"
+    echo "ERROR: Stage 2 failed — dbt build exited $DBT_EXIT (see $PROJECT_DIR/logs/dbt_run.log)"
     echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF (FAILED stage2)"
     exit 1
 fi
@@ -98,3 +102,25 @@ if [ $DOCS_EXIT -ne 0 ]; then
 fi
 
 echo "OK: dbt docs regenerated"
+
+# ── Stage 4: Observability ────────────────────────────────────────────────────
+# Non-fatal — failure here does not affect pipeline exit code.
+# a) dbt source freshness: data-level check on source tables (AVA, HELPLINES, CASEWORK)
+# b) snowflake_staleness_check.R: INFORMATION_SCHEMA.LAST_ALTERED across source
+#    databases — ETL-level check (did the pipeline actually run?).
+
+echo "=== Stage 4: Observability at $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+echo "--- dbt source freshness ---"
+dbt source freshness > "$PROJECT_DIR/logs/source_freshness.log" 2>&1 || \
+    echo "WARN: dbt source freshness exited non-zero — check $PROJECT_DIR/logs/source_freshness.log"
+
+echo "--- Snowflake staleness check (INFORMATION_SCHEMA) ---"
+cd "$LOADERS_DIR"
+Rscript snowflake_staleness_check.R > "$LOG_DIR/snowflake_staleness_check.log" 2>&1 || \
+    echo "WARN: snowflake_staleness_check.R exited non-zero — check $LOG_DIR/snowflake_staleness_check.log"
+
+PIPELINE_END=$(date +%s)
+PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
+echo "OK: Stage 4 complete"
+echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF"
