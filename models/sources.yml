@@ -118,6 +118,7 @@ sources:
 
     tables:
       - name: casework_locality
+        freshness: null
         description: |
           Postcode → geography lookup for AdvicePro cases.
           One row per case_reference (incremental append, never updated).
