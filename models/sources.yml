@@ -14,6 +14,7 @@ sources:
     
     tables:
       - name: accessava
+        loaded_at_field: created_at
         description: |
           Main fact table in AVA database.
           Fact table containing all chatbot conversations.
@@ -73,8 +74,16 @@ sources:
     database: helplines
     schema: public
 
+    # Helplines data is delivered monthly by partners — month_date will always
+    # lag ~1 month behind current date by design.
+    config:
+      freshness:
+        warn_after: {count: 45, period: day}
+        error_after: {count: 90, period: day}
+
     tables:
       - name: helplines_aggregated_full
+        loaded_at_field: month_date
         description: |
           Pre-aggregated helplines call counts by LA and month.
           One row = one LA × month × UT1 call category combination.
@@ -96,6 +105,16 @@ sources:
     description: AdvicePro casework data loaded by advicePro_queries ETL
     database: casework
     schema: public
+
+    # Loaded daily by advicePro_queries at 11:00 UTC.
+    # opened_on reflects when cases were opened — good proxy for data currency.
+    # Note: this measures data age, not ETL run freshness (TRUNCATE+INSERT means
+    # the ETL always runs even with no new cases; INFORMATION_SCHEMA.LAST_ALTERED
+    # is the ETL-health signal — see loaders/snowflake_staleness_check.R).
+    config:
+      freshness:
+        warn_after: {count: 36, period: hour}
+        error_after: {count: 72, period: hour}
 
     tables:
       - name: casework_locality
@@ -144,6 +163,7 @@ sources:
             description: Client ethnicity
 
       - name: advicepro_casework
+        loaded_at_field: opened_on
         description: |
           Main casework fact table.
           One row = one case (case_reference is the primary key).
