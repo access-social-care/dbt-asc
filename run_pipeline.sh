@@ -2,22 +2,6 @@
 ##
 ## Daily pipeline: load raw data, then run dbt transforms.
 ##
-## This is the single production runner for the full pipeline.
-##
-##   Stage 1 — R loaders push raw data from source systems into Snowflake
-##             (REFERENCE, CASEWORK, AVA schemas)
-##   Stage 2 — dbt build transforms raw tables into analytics models
-##             (ANALYTICS schema)
-##
-## dbt only runs if ALL loaders succeed. A loader failure aborts the pipeline
-## before any transforms run — no silent stale data.
-##
-## Usage (manual):
-##   bash run_pipeline.sh
-## Usage (cron):
-##   0 6 * * * /srv/projects/dbt-asc/run_pipeline.sh >> /srv/projects/cc/run_pipeline.timeRun.txt 2>&1
-##
-##
 
 LOADERS_DIR="/srv/projects/dbt-asc/loaders"
 PROJECT_DIR="/srv/projects/dbt-asc"
@@ -77,9 +61,11 @@ echo "OK: Stage 1 completed in ${STAGE1_DIFF}s"
 echo "=== Stage 2: dbt build starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
 cd "$PROJECT_DIR"
-mkdir -p "$PROJECT_DIR/logs"
+# mkdir -p "$PROJECT_DIR/logs"
 
-dbt build
+source ~/.snowflake_env
+
+~/.local/bin/dbt build
 DBT_EXIT=$?
 
 if [ $DBT_EXIT -ne 0 ]; then
@@ -96,7 +82,7 @@ echo "OK: dbt build completed"
 
 echo "=== Stage 3: dbt docs generate at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
-dbt docs generate
+~/.local/bin/dbt docs generate
 DOCS_EXIT=$?
 
 PIPELINE_END=$(date +%s)
