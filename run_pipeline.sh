@@ -76,6 +76,9 @@ echo "OK: Stage 1 completed in ${STAGE1_DIFF}s"
 
 echo "=== Stage 2: dbt build starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
+# dbt is installed via pip3; cron PATH is minimal so expand it explicitly
+export PATH="$PATH:/home/amit/.local/bin:/usr/local/bin"
+
 cd "$PROJECT_DIR"
 mkdir -p "$PROJECT_DIR/logs"
 
