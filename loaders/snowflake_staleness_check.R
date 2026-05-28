@@ -82,23 +82,23 @@ if (nrow(all_tables) == 0) {
 # Report
 # -----------------------------------------------------------------------
 stale <- all_tables %>%
-  filter(days_since_update > STALE_DAYS) %>%
-  arrange(desc(days_since_update))
+  filter(DAYS_SINCE_UPDATE > STALE_DAYS) %>%
+  arrange(desc(DAYS_SINCE_UPDATE))
 
 fresh <- all_tables %>%
-  filter(days_since_update <= STALE_DAYS)
+  filter(DAYS_SINCE_UPDATE <= STALE_DAYS) 
 
 log_info("--- Fresh tables ({nrow(fresh)}) ---")
 for (i in seq_len(nrow(fresh))) {
   r <- fresh[i, ]
-  log_info("  OK  {r$DATABASE}.{r$TABLE_NAME}: {r$ROW_COUNT} rows, updated {r$days_since_update}d ago")
+  log_info("  OK  {r$DATABASE}.{r$TABLE_NAME}: {r$ROW_COUNT} rows, updated {r$DAYS_SINCE_UPDATE}d ago")
 }
 
 if (nrow(stale) > 0) {
   log_warn("--- STALE tables ({nrow(stale)}) ---")
   for (i in seq_len(nrow(stale))) {
     r <- stale[i, ]
-    log_warn("  STALE  {r$DATABASE}.{r$TABLE_NAME}: {r$ROW_COUNT} rows, last updated {r$days_since_update}d ago ({r$LAST_ALTERED})")
+    log_warn("  STALE  {r$DATABASE}.{r$TABLE_NAME}: {r$ROW_COUNT} rows, last updated {r$DAYS_SINCE_UPDATE}d ago ({r$LAST_ALTERED})")
   }
   log_warn("Action: check the ETL pipelines for the stale databases above")
 } else {

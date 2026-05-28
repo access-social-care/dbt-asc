@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 ##
 ## Daily pipeline: load raw data, then run dbt transforms.
 ##
@@ -11,9 +11,9 @@ FAILURES=0
 
 # Load credentials (not stored in repo â€” must exist on the VM at ~/.asc_secrets)
 # shellcheck source=/dev/null
-source ~/.asc_secrets
+source ~/.snowflake_env
 
-# â”€â”€ Stage 1: Load raw data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#  Stage 1: Load raw data 
 
 echo "=== Stage 1: Loaders starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
@@ -60,7 +60,7 @@ fi
 
 echo "OK: Stage 1 completed in ${STAGE1_DIFF}s"
 
-# â”€â”€ Stage 2: dbt build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#  Stage 2: dbt build 
 
 echo "=== Stage 2: dbt build starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
@@ -85,7 +85,7 @@ fi
 
 echo "OK: dbt build completed"
 
-# â”€â”€ Stage 3: regenerate dbt docs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#  Stage 3: regenerate dbt docs 
 
 echo "=== Stage 3: dbt docs generate at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
@@ -103,7 +103,7 @@ fi
 
 echo "OK: dbt docs regenerated"
 
-# â”€â”€ Stage 4: Observability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#  Stage 4: Observability 
 # Non-fatal â€” failure here does not affect pipeline exit code.
 # a) dbt source freshness: data-level check on source tables (AVA, HELPLINES, CASEWORK)
 # b) snowflake_staleness_check.R: INFORMATION_SCHEMA.LAST_ALTERED across source
@@ -123,4 +123,3 @@ Rscript snowflake_staleness_check.R > "$LOG_DIR/snowflake_staleness_check.log" 2
 PIPELINE_END=$(date +%s)
 PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
 echo "OK: Stage 4 complete"
-echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF"
