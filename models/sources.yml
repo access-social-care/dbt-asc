@@ -14,7 +14,7 @@ sources:
     
     tables:
       - name: accessava
-        loaded_at_field: '"created_at"'  # quoted: pre-admin#2 table has quoted-lowercase cols; revert to unquoted after migration
+        loaded_at_field: created_at
         description: |
           Main fact table in AVA database.
           Fact table containing all chatbot conversations.
@@ -163,7 +163,7 @@ sources:
             description: Client ethnicity
 
       - name: advicepro_casework
-        loaded_at_field: '"opened_on"'  # quoted: pre-admin#2 table has quoted-lowercase cols; revert to unquoted after migration
+        loaded_at_field: opened_on
         description: |
           Main casework fact table.
           One row = one case (case_reference is the primary key).
