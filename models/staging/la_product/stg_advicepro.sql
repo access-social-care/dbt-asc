@@ -22,21 +22,21 @@
 */
 
 SELECT
-    c."la_name"                                                                        AS LA_NAME,
-    TO_DATE(REPLACE(c."case_open_month", '/', '-') || '-01', 'YYYY-MM-DD')            AS QUERY_DATE,
+    c.la_name                                                                          AS LA_NAME,
+    TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD')              AS QUERY_DATE,
     'AdvicePro'                                                                       AS SOURCE_SYSTEM,
     1                                                                                 AS QUERY_COUNT,
     NULL::VARCHAR                                                                     AS SEGMENT,
-    d."age_range"                                                                      AS AGE_BAND,
+    d.age_range                                                                        AS AGE_BAND,
     0                                                                                 AS HAS_LETTER,
-    loc."ward"                                                                        AS LOCALITY_NAME  -- TODO: confirm preferred grain (ward / lso_area_name / mso_area_name)
+    loc.ward                                                                          AS LOCALITY_NAME  -- TODO: confirm preferred grain (ward / lso_area_name / mso_area_name)
 
 FROM {{ source('casework', 'advicepro_casework') }} c
 
 LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
-    ON c."case_reference" = d."case_reference"
+    ON c.case_reference = d.case_reference
 
 LEFT JOIN {{ source('casework', 'casework_locality') }} loc
-    ON c."case_reference" = loc."case_reference"
+    ON c.case_reference = loc.case_reference
 
-WHERE c."la_name" IS NOT NULL
+WHERE c.la_name IS NOT NULL
