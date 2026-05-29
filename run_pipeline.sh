@@ -13,7 +13,7 @@ FAILURES=0
 # shellcheck source=/dev/null
 source ~/.snowflake_env
 
-#  Stage 1: Load raw data 
+#  Stage 1: Load raw data
 
 echo "=== Stage 1: Loaders starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
@@ -60,7 +60,7 @@ fi
 
 echo "OK: Stage 1 completed in ${STAGE1_DIFF}s"
 
-#  Stage 2: dbt build 
+#  Stage 2: dbt build
 
 echo "=== Stage 2: dbt build starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
@@ -85,7 +85,7 @@ fi
 
 echo "OK: dbt build completed"
 
-#  Stage 3: regenerate dbt docs 
+#  Stage 3: regenerate dbt docs
 
 echo "=== Stage 3: dbt docs generate at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
@@ -112,13 +112,13 @@ echo "OK: dbt docs regenerated"
 echo "=== Stage 4: Observability at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
 echo "--- dbt source freshness ---"
-~/.local/bin/dbt source freshness > "$PROJECT_DIR/logs/source_freshness.log" 2>&1 || \
-    echo "WARN: dbt source freshness exited non-zero â€” check $PROJECT_DIR/logs/source_freshness.log"
+~/.local/bin/dbt source freshness > "$LOG_DIR/source_freshness.log" 2>&1 || \
+    echo "WARN: dbt source freshness exited non-zero check $LOG_DIR/source_freshness.log"
 
 echo "--- Snowflake staleness check (INFORMATION_SCHEMA) ---"
 cd "$LOADERS_DIR"
 Rscript snowflake_staleness_check.R > "$LOG_DIR/snowflake_staleness_check.log" 2>&1 || \
-    echo "WARN: snowflake_staleness_check.R exited non-zero â€” check $LOG_DIR/snowflake_staleness_check.log"
+    echo "WARN: snowflake_staleness_check.R exited non-zero check $LOG_DIR/snowflake_staleness_check.log"
 
 PIPELINE_END=$(date +%s)
 PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
