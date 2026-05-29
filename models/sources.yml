@@ -14,7 +14,7 @@ sources:
     
     tables:
       - name: accessava
-        loaded_at_field: created_at
+        loaded_at_field: '"created_at"'  # quoted: pre-admin#2 table has quoted-lowercase cols; revert to unquoted after migration
         description: |
           Main fact table in AVA database.
           Fact table containing all chatbot conversations.
@@ -83,7 +83,7 @@ sources:
 
     tables:
       - name: helplines_aggregated_full
-        loaded_at_field: month_date
+        loaded_at_field: '"month_date"'  # quoted: pre-admin#2 table has quoted-lowercase cols; revert to unquoted after migration
         description: |
           Pre-aggregated helplines call counts by LA and month.
           One row = one LA × month × UT1 call category combination.
@@ -163,7 +163,7 @@ sources:
             description: Client ethnicity
 
       - name: advicepro_casework
-        loaded_at_field: opened_on
+        loaded_at_field: '"opened_on"'  # quoted: pre-admin#2 table has quoted-lowercase cols; revert to unquoted after migration
         description: |
           Main casework fact table.
           One row = one case (case_reference is the primary key).
