@@ -142,7 +142,7 @@ table_exists <- tryCatch({
 if (table_exists) {
   existing_ids <- DBI::dbGetQuery(
     con,
-    paste0('SELECT DISTINCT "case_reference" FROM ', target_full)
+    paste0('SELECT DISTINCT case_reference FROM ', target_full)
   ) %>% dplyr::pull(case_reference)
   log_info("{length(existing_ids)} case_references already in Snowflake")
 } else {
@@ -196,13 +196,17 @@ log_info("{nrow(new_locality)} rows ready to append")
 # Write to Snowflake ------------------------------------------------------
 
 cli::cli_h2("Writing to Snowflake")
-table_id <- DBI::Id(database = TARGET_DB, schema = "PUBLIC", table = TARGET_TABLE)
+
+# Uppercase column names so they land as unquoted UPPERCASE in Snowflake
+# (canonical standard per admin#2 — matches snowflake_write_table() behaviour)
+names(new_locality) <- toupper(names(new_locality))
 
 if (table_exists) {
+  table_id <- DBI::Id(database = TARGET_DB, schema = "PUBLIC", table = TARGET_TABLE)
   DBI::dbAppendTable(con, table_id, new_locality)
   log_info("Appended {nrow(new_locality)} rows to {target_full}")
 } else {
-  DBI::dbWriteTable(con, table_id, new_locality)
+  ascFuncs::snowflake_write_table(con, TARGET_TABLE, new_locality, database = TARGET_DB)
   log_info("Created {target_full} with {nrow(new_locality)} rows")
 }
 
