@@ -67,6 +67,9 @@ check_database <- function(db) {
       NULL
     }
   )
+  # Snowflake returns unquoted column aliases as UPPERCASE via ODBC; normalise to
+  # lowercase so downstream dplyr filter/arrange calls work as written.
+  if (!is.null(result)) names(result) <- tolower(names(result))
   if (!is.null(result)) result$DATABASE <- db
   result
 }
