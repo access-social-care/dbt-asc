@@ -27,14 +27,14 @@ SELECT
     'AdvicePro'                                                                       AS SOURCE_SYSTEM,
     1                                                                                 AS QUERY_COUNT,
     NULL::VARCHAR                                                                     AS SEGMENT,
-    d."age_range"                                                                     AS AGE_BAND,
+    d.age_range                                                                       AS AGE_BAND,
     0                                                                                 AS HAS_LETTER,
     loc."ward"                                                                        AS LOCALITY_NAME  -- TODO: confirm preferred grain (ward / lso_area_name / mso_area_name)
 
 FROM {{ source('casework', 'advicepro_casework') }} c
 
 LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
-    ON c.case_reference = d."case_reference"
+    ON c.case_reference = d.case_reference
 
 LEFT JOIN {{ source('casework', 'casework_locality') }} loc
     ON c.case_reference = loc."case_reference"

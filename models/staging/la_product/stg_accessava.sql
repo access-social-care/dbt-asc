@@ -32,9 +32,9 @@ SELECT
     a.categories                                                   AS SEGMENT,
     a.age                                                          AS AGE_BAND,
     CASE WHEN a.lettercode IS NOT NULL THEN 1 ELSE 0 END           AS HAS_LETTER,
-    l."ward"                                                       AS LOCALITY_NAME
+    l.ward                                                         AS LOCALITY_NAME
 
 FROM {{ source('accessava', 'accessava') }} a
 LEFT JOIN {{ source('accessava', 'accessava_locality') }} l
-    ON a.transcript_id = l."transcript_id"
+    ON a.transcript_id = l.transcript_id
 WHERE a.la_name IS NOT NULL
