@@ -4,9 +4,9 @@
 ## Target: CASEWORK.PUBLIC.CASEWORK_LOCALITY
 ##
 ## Incremental logic:
-##   1. Pull all case_reference + client_postcode from AdvicePro report
-##   2. Compare against existing case_references in Snowflake
-##   3. Only call the API for new case_references (skips already-resolved ones)
+##   1. Pull all CASE_REFERENCE + client_postcode from AdvicePro report
+##   2. Compare against existing CASE_REFERENCEs in Snowflake
+##   3. Only call the API for new CASE_REFERENCEs (skips already-resolved ones)
 ##   4. Append new rows — existing rows are never touched
 ##
 ## First run (table doesn't exist yet): creates the table.
@@ -37,7 +37,7 @@ TARGET_DB    <- "CASEWORK"
 # Helpers -----------------------------------------------------------------
 
 ## Call findthatpostcode.uk for a single postcode and return a one-row tibble.
-## Returns NA columns on lookup failure so case_references are never dropped.
+## Returns NA columns on lookup failure so CASE_REFERENCEs are never dropped.
 postcode_json_getter <- function(postcode) {
   Sys.sleep(5)
   url  <- paste0("https://findthatpostcode.uk/postcodes/", gsub(" ", "%20", postcode), ".json")
@@ -123,7 +123,7 @@ ap <- ap_raw %>%
   dplyr::select(case_reference, postcode) %>%
   dplyr::filter(!is.na(postcode), trimws(postcode) != "")
 
-log_info("{nrow(ap)} rows with a postcode ({n_distinct(ap$case_reference)} unique case_references)")
+log_info("{nrow(ap)} rows with a postcode ({n_distinct(ap$case_reference)} unique case_reference)")
 
 if (nrow(ap) == 0) {
   log_warn("No rows with postcodes — nothing to do")
@@ -140,18 +140,17 @@ table_exists <- tryCatch({
 }, error = function(e) FALSE)
 
 if (table_exists) {
-  existing_ids <- DBI::dbGetQuery(
-    con,
-    paste0('SELECT DISTINCT case_reference FROM ', target_full)
-  ) %>% dplyr::pull(case_reference)
-  log_info("{length(existing_ids)} case_references already in Snowflake")
+  existing_ids <- DBI::dbGetQuery(con,
+    paste0('SELECT DISTINCT CASE_REFERENCE FROM ', target_full)) %>% 
+    dplyr::pull(CASE_REFERENCE)
+  log_info("{length(existing_ids)} CASE_REFERENCEs already in Snowflake")
 } else {
   existing_ids <- character(0)
   log_info("Table does not exist yet — full load")
 }
 
 new_cases <- ap %>% dplyr::filter(!case_reference %in% existing_ids)
-log_info("{nrow(new_cases)} new case_references to process")
+log_info("{nrow(new_cases)} new case_reference to process")
 
 if (nrow(new_cases) == 0) {
   log_info("Nothing new — exiting")
@@ -185,7 +184,7 @@ log_info(
   "{sum(is.na(postcode_lookup$la_name))} not found"
 )
 
-# Join back to new case_references ----------------------------------------
+# Join back to new CASE_REFERENCEs ----------------------------------------
 
 new_locality <- new_cases %>%
   dplyr::left_join(postcode_lookup, by = "postcode") %>%
@@ -197,9 +196,7 @@ log_info("{nrow(new_locality)} rows ready to append")
 
 cli::cli_h2("Writing to Snowflake")
 
-# Uppercase column names so they land as unquoted UPPERCASE in Snowflake
-# (canonical standard per admin#2 — matches snowflake_write_table() behaviour)
-names(new_locality) <- toupper(names(new_locality))
+con <- ascFuncs::connect_snowflake()
 
 if (table_exists) {
   table_id <- DBI::Id(database = TARGET_DB, schema = "PUBLIC", table = TARGET_TABLE)
@@ -211,3 +208,4 @@ if (table_exists) {
 }
 
 log_info("Done")
+
