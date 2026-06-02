@@ -95,11 +95,11 @@ sources:
           Note: This table is already aggregated (N = call count).
           stg_la_queries uses SUM(N) to align grain with row-level sources.
         columns:
-          - name: la_name
+          - name: LA_NAME
             description: Local authority name
-          - name: month_date
+          - name: MONTH_DATE
             description: End-of-month date for the aggregation period (YYYY-MM-DD)
-          - name: n
+          - name: N
             description: Number of calls in this LA × month × UT1 combination
           - name: UT1
             description: Top-level call category (helplines-specific taxonomy)
