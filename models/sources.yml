@@ -102,7 +102,11 @@ sources:
           - name: N
             description: Number of calls in this LA × month × UT1 combination
           - name: UT1
-            description: Top-level call category (helplines-specific taxonomy)
+            description: |
+              Top-level helplines call category (9 distinct values):
+              Assessments, Care plan, Carers, Charging, Direct payments,
+              Information Seeking, Legal issues and complaints, Mental capacity, Safeguarding.
+              Used as SEGMENT in stg_helplines and mart_la_query_summary.
 
   - name: casework
     description: AdvicePro casework data loaded by advicePro_queries ETL
