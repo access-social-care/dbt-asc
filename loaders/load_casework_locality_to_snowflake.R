@@ -188,7 +188,8 @@ log_info(
 
 new_locality <- new_cases %>%
   dplyr::left_join(postcode_lookup, by = "postcode") %>%
-  dplyr::select(-postcode)
+  dplyr::select(-postcode) %>% 
+  set_names(toupper(names(.)))
 
 log_info("{nrow(new_locality)} rows ready to append")
 
