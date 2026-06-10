@@ -2,6 +2,9 @@
 target/
 dbt_packages/
 logs/
+
+# External reference data (local only, not committed)
+external_data/
 dbt_modules/
 
 # Python
@@ -36,3 +39,6 @@ profiles.yml
 .env
 .env.local
 .positai
+
+# SSH keys
+*.pem
