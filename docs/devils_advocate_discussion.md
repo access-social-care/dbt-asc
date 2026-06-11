@@ -32,8 +32,8 @@ Deploy dbt (data build tool) on Azure VM to create transformation layer:
 > "The problem I'm solving is that **signal is stored deep in R code that only I can read.**"
 
 Two primary problems:
-1. **Bus factor = 1** — transformations locked in R tidyverse that few can read
-2. **No governance transparency** — business logic changes happen invisibly in R scripts
+1. **Bus factor = 1** - transformations locked in R tidyverse that few can read
+2. **No governance transparency** - business logic changes happen invisibly in R scripts
 
 ### Challenge 3: Could you get governance without dbt?
 
@@ -50,12 +50,12 @@ Two primary problems:
 
 **Agreed. dbt is the right choice because:**
 
-- ✅ **Industry standard** — any future analytics hire knows dbt
-- ✅ **Free, maintained, documented** — not rolling your own transform framework  
-- ✅ **Low infrastructure overhead** — Python/Snowflake/cron already exist, dbt just orchestrates SQL
-- ✅ **Future optionality** — incremental models, snapshot tables, data quality tests, auto-documentation, lineage DAGs all come "for free" once foundation is laid
-- ✅ **Pleasant UI** — dbt docs generate lineage graphs, CLI output is clean
-- ✅ **Less tech debt than homecooking** — maintaining your own "SQL files in R" is MORE debt than adopting dbt
+- ✅ **Industry standard** - any future analytics hire knows dbt
+- ✅ **Free, maintained, documented** - not rolling your own transform framework  
+- ✅ **Low infrastructure overhead** - Python/Snowflake/cron already exist, dbt just orchestrates SQL
+- ✅ **Future optionality** - incremental models, snapshot tables, data quality tests, auto-documentation, lineage DAGs all come "for free" once foundation is laid
+- ✅ **Pleasant UI** - dbt docs generate lineage graphs, CLI output is clean
+- ✅ **Less tech debt than homecooking** - maintaining your own "SQL files in R" is MORE debt than adopting dbt
 
 **Critical insight:** Homecooking governance around SQL files means maintaining your own:
 - Orchestration logic
@@ -68,15 +68,15 @@ dbt provides all of this as a standard, maintained toolkit.
 
 ## Approved Architecture
 
-**ANALYTICS.PUBLIC** — Single schema for all dbt marts:
+**ANALYTICS.PUBLIC** - Single schema for all dbt marts:
 - **AVA.PUBLIC** → Raw chatbot data (owned by chatbot_data ETL)
 - **CASEWORK.PUBLIC** → Raw casework data (owned by advicePro_queries ETL)  
 - **ANALYTICS.PUBLIC** → ALL dbt marts (chatbot, casework, and unified)
 
 **Benefits:**
 - Clean separation: ETL repos own raw data databases, dbt owns analytics database
-- No favoritism — ANALYTICS is its own domain, not "part of AVA"
-- Simplest for consumers (Power BI, web products) — everything in one schema
+- No favoritism - ANALYTICS is its own domain, not "part of AVA"
+- Simplest for consumers (Power BI, web products) - everything in one schema
 - Standard dbt pattern: source data in raw databases, transformed data in analytics database
 - Model organization happens via dbt folder structure (`marts/chatbot/`, `marts/casework/`, `marts/unified/`) not database schemas
 
@@ -98,7 +98,7 @@ If any fail, we learn early with minimal investment. If all succeed, we have a f
 
 **This is a governance play disguised as a tech migration.**
 
-The real value isn't "dbt vs R" — it's:
+The real value isn't "dbt vs R" - it's:
 - Reducing bus factor from 1 to many
 - Making business logic changes transparent and reviewable
 - Creating shared ownership of transformation logic between data and product teams
@@ -109,6 +109,6 @@ dbt is the right tool because it's purpose-built for this pattern and brings a f
 
 ## Status
 
-**Decision:** Approved — proceed with ANALYTICS.PUBLIC architecture  
+**Decision:** Approved - proceed with ANALYTICS.PUBLIC architecture  
 **Next step:** Update dbt-asc repository files to reflect ANALYTICS database target  
 **Deployment:** Pending Snowflake permissions setup and VM configuration

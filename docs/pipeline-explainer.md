@@ -19,10 +19,10 @@ Before dbt, "transforming data in a warehouse" usually meant either:
 Both approaches break down as soon as you have more than a handful of tables. You lose track of which table depends on what, tests live in spreadsheets nobody updates, and every column rename requires a grep across dozens of files.
 
 dbt solves this with a few core ideas:
-1. **Each `.sql` file is one table** — you write a `SELECT` statement, dbt runs it and materialises the result
-2. **You declare dependencies with `ref()`** — instead of hardcoding `CASEWORK.PUBLIC.ADVICEPRO_CASEWORK`, you write `{{ ref('stg_advicepro') }}` and dbt figures out the order to run everything
-3. **Tests are part of the project** — you declare `not_null`, `unique`, `accepted_values` tests in YAML; dbt runs them after every build
-4. **One command does everything** — `dbt build` builds every table in the right order and runs every test
+1. **Each `.sql` file is one table** - you write a `SELECT` statement, dbt runs it and materialises the result
+2. **You declare dependencies with `ref()`** - instead of hardcoding `CASEWORK.PUBLIC.ADVICEPRO_CASEWORK`, you write `{{ ref('stg_advicepro') }}` and dbt figures out the order to run everything
+3. **Tests are part of the project** - you declare `not_null`, `unique`, `accepted_values` tests in YAML; dbt runs them after every build
+4. **One command does everything** - `dbt build` builds every table in the right order and runs every test
 
 ---
 
@@ -35,9 +35,9 @@ The pipeline runs every morning as a single entry point:
                            Stage 2: dbt build → Snowflake (ANALYTICS schema)
 ```
 
-The stages are sequential within the same script. dbt only runs if all loaders succeed — if a loader fails, the pipeline aborts before any transforms run against stale data. If you need to re-run just the dbt stage (e.g. to fix a model without re-pulling API data), you can run `dbt build` directly on the VM.
+The stages are sequential within the same script. dbt only runs if all loaders succeed - if a loader fails, the pipeline aborts before any transforms run against stale data. If you need to re-run just the dbt stage (e.g. to fix a model without re-pulling API data), you can run `dbt build` directly on the VM.
 
-### Stage 1 — Loaders (`run_pipeline.sh`, Stage 1)
+### Stage 1 - Loaders (`run_pipeline.sh`, Stage 1)
 
 Four R scripts run in dependency order:
 
@@ -45,13 +45,13 @@ Four R scripts run in dependency order:
 |---|---|---|
 | `load_member_orgs_to_snowflake.R` | Pulls Access Social Care member organisations from Monday.com → `REFERENCE.MEMBER_ORGANISATIONS` | No dependencies |
 | `load_advicepro_demographics_to_snowflake.R` | Pulls all AdvicePro casework records from the API → `CASEWORK.ADVICEPRO_DEMOGRAPHICS` | No dependencies |
-| `load_casework_locality_to_snowflake.R` | Reads case postcodes written by the demographics loader, looks each one up via [findthatpostcode.uk](https://findthatpostcode.uk), appends new LA names to `CASEWORK.CASEWORK_LOCALITY` | **Must run after demographics** — it reads postcodes from the table written in step 2 |
+| `load_casework_locality_to_snowflake.R` | Reads case postcodes written by the demographics loader, looks each one up via [findthatpostcode.uk](https://findthatpostcode.uk), appends new LA names to `CASEWORK.CASEWORK_LOCALITY` | **Must run after demographics** - it reads postcodes from the table written in step 2 |
 
-**Why the postcode lookup?** AdvicePro stores the client's postcode, not their local authority. There is no LA field in the raw AdvicePro API response. The locality loader is the bridge. It works incrementally — it only looks up postcodes for cases not already in `CASEWORK_LOCALITY`, so it doesn't hammer the external API every day.
+**Why the postcode lookup?** AdvicePro stores the client's postcode, not their local authority. There is no LA field in the raw AdvicePro API response. The locality loader is the bridge. It works incrementally - it only looks up postcodes for cases not already in `CASEWORK_LOCALITY`, so it doesn't hammer the external API every day.
 
-AccessAva (the chatbot) is different. It already knows which LA a user belongs to because that's set when the LA signs up. So no postcode lookup is needed for that source — the LA name comes through directly.
+AccessAva (the chatbot) is different. It already knows which LA a user belongs to because that's set when the LA signs up. So no postcode lookup is needed for that source - the LA name comes through directly.
 
-### Stage 2 — dbt (`run_pipeline.sh`, Stage 2)
+### Stage 2 - dbt (`run_pipeline.sh`, Stage 2)
 
 Stage 2 runs `dbt build`. That single command:
 1. Resolves the full dependency graph across all models
@@ -123,7 +123,7 @@ ANALYTICS.PUBLIC.STG_LA_QUERIES
 
 ### Sources (`models/sources.yml`)
 
-Sources are the raw Snowflake tables that the loaders write to. They are not created or modified by dbt — dbt just needs to know they exist so it can reference them safely.
+Sources are the raw Snowflake tables that the loaders write to. They are not created or modified by dbt - dbt just needs to know they exist so it can reference them safely.
 
 ```yaml
 # sources.yml (simplified)
@@ -146,9 +146,9 @@ dbt will validate the source exists before running. If the loader failed and the
 
 ### Staging models (`models/staging/`)
 
-Staging models are the first layer of transformation. Each one represents one logical dataset — it cleans, joins, and standardises the raw data into a consistent shape.
+Staging models are the first layer of transformation. Each one represents one logical dataset - it cleans, joins, and standardises the raw data into a consistent shape.
 
-**`stg_advicepro.sql`** — joins three raw tables into one row per AdvicePro case:
+**`stg_advicepro.sql`** - joins three raw tables into one row per AdvicePro case:
 ```
 ADVICEPRO_CASEWORK       (the case: date, postcode, case reference)
      +
@@ -159,7 +159,7 @@ CASEWORK_LOCALITY        (the LA name, resolved from postcode by the loader)
 → one row per case, with: LA_NAME, QUERY_DATE, AGE_BAND, HAS_LETTER, LOCALITY_NAME
 ```
 
-**`stg_la_queries.sql`** — UNION ALL of AdvicePro and AccessAva into a single grain:
+**`stg_la_queries.sql`** - UNION ALL of AdvicePro and AccessAva into a single grain:
 ```
 stg_advicepro  (AdvicePro cases, SOURCE_SYSTEM = 'AdvicePro')
     UNION ALL
@@ -174,22 +174,22 @@ This is the key normalisation step. Every downstream mart model reads from `stg_
 
 ### Mart models (`models/marts/`)
 
-Marts are the final output tables — what Power BI and web products actually query. They are aggregated, business-ready, and apply SDC suppression rules.
+Marts are the final output tables - what Power BI and web products actually query. They are aggregated, business-ready, and apply SDC suppression rules.
 
 There are two groups:
 
-**Chatbot marts** (`models/marts/chatbot/`): simple conversation counts by tenant, monthly and all-time. No suppression — these are internal operational metrics.
+**Chatbot marts** (`models/marts/chatbot/`): simple conversation counts by tenant, monthly and all-time. No suppression - these are internal operational metrics.
 
 **LA product marts** (`models/marts/la_product/`): seven tables, one per analytical view. Each table contains all five time windows (1m, 3m, 6m, 9m, 12m) as rows, distinguished by a `TIME_WINDOW_MONTHS` column.
 
 ```
-mart_la_activity_summary      — total queries per LA (all sources)
-mart_la_queries_over_time     — monthly time series per LA
-mart_la_query_source          — query breakdown by source system (AdvicePro vs AccessAva)
-mart_la_query_segments        — breakdown by topic/supercategory (AccessAva only)
-mart_la_locality_overview     — breakdown by locality within LA (AccessAva only)
-mart_la_demographics          — breakdown by age band (AccessAva only, <5% populated)
-mart_la_legal_letters         — queries vs legal letters generated (AccessAva only)
+mart_la_activity_summary      - total queries per LA (all sources)
+mart_la_queries_over_time     - monthly time series per LA
+mart_la_query_source          - query breakdown by source system (AdvicePro vs AccessAva)
+mart_la_query_segments        - breakdown by topic/supercategory (AccessAva only)
+mart_la_locality_overview     - breakdown by locality within LA (AccessAva only)
+mart_la_demographics          - breakdown by age band (AccessAva only, <5% populated)
+mart_la_legal_letters         - queries vs legal letters generated (AccessAva only)
 ```
 
 The mart model files themselves are very short:
@@ -210,7 +210,7 @@ The actual SQL logic lives in the macros (see below).
 
 ### Macros (`macros/la_product/`)
 
-Macros are reusable SQL fragments — think of them as functions that generate SQL. In Jinja (the templating language dbt uses), a macro looks like this:
+Macros are reusable SQL fragments - think of them as functions that generate SQL. In Jinja (the templating language dbt uses), a macro looks like this:
 
 ```sql
 -- macros/la_product/la_activity_summary.sql
@@ -262,9 +262,9 @@ CASE WHEN {{ expr }} < 5 THEN '1-5' ELSE CAST({{ expr }} AS VARCHAR) END
 {% endmacro %}
 ```
 
-Any count below 5 is replaced with the string `'1-5'`. This is a row-level operation — there is no cross-row dependency, which is why it is safe to apply inside each time-window chunk before UNION ALL-ing them together. The `<5` suppression is a standard NHS/ONS SNS requirement for reporting population health data.
+Any count below 5 is replaced with the string `'1-5'`. This is a row-level operation - there is no cross-row dependency, which is why it is safe to apply inside each time-window chunk before UNION ALL-ing them together. The `<5` suppression is a standard NHS/ONS SNS requirement for reporting population health data.
 
-Note that the output column is a `VARCHAR`, not a number. This is intentional — Power BI and web products must handle `'1-5'` as a string. Never cast it back to a number.
+Note that the output column is a `VARCHAR`, not a number. This is intentional - Power BI and web products must handle `'1-5'` as a string. Never cast it back to a number.
 
 ---
 
@@ -280,7 +280,7 @@ source('casework', 'casework_locality')    ──┘                     │
 source('ava', 'accessava')  ────────────────────────────────────────┘
 ```
 
-dbt guarantees that `stg_advicepro` is fully built before `stg_la_queries` starts, and that `stg_la_queries` is fully built before any mart model starts. You never specify this order yourself — you just declare the dependencies with `ref()` and dbt handles the rest.
+dbt guarantees that `stg_advicepro` is fully built before `stg_la_queries` starts, and that `stg_la_queries` is fully built before any mart model starts. You never specify this order yourself - you just declare the dependencies with `ref()` and dbt handles the rest.
 
 ---
 
@@ -288,7 +288,7 @@ dbt guarantees that `stg_advicepro` is fully built before `stg_la_queries` start
 
 ### Command Centre dashboard
 
-`data.accesscharity.org.uk/cc.html` — the first place to check.
+`data.accesscharity.org.uk/cc.html` - the first place to check.
 
 Shows:
 - Whether the last run succeeded or failed
@@ -308,7 +308,7 @@ Loader logs are written per-script by `load_primary_data.sh` and overwritten eac
 ### dbt docs
 
 A live documentation site is served at `data.accesscharity.org.uk/dbt-docs/`. It shows:
-- The full model lineage graph (interactive — you can click on any node to see its SQL, tests, and upstream/downstream dependencies)
+- The full model lineage graph (interactive - you can click on any node to see its SQL, tests, and upstream/downstream dependencies)
 - All column descriptions and test results
 - The compiled SQL for every model
 
@@ -363,12 +363,12 @@ GROUP BY 1;
 
 ### Changing the staging model
 
-If you add a column to `stg_la_queries` (e.g. a new dimension from a new source), every downstream mart model automatically has access to it. You don't need to re-declare anything — dbt propagates changes through the graph.
+If you add a column to `stg_la_queries` (e.g. a new dimension from a new source), every downstream mart model automatically has access to it. You don't need to re-declare anything - dbt propagates changes through the graph.
 
 ### Adding a new loader
 
 1. Create `loaders/load_{name}_to_snowflake.R`
-2. Add it to `load_primary_data.sh` — source system loads go in the first block, derived loads (that depend on other loaders) go in the second block
+2. Add it to `load_primary_data.sh` - source system loads go in the first block, derived loads (that depend on other loaders) go in the second block
 3. Add the target table to `models/sources.yml` so dbt can reference it
 4. Document the API column mapping in `loaders/report_schemas.yml`
 
@@ -396,7 +396,7 @@ Three Snowflake roles are in play:
 
 The separation is intentional. The R loaders write raw data with `ROLE_ETL_WRITE`. dbt reads that raw data and writes the final ANALYTICS tables with `ROLE_DBT_TRANSFORM`. Nothing that reads from ANALYTICS can accidentally write to a raw table.
 
-One subtlety: `ROLE_DBT_TRANSFORM` is the default role for the ETL_USER account. When the R loaders connect with `role = NULL`, they get `ROLE_DBT_TRANSFORM`. This is why the demographics loader (which does a full replace using TRUNCATE+INSERT) works — it owns the table it writes to, so it can TRUNCATE it. The locality loader uses `ROLE_ETL_WRITE` explicitly for its initial writes to `CASEWORK_LOCALITY`.
+One subtlety: `ROLE_DBT_TRANSFORM` is the default role for the ETL_USER account. When the R loaders connect with `role = NULL`, they get `ROLE_DBT_TRANSFORM`. This is why the demographics loader (which does a full replace using TRUNCATE+INSERT) works - it owns the table it writes to, so it can TRUNCATE it. The locality loader uses `ROLE_ETL_WRITE` explicitly for its initial writes to `CASEWORK_LOCALITY`.
 
 ---
 
@@ -407,12 +407,12 @@ One subtlety: `ROLE_DBT_TRANSFORM` is the default role for the ETL_USER account.
 | **dbt build** | Single command that runs all models + all tests in dependency order |
 | **dbt compile** | Validates SQL and expands macros without running anything in Snowflake |
 | **dbt deps** | Installs packages listed in `packages.yml` (run manually when packages.yml changes) |
-| **materialisation** | How dbt stores a model's output — `table` (replace entire table) or `view` (SQL view, no data stored). Staging models are views; mart models are tables. |
-| **ref()** | Jinja function that declares a dependency on another dbt model — `{{ ref('stg_la_queries') }}` |
-| **source()** | Jinja function that references a raw Snowflake table managed outside dbt — `{{ source('casework', 'advicepro_casework') }}` |
-| **macro** | Jinja function that generates SQL — think of it as a SQL template parameterised by dbt |
-| **DAG** | Directed Acyclic Graph — the dependency tree dbt builds from all `ref()` and `source()` calls |
-| **SDC/SNS** | Statistical Disclosure Control / Statistical Needs Suppression — the rule that counts below 5 must not be published |
-| **grain** | The unit of analysis for a model — what one row represents. `stg_la_queries`: one interaction event. `mart_la_activity_summary`: one LA × one time window. |
-| **CASEWORK_LOCALITY** | The output of the postcode lookup — maps AdvicePro case references to LA names |
-| **TIME_WINDOW_MONTHS** | Column in every LA product mart — value 1, 3, 6, 9, or 12. Filter on this to get a specific time window in Power BI |
+| **materialisation** | How dbt stores a model's output - `table` (replace entire table) or `view` (SQL view, no data stored). Staging models are views; mart models are tables. |
+| **ref()** | Jinja function that declares a dependency on another dbt model - `{{ ref('stg_la_queries') }}` |
+| **source()** | Jinja function that references a raw Snowflake table managed outside dbt - `{{ source('casework', 'advicepro_casework') }}` |
+| **macro** | Jinja function that generates SQL - think of it as a SQL template parameterised by dbt |
+| **DAG** | Directed Acyclic Graph - the dependency tree dbt builds from all `ref()` and `source()` calls |
+| **SDC/SNS** | Statistical Disclosure Control / Statistical Needs Suppression - the rule that counts below 5 must not be published |
+| **grain** | The unit of analysis for a model - what one row represents. `stg_la_queries`: one interaction event. `mart_la_activity_summary`: one LA × one time window. |
+| **CASEWORK_LOCALITY** | The output of the postcode lookup - maps AdvicePro case references to LA names |
+| **TIME_WINDOW_MONTHS** | Column in every LA product mart - value 1, 3, 6, 9, or 12. Filter on this to get a specific time window in Power BI |
