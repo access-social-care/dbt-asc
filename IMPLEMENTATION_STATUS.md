@@ -13,7 +13,7 @@
 
 **Rationale** (see [docs/devils_advocate_discussion.md](docs/devils_advocate_discussion.md)):
 - Clean separation: ETL repos own raw data databases, dbt owns analytics database
-- No favoritism — ANALYTICS is its own domain, not "part of AVA"
+- No favoritism - ANALYTICS is its own domain, not "part of AVA"
 - Standard dbt pattern: source data in raw databases, transformed data in analytics database
 - Model organization via folder structure (`marts/chatbot/`, `marts/casework/`, `marts/unified/`), not schemas
 
