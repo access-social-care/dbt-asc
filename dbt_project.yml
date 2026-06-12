@@ -36,6 +36,11 @@ models:
         +materialized: table
         +schema: la_product_staging
 
+      acs_helplines:
+        # Cross-source UT1/UT2-aggregated staging (Helplines + AdvicePro + AccessAva)
+        +materialized: table
+        +schema: staging_acs_helplines
+
     marts:
       # Business logic and aggregations
       +materialized: table
