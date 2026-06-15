@@ -50,6 +50,9 @@ WITH helplines AS (
 
 accessava AS (
 
+    -- topic_entry_point is semicolon-joined; flatten so each topic joins
+    -- individually. Grain: 1 per conversation x topic (same as AdvicePro).
+    -- NULL topic_entry_point -> OUTER => TRUE yields one NULL row -> 'Unmatched'.
     SELECT
         a.la_name                                                  AS LA_NAME,
         DATE_TRUNC('month', a.created_at::DATE)::DATE              AS MONTH_DATE,
@@ -60,9 +63,13 @@ accessava AS (
         END                                                        AS UT1,
         NULLIF(m.ut2, 'NA')                                        AS UT2,
         COUNT(*)                                                   AS QUERY_COUNT
-    FROM {{ source('accessava', 'accessava') }} a
+    FROM {{ source('accessava', 'accessava') }} a,
+    LATERAL FLATTEN(
+        INPUT => SPLIT(a.topic_entry_point, ';'),
+        OUTER => TRUE
+    ) f
     LEFT JOIN {{ source('reference', 'topic_entry_point_map') }} m
-        ON LOWER(TRIM(a.topic_entry_point)) = LOWER(TRIM(m.topic_entry_point))
+        ON LOWER(TRIM(f.value::VARCHAR)) = LOWER(TRIM(m.topic_entry_point))
     WHERE a.la_name IS NOT NULL
     GROUP BY 1, 2, 3, 4, 5
 
