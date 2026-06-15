@@ -23,6 +23,8 @@
     C:  Fan-out guard on universal_themes_map (expect 0 rows)
 */
 
+USE ROLE ROLE_DBT_TRANSFORM;
+
 -- ============ A. Model-side: per-source totals and UT1 breakdown ============
 SELECT source_system, ut1, ut2, SUM(query_count) AS n
 FROM ANALYTICS.PUBLIC_STAGING_ACS_HELPLINES.HELPLINES_ADVICEPRO_ACCESSAVA
