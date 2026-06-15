@@ -149,6 +149,32 @@ sources:
           - name: la_name
             description: LA name resolved from postcode (cross-check vs advicepro_casework.la_name)
 
+      - name: case_topic_bridge
+        description: |
+          Paired case x topic bridge built from PRE-COLLAPSE report rows by
+          advicePro_queries/load_advicepro_to_snowflake.R, so the
+          group<->csi pairing is preserved (the per-field CSI_GROUP/CSI
+          bridges cannot provide this).
+          One row = one distinct case x (csi_group, csi) pair.
+          S_C_CSI_ID is a deterministic MD5 FK to REFERENCE.PUBLIC.S_C_CSI_MAP;
+          NULL means the pair is not in the canonical taxonomy (drift - the
+          ETL logs it loudly at load time).
+        columns:
+          - name: case_reference
+            description: FK to advicepro_casework.case_reference
+          - name: s_c_csi_id
+            description: FK to reference.s_c_csi_map.s_c_csi_id (NULL = taxonomy drift)
+            tests:
+              - relationships:
+                  to: source('reference', 's_c_csi_map')
+                  field: s_c_csi_id
+                  config:
+                    severity: warn
+          - name: csi_group_raw
+            description: Raw case_specific_issues_group value as received (drift evidence)
+          - name: csi_raw
+            description: Raw case_specific_issues value as received (drift evidence)
+
       - name: advicepro_demographics
         description: |
           Client demographic fields per case.
@@ -215,3 +241,68 @@ sources:
             description: ONS local authority code
           - name: la_name_original
             description: Original pre-standardisation local authority value
+
+  - name: reference
+    description: |
+      Shared lookup/mapping tables in REFERENCE.PUBLIC.
+      UT1/topic maps are loaded by helplines_data/one_time/load_reference_maps.R
+      from xlsx sources in helplines_data/intermediate/ (drop + reload on change);
+      S_C_CSI_MAP is maintained directly in Snowflake (see
+      advicePro_queries/one_time/s_c_csi_map_cleanup.sql).
+      NOTE: these models assume the post-reload UPPERCASE column convention.
+      Tables loaded before the uppercase migration carry quoted lowercase
+      columns and will fail compilation-time column resolution until reloaded.
+    database: reference
+    schema: public
+    tables:
+      - name: universal_themes_map
+        description: |
+          Cross-org category -> UT1/UT2 taxonomy map ("Universal codes").
+          One row = one org x t1 x t2 combination.
+          advicepro rows are keyed on the canonical S_C_CSI_MAP taxonomy:
+          Community Care -> (t1 = category, t2 = case_specific_issue);
+          other supercategories -> (t1 = supercategory, t2 = category).
+          UT2 uses the literal string 'NA' for not-applicable in places -
+          consumers must NULLIF(ut2, 'NA').
+        columns:
+          - name: org
+            description: Source organisation key (lowercase, e.g. advicepro, cab, mencap)
+          - name: t1
+            description: Org-specific top-level category
+          - name: t2
+            description: Org-specific subcategory
+          - name: ut1
+            description: Universal theme level 1 (9 canonical values + Advocacy, COVID-19, Cuts, Funding disputes, UNMATCHED)
+          - name: ut2
+            description: Universal theme level 2 (sparse; 'NA' literal where not applicable)
+
+      - name: topic_entry_point_map
+        description: |
+          AccessAva topic_entry_point -> UT1/UT2 map.
+          16 rows; unmapped/NULL entry points map to 'Unmatched'.
+        columns:
+          - name: topic_entry_point
+            description: Raw AccessAva topic entry point value
+          - name: ut1
+            description: Universal theme level 1
+          - name: ut2
+            description: Universal theme level 2 (mostly NULL)
+
+      - name: s_c_csi_map
+        description: |
+          Canonical AdvicePro taxonomy: supercategory x category x
+          case_specific_issue triplets, including '[Category only]' rows for
+          casework records with no csi recorded.
+          S_C_CSI_ID = MD5(supercategory || '|' || category || '|' || case_specific_issue).
+        columns:
+          - name: supercategory
+            description: Canonical supercategory (e.g. Community Care, Mental Capacity, Money / benefits)
+          - name: category
+            description: Canonical category within the supercategory
+          - name: case_specific_issue
+            description: Canonical case-specific issue ('[Category only]' for category-level records)
+          - name: s_c_csi_id
+            description: Deterministic MD5 primary key
+            tests:
+              - unique
+              - not_null

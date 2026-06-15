@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: helplines_advicepro_accessava
+    description: |
+      Cross-source query counts aggregated to the universal theme taxonomy
+      (UT1/UT2) instead of per-source categories.
+      Grain: LA_NAME x MONTH_DATE x SOURCE_SYSTEM x UT1 x UT2.
+      See model header for per-source count semantics and the 'Unmapped' vs
+      'Unmatched' distinction.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests:
+          - not_null
+      - name: MONTH_DATE
+        description: First day of month (all sources truncated to month grain)
+        tests:
+          - not_null
+      - name: SOURCE_SYSTEM
+        description: Originating system
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Helplines', 'AccessAva', 'AdvicePro']
+      - name: UT1
+        description: |
+          Universal theme level 1. Canonical 9 + Advocacy, COVID-19, Cuts,
+          Funding disputes, UNMATCHED/Unmatched (explicitly out of taxonomy)
+          and Unmapped (source value missing from its map - drift signal).
+        tests:
+          - not_null
+      - name: UT2
+        description: Universal theme level 2 (sparse; NULL where not applicable)
+      - name: QUERY_COUNT
+        description: Count at this grain (see model header for per-source semantics)
+        tests:
+          - not_null
