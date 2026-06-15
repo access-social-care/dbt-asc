@@ -65,7 +65,7 @@ accessava AS (
         COUNT(*)                                                   AS QUERY_COUNT
     FROM {{ source('accessava', 'accessava') }} a,
     LATERAL FLATTEN(
-        INPUT => SPLIT(a.topic_entry_point, ';'),
+        INPUT => SPLIT(a.topic_entry_point, '; '),
         OUTER => TRUE
     ) f
     LEFT JOIN {{ source('reference', 'topic_entry_point_map') }} m
