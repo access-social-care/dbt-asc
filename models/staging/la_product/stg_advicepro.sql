@@ -6,37 +6,44 @@
 }}
 
 /*
-  Stage 1: Join AdvicePro casework + demographics + locality into a single row per case.
+  Stage 1: AdvicePro casework flattened to one row per case x case_specific_issues_group value.
 
-  Three LEFT JOINs on case_reference:
-    - advicepro_casework  → core case record (LA, date, reference)
-    - advicepro_demographics → client age/agegroup (NULL if not recorded)
-    - casework_locality   → sub-LA ward from postcode lookup (NULL if postcode missing/unresolved)
+  case_specific_issues_group is semicolon-joined in advicepro_casework.
+  LATERAL FLATTEN explodes it so SEGMENT = individual raw category value.
 
-  Output columns match the stg_la_queries interface so it can be unioned with AccessAva directly.
+  This is the "raw category" track — SEGMENT is the source value, not mapped to UT1.
+  For UT1-mapped output (comparable across AccessAva and Helplines), use stg_advicepro_segments.
 
-  TODOs (resolve after confirming with the data owner):
-    - locality grain: currently using ward — alternatives are lso_area_name (LSOA) or mso_area_name (MSOA)
-    - additional demographic columns available: gender, do_you_have_a_disability, ethnic_origin
-      these are not yet surfaced in stg_la_queries but exist in ADVICEPRO_DEMOGRAPHICS if needed
+  Grain: one row per case x segment value.
+  QUERY_COUNT = 1 per row (sum gives topic mention counts, not case counts).
 */
 
 SELECT
     c.la_name                                                                         AS LA_NAME,
-    TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD')              AS QUERY_DATE,
+    TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD')             AS QUERY_DATE,
     'AdvicePro'                                                                       AS SOURCE_SYSTEM,
     1                                                                                 AS QUERY_COUNT,
-    NULL::VARCHAR                                                                     AS SEGMENT,
+    TRIM(f.value::VARCHAR)                                                            AS SEGMENT,
     d.age_range                                                                       AS AGE_BAND,
     0                                                                                 AS HAS_LETTER,
-    loc.ward                                                                          AS LOCALITY_NAME 
+    loc.ward                                                                          AS LOCALITY_NAME
 
-FROM {{ source('casework', 'advicepro_casework') }} c
+FROM (
+    SELECT
+        c.la_name,
+        c.case_open_month,
+        c.case_reference,
+        c.case_specific_issues_group
+    FROM {{ source('casework', 'advicepro_casework') }} c
+    WHERE c.la_name IS NOT NULL
+) c,
+LATERAL FLATTEN(
+    INPUT => SPLIT(c.case_specific_issues_group, ';'),
+    OUTER => TRUE
+) f
 
 LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
     ON c.case_reference = d.case_reference
 
 LEFT JOIN {{ source('casework', 'casework_locality') }} loc
     ON c.case_reference = loc.case_reference
-
-WHERE c.la_name IS NOT NULL

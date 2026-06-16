@@ -41,13 +41,27 @@ sources:
           - name: "tenant_name"
             description: Organization name from tenant configuration
           
-          # Verified column names from actual Snowflake table:
-          # - tenant_name (tenant organization name)
-          # Common columns based on chatbot_data/data_uploader.R:
-          # - persona, supercategories, categories, csis, topic_entry_point
-          # - letterCode, consumed_resources, local_authority_name
-          # - age, ethnicity, religion, disability (demographics - mostly NULL)
-          # - tenant_id (join key for accessava_locality)
+          - name: la_name
+            description: Standardised CASSR local authority name. Used as LA_NAME in stg_accessava.
+          - name: categories
+            description: |
+              Semicolon-space-joined list of conversation categories (e.g. "Housing; Benefits").
+              Used as SEGMENT in stg_accessava (raw-category track). Split on '; '.
+          - name: topic_entry_point
+            description: |
+              Semicolon-space-joined list of topic entry points (e.g. "Funding; Legal issues").
+              Used as SEGMENT in stg_accessava_segments (UT1-mapped track). Split on '; '.
+              Mapped to UT1 via REFERENCE.PUBLIC.TOPIC_ENTRY_POINT_MAP.
+          - name: age
+            description: Age band of the user (demographics — mostly NULL).
+          - name: lettercode
+            description: Letter code if a formal letter was generated. NULL if no letter. Used for HAS_LETTER flag.
+          - name: transcript_id
+            description: Join key to accessava_locality.
+          # Additional columns present in table (not used in current models):
+          # - persona, supercategories, csis, consumed_resources, local_authority_name
+          # - ethnicity, religion, disability (demographics - mostly NULL)
+          # - tenant_id
 
       - name: accessava_locality
         description: |
@@ -229,6 +243,18 @@ sources:
             description: |
               Semicolon-joined outcome values. NULL for open/active cases.
               Use OUTCOME_BRIDGE + OUTCOME_DIM for analytics joins on individual outcomes.
+          - name: case_specific_issues_group
+            description: |
+              Semicolon-joined list of case-specific issue groups (e.g. "Care needs;Funding").
+              Used as SEGMENT in stg_advicepro (raw-category track). Split on ';' (no space).
+          - name: case_specific_issues
+            description: |
+              Semicolon-joined list of individual case-specific issues.
+              Pre-exploded into case_topic_bridge for analytics joins (do not split this directly).
+          - name: super_category
+            description: |
+              Semicolon-joined list of supercategories (e.g. "Community Care;Mental Capacity").
+              Pre-exploded into case_topic_bridge for analytics joins.
           - name: number_of_cases
             description: Always 1 - one row per case, used for simple SUM aggregation
           - name: referred_from_account

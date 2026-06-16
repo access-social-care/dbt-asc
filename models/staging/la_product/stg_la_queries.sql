@@ -6,13 +6,18 @@
 }}
 
 /*
-  Stage 2: UNION ALL of pre-staged source models.
-  Each source model normalises to the same column interface:
-    - stg_advicepro  → AdvicePro cases (casework + demographics + locality joined)
-    - stg_accessava  → AccessAva chatbot conversations
+  Stage 2 (raw-category track): UNION ALL of stg_advicepro + stg_accessava.
 
-  All macros in models/marts/la_product/ reference this model (or stg_la_queries_glos for PoC).
-  Helplines excluded from PoC — re-add when UT1 → shared segment taxonomy is agreed.
+  SEGMENT in this track = raw source category value (not mapped to UT1):
+    - stg_advicepro  → SEGMENT = case_specific_issues_group (exploded on ';')
+    - stg_accessava  → SEGMENT = topic_entry_point (single value, not exploded)
+
+  Use this model when you want analysis by each source's own category taxonomy.
+
+  For cross-source comparison including Helplines, use stg_la_queries_segments instead:
+    - SEGMENT = UT1 (universal theme, mapped for all three sources)
+    - Helplines included
+    - All mart_glos_* models read from stg_la_queries_segments via stg_la_queries_glos
 */
 
 SELECT * FROM {{ ref('stg_advicepro') }}
