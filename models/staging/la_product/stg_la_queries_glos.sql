@@ -1,7 +1,7 @@
 {{
   config(
     materialized='table',
-    description='Gloucestershire-only slice of stg_la_queries — PoC output layer'
+    description='Gloucestershire-only slice of stg_la_queries_segments — topic-mention grain, all three sources'
   )
 }}
 
@@ -13,5 +13,5 @@
   to a configuration-driven filter.
 */
 
-SELECT * FROM {{ ref('stg_la_queries') }}
+SELECT * FROM {{ ref('stg_la_queries_segments') }}
 WHERE LA_NAME = 'Gloucestershire'

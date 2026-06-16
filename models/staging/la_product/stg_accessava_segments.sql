@@ -1,49 +1,54 @@
 {{
   config(
     materialized='table',
-    description='AccessAva conversations flattened to one row per CASE_SPECIFIC_ISSUES_GROUP segment'
+    description='AccessAva conversations flattened to one row per topic_entry_point segment, mapped to UT1'
   )
 }}
 
 /*
-  Stage 1b: AccessAva conversations with CASE_SPECIFIC_ISSUES_GROUP flattened.
+  Stage 1b: AccessAva with topic_entry_point flattened.
 
-  CASE_SPECIFIC_ISSUES_GROUP contains a semicolon-separated list of issue categories
-  (e.g. "Care needs;Funding;Legal issues"). Each conversation is expanded into
-  one row per category using LATERAL FLATTEN.
+  topic_entry_point is semicolon-space-joined (e.g. "Housing; Benefits; Legal").
+  Each conversation expands to one row per topic.
 
-  Conversations with no case_specific_issues_group are excluded — they carry
-  no segment signal. For total interaction counts, use stg_accessava instead.
+  SEGMENT = UT1 from TOPIC_ENTRY_POINT_MAP.
+    'Unmatched' — topic_entry_point was NULL.
+    'Unmapped'  — value exists but has no row in the map (taxonomy drift).
 
-  SEGMENT: individual trimmed category value after splitting on ';'
-
-  Grain: one row per conversation × segment combination.
-  QUERY_COUNT = 1 per row (sum in mart to get total segment hits).
+  Grain: one row per conversation x topic.
+  QUERY_COUNT = 1 per row (sum gives topic mention counts, not conversation counts).
 */
 
 SELECT
-    sub.la_name                                                      AS LA_NAME,
-    sub.created_at::DATE                                             AS QUERY_DATE,
-    'AccessAva'                                                      AS SOURCE_SYSTEM,
-    1                                                                AS QUERY_COUNT,
-    sub.segment                                                      AS SEGMENT,
-    sub.age                                                          AS AGE_BAND,
-    CASE WHEN sub.lettercode IS NOT NULL THEN 1 ELSE 0 END           AS HAS_LETTER,
-    l.ward                                                           AS LOCALITY_NAME
+    a.la_name                                                               AS LA_NAME,
+    a.created_at::DATE                                                      AS QUERY_DATE,
+    'AccessAva'                                                             AS SOURCE_SYSTEM,
+    1                                                                       AS QUERY_COUNT,
+    CASE
+        WHEN a.topic_entry_point IS NULL THEN 'Unmatched'
+        ELSE COALESCE(m.ut1, 'Unmapped')
+    END                                                                     AS SEGMENT,
+    a.age                                                                   AS AGE_BAND,
+    CASE WHEN a.lettercode IS NOT NULL THEN 1 ELSE 0 END                    AS HAS_LETTER,
+    l.ward                                                                  AS LOCALITY_NAME
 
 FROM (
     SELECT
-        a.la_name,
-        a.created_at,
-        a.age,
-        a.lettercode,
-        a.transcript_id,
-        TRIM(f.value::VARCHAR) AS segment
-    FROM {{ source('accessava', 'accessava') }} a,
-    LATERAL FLATTEN(input => SPLIT(a.case_specific_issues_group, ';'), OUTER => TRUE) f
-    WHERE a.la_name IS NOT NULL
-      AND a.case_specific_issues_group IS NOT NULL
-      AND TRIM(f.value::VARCHAR) != ''
-) sub
+        la_name,
+        created_at,
+        age,
+        lettercode,
+        transcript_id,
+        topic_entry_point,
+        TRIM(f.value::VARCHAR)                                              AS topic_value
+    FROM {{ source('accessava', 'accessava') }},
+    LATERAL FLATTEN(
+        INPUT  => SPLIT(topic_entry_point, '; '),
+        OUTER  => TRUE
+    ) f
+    WHERE la_name IS NOT NULL
+) a
 LEFT JOIN {{ source('accessava', 'accessava_locality') }} l
-    ON sub.transcript_id = l.transcript_id
+    ON a.transcript_id = l.transcript_id
+LEFT JOIN {{ source('reference', 'topic_entry_point_map') }} m
+    ON LOWER(a.topic_value) = LOWER(TRIM(m.topic_entry_point))
