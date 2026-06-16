@@ -22,20 +22,28 @@
 */
 
 SELECT
-    a.la_name                                                      AS LA_NAME,
-    a.created_at::DATE                                             AS QUERY_DATE,
-    'AccessAva'                                                    AS SOURCE_SYSTEM,
-    1                                                              AS QUERY_COUNT,
-    TRIM(f.value::VARCHAR)                                         AS SEGMENT,
-    a.age                                                          AS AGE_BAND,
-    CASE WHEN a.lettercode IS NOT NULL THEN 1 ELSE 0 END           AS HAS_LETTER,
-    l.ward                                                         AS LOCALITY_NAME
+    sub.la_name                                                      AS LA_NAME,
+    sub.created_at::DATE                                             AS QUERY_DATE,
+    'AccessAva'                                                      AS SOURCE_SYSTEM,
+    1                                                                AS QUERY_COUNT,
+    sub.segment                                                      AS SEGMENT,
+    sub.age                                                          AS AGE_BAND,
+    CASE WHEN sub.lettercode IS NOT NULL THEN 1 ELSE 0 END           AS HAS_LETTER,
+    l.ward                                                           AS LOCALITY_NAME
 
-FROM {{ source('accessava', 'accessava') }} a
+FROM (
+    SELECT
+        a.la_name,
+        a.created_at,
+        a.age,
+        a.lettercode,
+        a.transcript_id,
+        TRIM(f.value::VARCHAR) AS segment
+    FROM {{ source('accessava', 'accessava') }} a,
+    LATERAL FLATTEN(input => SPLIT(a.case_specific_issues_group, ';'), OUTER => TRUE) f
+    WHERE a.la_name IS NOT NULL
+      AND a.case_specific_issues_group IS NOT NULL
+      AND TRIM(f.value::VARCHAR) != ''
+) sub
 LEFT JOIN {{ source('accessava', 'accessava_locality') }} l
-    ON a.transcript_id = l.transcript_id,
-LATERAL FLATTEN(input => SPLIT(a.case_specific_issues_group, ';')) f
-
-WHERE a.la_name IS NOT NULL
-  AND a.case_specific_issues_group IS NOT NULL
-  AND TRIM(f.value::VARCHAR) != ''
+    ON sub.transcript_id = l.transcript_id
