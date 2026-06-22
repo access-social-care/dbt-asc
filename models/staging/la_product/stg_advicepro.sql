@@ -23,24 +23,24 @@ SELECT
     TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD')             AS QUERY_DATE,
     'AdvicePro'                                                                       AS SOURCE_SYSTEM,
     1                                                                                 AS QUERY_COUNT,
-    TRIM(f.value::VARCHAR)                                                            AS SEGMENT,
+    c.segment_value                                                                   AS SEGMENT,
     d.age_range                                                                       AS AGE_BAND,
     0                                                                                 AS HAS_LETTER,
     loc.ward                                                                          AS LOCALITY_NAME
 
 FROM (
     SELECT
-        c.la_name,
-        c.case_open_month,
-        c.case_reference,
-        c.case_specific_issues_group
-    FROM {{ source('casework', 'advicepro_casework') }} c
-    WHERE c.la_name IS NOT NULL
-) c,
-LATERAL FLATTEN(
-    INPUT => SPLIT(c.case_specific_issues_group, ';'),
-    OUTER => TRUE
-) f
+        la_name,
+        case_open_month,
+        case_reference,
+        TRIM(f.value::VARCHAR)                                                        AS segment_value
+    FROM {{ source('casework', 'advicepro_casework') }},
+    LATERAL FLATTEN(
+        INPUT => SPLIT(case_specific_issues_group, ';'),
+        OUTER => TRUE
+    ) f
+    WHERE la_name IS NOT NULL
+) c
 
 LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
     ON c.case_reference = d.case_reference

@@ -27,7 +27,7 @@ SELECT
     a.created_at::DATE                                             AS QUERY_DATE,
     'AccessAva'                                                    AS SOURCE_SYSTEM,
     1                                                              AS QUERY_COUNT,
-    TRIM(f.value::VARCHAR)                                         AS SEGMENT,
+    a.segment_value                                                AS SEGMENT,
     a.age                                                          AS AGE_BAND,
     CASE WHEN a.lettercode IS NOT NULL THEN 1 ELSE 0 END           AS HAS_LETTER,
     l.ward                                                         AS LOCALITY_NAME
@@ -39,13 +39,13 @@ FROM (
         age,
         lettercode,
         transcript_id,
-        categories
-    FROM {{ source('accessava', 'accessava') }}
+        TRIM(f.value::VARCHAR)                                     AS segment_value
+    FROM {{ source('accessava', 'accessava') }},
+    LATERAL FLATTEN(
+        INPUT => SPLIT(categories, '; '),
+        OUTER => TRUE
+    ) f
     WHERE la_name IS NOT NULL
-) a,
-LATERAL FLATTEN(
-    INPUT => SPLIT(a.categories, '; '),
-    OUTER => TRUE
-) f
+) a
 LEFT JOIN {{ source('accessava', 'accessava_locality') }} l
     ON a.transcript_id = l.transcript_id
