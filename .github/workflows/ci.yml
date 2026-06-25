@@ -34,10 +34,11 @@ jobs:
           cp setup/profiles.yml.template ~/.dbt/profiles.yml
           openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt -out /tmp/ci_key.p8 2>/dev/null
 
-      - name: dbt compile
+      - name: dbt parse
         # Validates: YAML schema, ref()/source() resolution, model configs, test names,
-        # Jinja rendering, and macro calls. Does NOT execute any SQL or connect to Snowflake.
-        run: dbt compile
+        # and Jinja rendering. dbt parse is genuinely connection-free; dbt compile
+        # initialises the Snowflake adapter session even though it never executes SQL.
+        run: dbt parse
         env:
           SNOWFLAKE_USER: ci-dummy
           SNOWFLAKE_KEY_FILE: /tmp/ci_key.p8
