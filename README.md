@@ -1,4 +1,4 @@
-# dbt-asc TEST
+# dbt-asc
 
 > **Domain knowledge, invariants, schema model:** [CHARTER.md](CHARTER.md)
 
