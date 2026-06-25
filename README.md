@@ -6,7 +6,7 @@ dbt transformation layer for Access Social Care's Snowflake data warehouse. Comb
 
 **Repo also contains the Snowflake loaders** (`loaders/`) - R scripts that pull from upstream APIs and write raw tables to Snowflake before dbt runs.
 
-> **New to dbt?** Start with [docs/pipeline-explainer.md](docs/pipeline-explainer.md) - a narrative walkthrough covering what each component is, how data moves from API to Power BI, and how to check the pipeline is healthy.
+> **New to dbt?** Start with [docs/pipeline-explainer.md](docs/pipeline-explainer.md) - a narrative walkthrough covering what each component is, how data moves from API to Power BI, and how to check the pipeline is healthy. 
 
 ---
 
