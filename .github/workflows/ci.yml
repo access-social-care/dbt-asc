@@ -26,11 +26,13 @@ jobs:
           SNOWFLAKE_KEY_FILE: /dev/null
 
       - name: Set up CI profiles.yml
-        # dbt parse validates project structure without connecting to Snowflake.
-        # env vars just need to be non-empty for env_var() resolution - no real creds needed.
+        # dbt-snowflake validates PEM format at profile load time (even during compile,
+        # which never connects to Snowflake). /dev/null fails with MalformedFraming.
+        # Generate a structurally valid but non-functional dummy key for CI.
         run: |
           mkdir -p ~/.dbt
           cp setup/profiles.yml.template ~/.dbt/profiles.yml
+          openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt -out /tmp/ci_key.p8 2>/dev/null
 
       - name: dbt compile
         # Validates: YAML schema, ref()/source() resolution, model configs, test names,
@@ -38,4 +40,4 @@ jobs:
         run: dbt compile
         env:
           SNOWFLAKE_USER: ci-dummy
-          SNOWFLAKE_KEY_FILE: /dev/null
+          SNOWFLAKE_KEY_FILE: /tmp/ci_key.p8
