@@ -1,5 +1,7 @@
 # dbt-asc
 
+> **Domain knowledge, invariants, schema model:** [CHARTER.md](CHARTER.md)
+
 dbt transformation layer for Access Social Care's Snowflake data warehouse. Combines raw data from three sources (chatbot, AdvicePro casework, helplines) into governed mart and staging tables for web products, Power BI, and reporting.
 
 **Repo also contains the Snowflake loaders** (`loaders/`) - R scripts that pull from upstream APIs and write raw tables to Snowflake before dbt runs.
