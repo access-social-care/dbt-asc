@@ -76,8 +76,13 @@ log_info(
   "schema={session_info[[1, 'CURRENT_SCHEMA()']]}"
 )
 
-# Discover tables
-table_names <- sort(DBI::dbListTables(con))
+# Discover tables via INFORMATION_SCHEMA — dbListTables() invalidates the ODBC pointer
+tables <- DBI::dbGetQuery(con, glue::glue(
+  "SELECT TABLE_NAME FROM {SOURCE_DB}.INFORMATION_SCHEMA.TABLES ",
+  "WHERE TABLE_SCHEMA = '{SOURCE_SCHEMA}' AND TABLE_TYPE = 'BASE TABLE' ",
+  "ORDER BY TABLE_NAME"
+))
+table_names <- tables$TABLE_NAME
 
 if (length(table_names) == 0) {
   stop(glue::glue("No tables found in {SOURCE_DB}.{SOURCE_SCHEMA}."), call. = FALSE)
