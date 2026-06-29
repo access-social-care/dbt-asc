@@ -66,16 +66,6 @@ log_info("Connecting to {SOURCE_DB}.{SOURCE_SCHEMA}")
 con <- ascFuncs::connect_snowflake(database = SOURCE_DB, schema = SOURCE_SCHEMA)
 on.exit(DBI::dbDisconnect(con), add = TRUE)
 
-session_info <- DBI::dbGetQuery(
-  con,
-  "SELECT CURRENT_ROLE(), CURRENT_DATABASE(), CURRENT_SCHEMA(), CURRENT_USER()"
-)
-log_info(
-  "Snowflake session: role={session_info[[1, 'CURRENT_ROLE()']]} ",
-  "db={session_info[[1, 'CURRENT_DATABASE()']]} ",
-  "schema={session_info[[1, 'CURRENT_SCHEMA()']]}"
-)
-
 # Discover tables via INFORMATION_SCHEMA — dbListTables() invalidates the ODBC pointer
 tables <- DBI::dbGetQuery(con, glue::glue(
   "SELECT TABLE_NAME FROM {SOURCE_DB}.INFORMATION_SCHEMA.TABLES ",
