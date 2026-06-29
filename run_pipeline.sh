@@ -1,6 +1,6 @@
 #!/bin/bash
 ##
-## Daily pipeline: load raw data, then run dbt transforms.
+## Daily pipeline: load raw data, run dbt transforms, export to S3 + Redis.
 ##
 
 LOADERS_DIR="/srv/projects/dbt-asc/loaders"
@@ -9,9 +9,13 @@ LOG_DIR="/srv/projects/dbt-asc/logs/"
 PIPELINE_START=$(date +%s)
 FAILURES=0
 
-# Load credentials (not stored in repo â€” must exist on the VM at ~/.asc_secrets)
+# Load credentials (not stored in repo — must exist on the VM)
 # shellcheck source=/dev/null
 source ~/.snowflake_env
+# AWS + bastion creds for S3/Redis export (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+# AWS_DEFAULT_REGION, BASTION_KEY_PATH, BASTION_HOST, BASTION_USER, REDIS_HOST, REDIS_PORT)
+# shellcheck source=/dev/null
+source ~/.aws_asc_env
 
 #  Stage 1: Load raw data
 
@@ -85,9 +89,27 @@ fi
 
 echo "OK: dbt build completed"
 
-#  Stage 3: regenerate dbt docs
+#  Stage 3: export Gloucestershire mart tables -> S3 + Redis
 
-echo "=== Stage 3: dbt docs generate at $(date '+%Y-%m-%d %H:%M:%S') ==="
+echo "=== Stage 3: S3 + Redis export starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+cd "$LOADERS_DIR"
+Rscript export_la_queries_to_s3.R > "${LOG_DIR}/export_la_queries_to_s3.log" 2>&1
+EXPORT_EXIT=$?
+
+if [ $EXPORT_EXIT -ne 0 ]; then
+    PIPELINE_END=$(date +%s)
+    PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
+    echo "ERROR: Stage 3 failed — export_la_queries_to_s3.R exited $EXPORT_EXIT (see ${LOG_DIR}/export_la_queries_to_s3.log)"
+    echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF (FAILED stage3)"
+    exit 1
+fi
+
+echo "OK: S3 + Redis export completed"
+
+#  Stage 4: regenerate dbt docs
+
+echo "=== Stage 4: dbt docs generate at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
 ~/.local/bin/dbt docs generate
 DOCS_EXIT=$?
@@ -96,20 +118,20 @@ PIPELINE_END=$(date +%s)
 PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
 
 if [ $DOCS_EXIT -ne 0 ]; then
-    echo "WARN: dbt docs generate failed (exit $DOCS_EXIT) â€” build succeeded, docs may be stale"
-    echo "XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF (docs FAILED)"
+    echo “WARN: dbt docs generate failed (exit $DOCS_EXIT) — build succeeded, docs may be stale”
+    echo “XXX run_pipeline $PIPELINE_START $PIPELINE_DIFF (docs FAILED)”
     exit 0  # docs failure is not a pipeline failure
 fi
 
 echo "OK: dbt docs regenerated"
 
-#  Stage 4: Observability 
+#  Stage 5: Observability
 # Non-fatal â€” failure here does not affect pipeline exit code.
 # a) dbt source freshness: data-level check on source tables (AVA, HELPLINES, CASEWORK)
 # b) snowflake_staleness_check.R: INFORMATION_SCHEMA.LAST_ALTERED across source
 #    databases â€” ETL-level check (did the pipeline actually run?).
 
-echo "=== Stage 4: Observability at $(date '+%Y-%m-%d %H:%M:%S') ==="
+echo "=== Stage 5: Observability at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
 echo "--- dbt source freshness ---"
 ~/.local/bin/dbt source freshness > "$LOG_DIR/source_freshness.log" 2>&1 || \
@@ -122,4 +144,4 @@ Rscript snowflake_staleness_check.R > "$LOG_DIR/snowflake_staleness_check.log" 2
 
 PIPELINE_END=$(date +%s)
 PIPELINE_DIFF=$(( PIPELINE_END - PIPELINE_START ))
-echo "OK: Stage 4 complete"
+echo "OK: Stage 5 complete"
