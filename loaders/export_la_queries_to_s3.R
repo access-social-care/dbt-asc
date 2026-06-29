@@ -27,8 +27,7 @@ library(cli)
 library(jsonlite)
 library(processx)
 
-if (!reticulate::py_module_available("boto3")) reticulate::py_install("boto3")
-library(botor)
+if (!requireNamespace("aws.s3", quietly = TRUE)) install.packages("aws.s3", repos = "https://cloud.r-project.org")
 if (!requireNamespace("redux", quietly = TRUE)) install.packages("redux", repos = "https://cloud.r-project.org")
 library(redux)
 
@@ -105,13 +104,16 @@ s3_results <- purrr::map(table_names, function(table_name) {
   on.exit(unlink(json_path), add = TRUE)
   jsonlite::write_json(df, json_path, auto_unbox = TRUE, null = "null", na = "null")
 
-  s3_uri <- paste0("s3://", S3_BUCKET, "/", S3_FOLDER, "/", table_name, ".json")
-
   tryCatch(
     {
-      botor::s3_upload_file(json_path, s3_uri)
+      aws.s3::put_object(
+        file   = json_path,
+        object = paste0(S3_FOLDER, "/", table_name, ".json"),
+        bucket = S3_BUCKET,
+        region = Sys.getenv("AWS_DEFAULT_REGION", "eu-west-2")
+      )
       kb <- round(file.info(json_path)$size / 1024, 1)
-      log_info("{table_name}: uploaded {kb} KB -> {s3_uri}")
+      log_info("{table_name}: uploaded {kb} KB -> s3://{S3_BUCKET}/{S3_FOLDER}/{table_name}.json")
       list(table = table_name, status = "ok", rows = nrow(df), kb = kb)
     },
     error = function(e) {
