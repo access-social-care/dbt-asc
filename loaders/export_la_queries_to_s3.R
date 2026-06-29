@@ -20,6 +20,8 @@
 ## Usage:
 ##   Rscript loaders/export_la_queries_to_s3.R
 
+if (file.exists(".env")) readRenviron(".env")
+
 library(ascFuncs)
 library(tidyverse)
 library(logger)
