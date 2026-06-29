@@ -61,15 +61,7 @@ if (nchar(BASTION_KEY) == 0) {
 
 cli::cli_h1("Phase 1: Snowflake -> S3")
 
-log_info("Verifying S3 connectivity: s3://{S3_BUCKET}/")
-tryCatch(
-  botor::s3_ls(paste0("s3://", S3_BUCKET, "/")),
-  error = function(e) {
-    log_error("S3 auth check failed: {e$message}")
-    stop("Cannot reach S3 bucket. Check AWS credentials.", call. = FALSE)
-  }
-)
-log_info("S3 connectivity OK")
+log_info("Target bucket: s3://{S3_BUCKET}/{S3_FOLDER}/ (skipping ListBucket preflight — needs only PutObject)")
 
 # Connect to Snowflake
 log_info("Connecting to {SOURCE_DB}.{SOURCE_SCHEMA}")
