@@ -1,8 +1,7 @@
 ## Export all tables in ANALYTICS.PUBLIC_LA_PRODUCT to S3 (JSON) and Redis
 ##
 ## Source:  ANALYTICS.PUBLIC_LA_PRODUCT (all tables — discovered at runtime)
-## Targets: s3://asc-analytics-dashboard-backend-development-data/gloucestershire/{TABLE}.json (dev)
-##          s3://asc-analytics-dashboard-backend-production-data/gloucestershire/{TABLE}.json (prod)
+## Targets: s3://asc-analytics-dashboard-backend-development-data/gloucestershire/{TABLE}.json
 ##          Redis  gloucestershire:{table} (via SSH tunnel through bastion)
 ##
 ## Required env vars (Snowflake):
@@ -10,10 +9,7 @@
 ##
 ## Required env vars (AWS / S3):
 ##   AWS_DEFAULT_REGION (default: eu-west-2)
-##   Credentials are loaded from ~/.aws/dev and ~/.aws/prod (not env vars) to match
-##   the dual-account pattern used in chatbot_data/tenant_monthly_report_maker.R.
-##   dev  = 313196411728:user/amitkohli -> asc-analytics-dashboard-backend-development-data
-##   prod = 661967925113:user/amitkohli -> asc-analytics-dashboard-backend-production-data
+##   Credentials loaded from ~/.aws/dev (313196411728:user/amitkohli)
 ##
 ## Required env vars (Redis / bastion):
 ##   BASTION_KEY_PATH  path to SSH private key (.pem)
@@ -42,12 +38,7 @@ SOURCE_DB     <- "ANALYTICS"
 SOURCE_SCHEMA <- "PUBLIC_LA_PRODUCT"
 S3_FOLDER     <- "gloucestershire"
 
-# dev/prod upload targets — credentials swapped from ~/.aws/{profile} before each write
-# (matches chatbot_data/tenant_monthly_report_maker.R pattern)
-S3_TARGETS <- list(
-  list(profile = "dev",  bucket = "asc-analytics-dashboard-backend-development-data"),
-  list(profile = "prod", bucket = "asc-analytics-dashboard-backend-production-data")
-)
+S3_BUCKET <- "asc-analytics-dashboard-backend-development-data"
 
 BASTION_HOST <- Sys.getenv("BASTION_HOST", "ec2-3-9-19-63.eu-west-2.compute.amazonaws.com")
 BASTION_USER <- Sys.getenv("BASTION_USER", "ec2-user")
@@ -64,7 +55,7 @@ if (nchar(BASTION_KEY) == 0) {
 
 cli::cli_h1("Phase 1: Snowflake -> S3")
 
-log_info("Targets: {paste(purrr::map_chr(S3_TARGETS, 'bucket'), collapse = ', ')}")
+log_info("Target bucket: s3://{S3_BUCKET}/{S3_FOLDER}/")
 
 log_info("Connecting to {SOURCE_DB}.{SOURCE_SCHEMA}")
 con <- ascFuncs::connect_snowflake(database = SOURCE_DB)
@@ -104,57 +95,47 @@ purrr::walk(table_names, function(table_name) {
   }
 })
 
-# Load AWS credentials from ~/.aws/{profile} to override env vars
-swap_aws_creds <- function(profile) {
-  cred_file <- path.expand(paste0("~/.aws/", profile))
-  if (!file.exists(cred_file)) stop(glue::glue("~/.aws/{profile} not found"), call. = FALSE)
-  lines   <- readLines(cred_file)
-  key_id  <- trimws(sub(".*=\\s*", "", grep("aws_access_key_id",     lines, value = TRUE, ignore.case = TRUE)[1]))
-  secret  <- trimws(sub(".*=\\s*", "", grep("aws_secret_access_key", lines, value = TRUE, ignore.case = TRUE)[1]))
-  Sys.setenv(AWS_ACCESS_KEY_ID = key_id, AWS_SECRET_ACCESS_KEY = secret)
-  log_info("AWS credentials swapped to profile: {profile}")
-}
+# Load dev credentials from ~/.aws/dev
+cred_file <- path.expand("~/.aws/dev")
+if (!file.exists(cred_file)) stop("~/.aws/dev not found", call. = FALSE)
+lines  <- readLines(cred_file)
+key_id <- trimws(sub(".*=\\s*", "", grep("aws_access_key_id",     lines, value = TRUE, ignore.case = TRUE)[1]))
+secret <- trimws(sub(".*=\\s*", "", grep("aws_secret_access_key", lines, value = TRUE, ignore.case = TRUE)[1]))
+Sys.setenv(AWS_ACCESS_KEY_ID = key_id, AWS_SECRET_ACCESS_KEY = secret)
+log_info("AWS credentials loaded from ~/.aws/dev (key: {key_id})")
 
-# Upload to each target (dev + prod)
 all_failed <- character(0)
 
-purrr::walk(S3_TARGETS, function(target) {
-  cli::cli_h2("S3 -> {target$bucket}")
-  swap_aws_creds(target$profile)
+purrr::iwalk(data_cache, function(df, table_name) {
+  json_path <- tempfile(fileext = ".json")
+  on.exit(unlink(json_path), add = TRUE)
+  jsonlite::write_json(df, json_path, auto_unbox = TRUE, null = "null", na = "null")
 
-  purrr::iwalk(data_cache, function(df, table_name) {
-    json_path <- tempfile(fileext = ".json")
-    on.exit(unlink(json_path), add = TRUE)
-    jsonlite::write_json(df, json_path, auto_unbox = TRUE, null = "null", na = "null")
-
-    result <- tryCatch(
-      {
-        aws.s3::put_object(
-          file   = json_path,
-          object = paste0(S3_FOLDER, "/", table_name, ".json"),
-          bucket = target$bucket,
-          region = Sys.getenv("AWS_DEFAULT_REGION", "eu-west-2")
-        )
-        kb <- round(file.info(json_path)$size / 1024, 1)
-        log_info("{table_name}: {kb} KB -> s3://{target$bucket}/{S3_FOLDER}/{table_name}.json")
-        "ok"
-      },
-      error = function(e) {
-        log_error("S3 upload failed [{target$bucket}] {table_name}: {e$message}")
-        "failed"
-      }
-    )
-    if (result == "failed") all_failed <<- c(all_failed, paste0(target$bucket, "/", table_name))
-  })
-
-  log_info("{target$bucket}: {length(data_cache)} tables uploaded")
+  result <- tryCatch(
+    {
+      aws.s3::put_object(
+        file   = json_path,
+        object = paste0(S3_FOLDER, "/", table_name, ".json"),
+        bucket = S3_BUCKET,
+        region = Sys.getenv("AWS_DEFAULT_REGION", "eu-west-2")
+      )
+      kb <- round(file.info(json_path)$size / 1024, 1)
+      log_info("{table_name}: {kb} KB -> s3://{S3_BUCKET}/{S3_FOLDER}/{table_name}.json")
+      "ok"
+    },
+    error = function(e) {
+      log_error("S3 upload failed for {table_name}: {e$message}")
+      "failed"
+    }
+  )
+  if (result == "failed") all_failed <<- c(all_failed, table_name)
 })
 
 if (length(all_failed) > 0) {
   stop(glue::glue("S3 failures: {paste(all_failed, collapse = ', ')}"), call. = FALSE)
 }
 
-log_info("S3 complete: both dev and prod buckets written")
+log_info("S3 complete: {length(data_cache)} tables -> s3://{S3_BUCKET}/{S3_FOLDER}/")
 
 # ── Phase 2: Redis ───────────────────────────────────────────────────────────
 
@@ -217,7 +198,7 @@ log_info("Redis complete: {n_redis_ok} keys set, {n_redis_failed} failed")
 # ── Final summary ────────────────────────────────────────────────────────────
 
 cli::cli_h1("Done")
-cli::cli_alert_success("S3:    {length(data_cache)} tables -> dev + prod buckets")
+cli::cli_alert_success("S3:    {length(data_cache)} tables -> s3://{S3_BUCKET}/{S3_FOLDER}/")
 cli::cli_alert_success("Redis: {n_redis_ok} keys set (gloucestershire:<table>)")
 
 if (n_redis_failed > 0) {
