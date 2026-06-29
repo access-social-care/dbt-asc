@@ -46,7 +46,7 @@ S3_FOLDER    <- "gloucestershire"
 
 BASTION_HOST <- Sys.getenv("BASTION_HOST", "ec2-3-9-19-63.eu-west-2.compute.amazonaws.com")
 BASTION_USER <- Sys.getenv("BASTION_USER", "ec2-user")
-BASTION_KEY  <- Sys.getenv("BASTION_KEY_PATH")
+BASTION_KEY  <- Sys.getenv("BASTION_KEY_PATH", "asc-social-care-analytics-dashboard-key-dev.pem")
 REDIS_HOST   <- Sys.getenv("REDIS_HOST", "asc-analytics-dashboard-backend-redis-cache.eyzuby.0001.euw2.cache.amazonaws.com")
 REDIS_PORT   <- as.integer(Sys.getenv("REDIS_PORT", "6379"))
 TUNNEL_PORT  <- 6380L
