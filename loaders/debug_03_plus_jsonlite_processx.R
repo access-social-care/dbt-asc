@@ -1,0 +1,15 @@
+## DEBUG 03: + jsonlite + processx
+library(ascFuncs)
+library(tidyverse)
+library(logger)
+library(cli)
+library(jsonlite)
+library(processx)
+
+cat("--- connecting ---\n")
+con <- ascFuncs::connect_snowflake(database = "ANALYTICS")
+cat("con valid:", DBI::dbIsValid(con), "\n")
+result <- DBI::dbGetQuery(con, "SELECT 1 AS ping")
+cat("SELECT 1:", result$ping, "\n")
+DBI::dbDisconnect(con)
+cat("PASS\n")
