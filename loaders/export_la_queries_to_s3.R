@@ -66,6 +66,15 @@ log_info("Connecting to {SOURCE_DB}.{SOURCE_SCHEMA}")
 con <- ascFuncs::connect_snowflake(database = SOURCE_DB, schema = SOURCE_SCHEMA)
 on.exit(DBI::dbDisconnect(con), add = TRUE)
 
+log_info("con class: {paste(class(con), collapse = ', ')}")
+log_info("con valid immediately after connect: {DBI::dbIsValid(con)}")
+gc()
+log_info("con valid after gc(): {DBI::dbIsValid(con)}")
+tryCatch(
+  { DBI::dbGetQuery(con, "SELECT 1 AS ping"); log_info("SELECT 1 OK") },
+  error = function(e) log_error("SELECT 1 failed: {e$message}")
+)
+
 # Discover tables via INFORMATION_SCHEMA — dbListTables() invalidates the ODBC pointer
 tables <- DBI::dbGetQuery(con, glue::glue(
   "SELECT TABLE_NAME FROM {SOURCE_DB}.INFORMATION_SCHEMA.TABLES ",
