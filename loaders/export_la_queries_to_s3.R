@@ -77,29 +77,22 @@ log_info(
 )
 
 # Discover tables
-tables <- DBI::dbGetQuery(
-  con,
-  glue::glue(
-    "SELECT TABLE_NAME FROM {SOURCE_DB}.INFORMATION_SCHEMA.TABLES ",
-    "WHERE TABLE_SCHEMA = '{SOURCE_SCHEMA}' AND TABLE_TYPE = 'BASE TABLE' ",
-    "ORDER BY TABLE_NAME"
-  )
-)
+table_names <- sort(DBI::dbListTables(con))
 
-if (nrow(tables) == 0) {
+if (length(table_names) == 0) {
   stop(glue::glue("No tables found in {SOURCE_DB}.{SOURCE_SCHEMA}."), call. = FALSE)
 }
 
-log_info("Found {nrow(tables)} tables: {paste(tables$TABLE_NAME, collapse = ', ')}")
+log_info("Found {length(table_names)} tables: {paste(table_names, collapse = ', ')}")
 
 # Fetch, upload to S3, and cache data frames for Redis
 data_cache <- list()
 
-s3_results <- purrr::map(tables$TABLE_NAME, function(table_name) {
+s3_results <- purrr::map(table_names, function(table_name) {
   cli::cli_h2("{table_name}")
 
   df <- tryCatch(
-    DBI::dbGetQuery(con, glue::glue("SELECT * FROM {SOURCE_DB}.{SOURCE_SCHEMA}.{table_name}")),
+    ascFuncs::snowflake_read_table(con, table_name = table_name, schema = SOURCE_SCHEMA, database = SOURCE_DB),
     error = function(e) {
       log_error("Query failed for {table_name}: {e$message}")
       return(NULL)
