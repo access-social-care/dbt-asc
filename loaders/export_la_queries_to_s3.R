@@ -20,8 +20,8 @@
 ## Usage:
 ##   Rscript loaders/export_la_queries_to_s3.R
 
-if (file.exists(path.expand("~/.snowflake_env"))) readRenviron(path.expand("~/.snowflake_env"))
 if (file.exists(".env")) readRenviron(".env")
+if (file.exists(path.expand("~/.snowflake_env"))) readRenviron(path.expand("~/.snowflake_env"))
 
 library(ascFuncs)
 library(tidyverse)
