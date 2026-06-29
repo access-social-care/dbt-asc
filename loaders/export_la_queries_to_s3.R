@@ -27,6 +27,11 @@ library(cli)
 library(jsonlite)
 library(processx)
 
+if (!reticulate::py_module_available("boto3")) reticulate::py_install("boto3")
+library(botor)
+if (!requireNamespace("redux", quietly = TRUE)) install.packages("redux", repos = "https://cloud.r-project.org")
+library(redux)
+
 # Config ------------------------------------------------------------------
 
 SOURCE_DB     <- "ANALYTICS"
@@ -54,23 +59,8 @@ log_info("Target bucket: s3://{S3_BUCKET}/{S3_FOLDER}/ (skipping ListBucket pref
 # Connect to Snowflake BEFORE loading botor/reticulate — Python init
 # interferes with R's GC and invalidates ODBC external pointers
 log_info("Connecting to {SOURCE_DB}.{SOURCE_SCHEMA}")
-con <- ascFuncs::connect_snowflake(database = SOURCE_DB, schema = SOURCE_SCHEMA)
+con <- ascFuncs::connect_snowflake(database = SOURCE_DB)
 on.exit(DBI::dbDisconnect(con), add = TRUE)
-
-log_info("con class: {paste(class(con), collapse = ', ')}")
-log_info("con valid: {DBI::dbIsValid(con)}")
-
-# Load Python-backed libs after Snowflake connection is established
-if (!reticulate::py_module_available("boto3")) reticulate::py_install("boto3")
-library(botor)
-if (!requireNamespace("redux", quietly = TRUE)) install.packages("redux", repos = "https://cloud.r-project.org")
-library(redux)
-
-log_info("con valid after botor load: {DBI::dbIsValid(con)}")
-tryCatch(
-  { DBI::dbGetQuery(con, "SELECT 1 AS ping"); log_info("SELECT 1 OK") },
-  error = function(e) log_error("SELECT 1 failed: {e$message}")
-)
 
 # Discover tables via INFORMATION_SCHEMA — dbListTables() invalidates the ODBC pointer
 tables <- DBI::dbGetQuery(con, glue::glue(
