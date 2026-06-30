@@ -13,6 +13,8 @@
 ## Required env vars: same as export_la_queries_to_s3.R
 ##   BASTION_KEY_PATH, BASTION_HOST, BASTION_USER, REDIS_HOST, REDIS_PORT
 ##   AWS_DEFAULT_REGION (default eu-west-2); credentials from ~/.aws/dev
+##   OPENAI_API_KEY, LANGCHAIN_API_KEY, LANGCHAIN_TRACING_V2=true (NLG step)
+##   SIGNAL_PROCESSING_DIR  (path to signal_processing repo, for NLG script)
 ##
 ## Usage:
 ##   Rscript loaders/export_glou_signals_to_s3.R
@@ -48,6 +50,36 @@ if (nchar(BASTION_KEY) == 0) stop("BASTION_KEY_PATH env var not set.", call. = F
 
 LA_NAME <- "Gloucestershire"
 
+SIGNAL_PROCESSING_DIR <- Sys.getenv(
+  "SIGNAL_PROCESSING_DIR",
+  "/srv/projects/signal-processing"
+)
+
+# ── Step 0: NLG — generate prose narrative ───────────────────────────────────
+
+cli::cli_h1("Step 0: NLG")
+
+nlg_script <- file.path(SIGNAL_PROCESSING_DIR, "nlg", "signal_to_narrative.py")
+prose_file  <- file.path(SIGNAL_OUTPUT_DIR, paste0("la_signals_prose_", Sys.Date(), ".json"))
+
+if (!file.exists(nlg_script)) {
+  log_warn("NLG script not found at {nlg_script} — skipping prose generation")
+} else {
+  log_info("Running NLG: {nlg_script}")
+  nlg_result <- processx::run(
+    "python",
+    args = c(nlg_script, "--la", LA_NAME, "--out", prose_file),
+    echo = TRUE,
+    error_on_status = FALSE
+  )
+  if (nlg_result$status != 0) {
+    log_warn("NLG step exited {nlg_result$status} — prose will be omitted from payload")
+    prose_file <- NULL
+  } else {
+    log_info("Prose written to {prose_file}")
+  }
+}
+
 # ── Read latest signal outputs ────────────────────────────────────────────────
 
 cli::cli_h1("Reading signal outputs")
@@ -69,6 +101,9 @@ if (is.null(la_narrative)) {
 glou_narrative <- list(
   run_date = narrative_json_full$run_date,
   la       = LA_NAME,
+  prose    = if (!is.null(prose_file) && file.exists(prose_file))
+               jsonlite::read_json(prose_file)$prose
+             else NULL,
   data     = la_narrative
 )
 log_info("Narrative signals for {LA_NAME}: {la_narrative$total_signals %||% 0}")
