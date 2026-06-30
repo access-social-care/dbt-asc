@@ -479,3 +479,103 @@ sources:
           (ended ~2020); the Discharge Ready Date successor does not attribute delays to ASC.
           Not loaded to Snowflake. Retained in registry as a documented gap.
           Source: https://www.england.nhs.uk/statistics/statistical-work-areas/discharge-delays-acute-data/
+
+  # ── Monday.com boards ─────────────────────────────────────────────────────────
+  # Board IDs and purpose documented here as the authoritative registry.
+  # Data accessed via ascFuncs::query_monday_board() or the monday-pipeline ETL.
+  # Loader to Snowflake: pending (REFERENCE.PUBLIC.<snake_case_name>).
+  # monday-pipeline/config/boards.json is the ETL pull config; this file is the
+  # source-of-truth for what each board contains and who consumes it.
+  - name: monday
+    description: |
+      Monday.com boards used across the ASC data team.
+      Not yet loaded to Snowflake — accessed via API (ascFuncs::query_monday_board).
+      Loader pending; tables will land in REFERENCE.PUBLIC when written.
+    database: reference
+    schema: public
+    tables:
+      - name: monday_hypothesis_tracker
+        description: |
+          Hypothesis Tracker — findings from signal processing and LA analysis.
+          Board ID: 18332582917. Group "LA-ready" = approved findings for the LA data product.
+          Consumed by: dbt-asc/loaders/export_hypothesis_findings_to_s3.R → S3+Redis (gloucestershire:hypothesis_findings).
+
+      - name: monday_data_strategy_initiatives
+        description: |
+          Data Strategy Initiatives — living version of the agreed data strategy, synced with Fin.
+          Board ID: 18410382326. Primary source for initiative status across the org.
+
+      - name: monday_kpis_2526
+        description: |
+          KPIs 25/26 — team-level key performance indicators for FY 2025-26.
+          Board ID: 7810821979.
+
+      - name: monday_okrs_2526
+        description: |
+          OKRs 25/26 — organisational objectives and key results for FY 2025-26.
+          Board ID: 7645877297.
+
+      - name: monday_la_budgets
+        description: |
+          LA Budgets — local authority budget data collected by the data team.
+          Board ID: 9483011729. Category: data_collection.
+
+      - name: monday_la_useful_contacts
+        description: |
+          LA Useful Contacts — contact directory for local authority relationships.
+          Board ID: 18402678632. Managed by la-contacts pipeline repo.
+
+      - name: monday_retrospectives
+        description: |
+          Retrospectives — sprint retrospective actions and outcomes.
+          Board ID: 18275892292.
+
+      - name: monday_data_sprints
+        description: |
+          Data Sprints — sprint planning board.
+          Board ID: 18275892307.
+
+      - name: monday_agile_sprint_planning
+        description: |
+          Agile Sprint Planning — agile delivery tracking.
+          Board ID: 18391949516.
+
+      - name: monday_data_tasks
+        description: |
+          Data Tasks — individual task tracking for the data team.
+          Board ID: 18275892301.
+
+      - name: monday_data_epics
+        description: |
+          Data Epics — epic-level work items.
+          Board ID: 18275892406.
+
+      - name: monday_programmes_projects_2526
+        description: |
+          Programmes & Projects 25/26 — org-wide programme and project tracking.
+          Board ID: 7840528615.
+
+      - name: monday_product_innovation_actions
+        description: |
+          Product & Innovation Rolling Actions — ongoing actions from P&I meetings.
+          Board ID: 8440635111.
+
+      - name: monday_quarterly_review_actions
+        description: |
+          Quarterly Review Actions — actions arising from quarterly reviews.
+          Board ID: 9520795376.
+
+      - name: monday_asc_using_ai
+        description: |
+          ASC Using AI — tracking AI adoption and use cases across the organisation.
+          Board ID: 9851039852.
+
+      - name: monday_amit_individual_okrs
+        description: |
+          Amit Individual OKRs — Amit's personal OKR tracking.
+          Board ID: 18170724669.
+
+      - name: monday_bugs_queue
+        description: |
+          Bugs Queue — bug tracking board (currently inactive).
+          Board ID: 18275892313. Active: false.
