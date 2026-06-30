@@ -306,7 +306,12 @@ sources:
       - name: topic_entry_point_map
         description: |
           AccessAva topic_entry_point -> UT1/UT2 map.
-          16 rows; unmapped/NULL entry points map to 'Unmatched'.
+          31 rows (16 original lowercase entries + 15 CamelCase entries added
+          for the second-generation chatbot UI entry points).
+          Unmapped/NULL entry points map to 'Unmatched'.
+          Source: intermediate/Topic entry point map.xlsx (Sheet1).
+          Reload required: run one_time/load_reference_maps.R whenever the
+          xlsx changes — dbt alone will not pick up map updates.
         columns:
           - name: topic_entry_point
             description: Raw AccessAva topic entry point value
@@ -333,3 +338,144 @@ sources:
             tests:
               - unique
               - not_null
+
+      # ── External reference data — lann / Census (admin#13) ────────────────
+      # Loaded one-time from signal_processing/lann/ via
+      # signal_processing/one_time/load_lann_to_snowflake.R.
+      # Refresh cadence: Census ~10yr; LANN features after each LANN run.
+
+      # Census 2021 raw UTLA tables
+      - name: census_ts007a_utla
+        description: "Census 2021 TS007a — population by single year of age, UTLA grain."
+      - name: census_ts021_utla
+        description: "Census 2021 TS021 — ethnic group, UTLA grain. Used by la_peer_signals_poc.R for per-100k rates."
+      - name: census_ts029_utla
+        description: "Census 2021 TS029 — English language proficiency, UTLA grain."
+      - name: census_ts038_utla
+        description: "Census 2021 TS038 — disability (Equality Act), UTLA grain."
+      - name: census_ts051_utla
+        description: "Census 2021 TS051 — number of rooms, UTLA grain."
+      - name: census_ts054_utla
+        description: "Census 2021 TS054 — housing tenure, UTLA grain."
+      - name: census_ts062_utla
+        description: "Census 2021 TS062 — NS-SEC socioeconomic classification, UTLA grain."
+      - name: census_ts067_utla
+        description: "Census 2021 TS067 — highest qualification level, UTLA grain."
+      - name: census_rm073_utla
+        description: "Census 2021 RM073 — disability by age band, UTLA grain."
+      - name: census_rm070_utla
+        description: |
+          Census 2021 RM070 (custom flexible table) — disability × age × ethnicity, UTLA grain.
+          Source: ONS flexible table builder (15,750 rows).
+          Reproduce at: https://www.ons.gov.uk/datasets/RM070/editions/2021/versions/1/filter-outputs/387852b1-4506-4ea3-b7fe-f3a6693614c5#get-data
+
+      # LANN peer-grouping feature inputs (UTLA-level derived from Census 2021)
+      - name: lann_ethnicity
+        description: "LANN feature — ethnic group percentages by UTLA. Derived from TS021."
+      - name: lann_english_proficiency
+        description: "LANN feature — English proficiency percentages by UTLA. Derived from TS029."
+      - name: lann_housing_tenure
+        description: "LANN feature — housing tenure percentages by UTLA. Derived from TS054."
+      - name: lann_ns_sec
+        description: "LANN feature — NS-SEC percentages by UTLA. Derived from TS062."
+      - name: lann_population_data
+        description: "LANN feature — population by age band, UTLA grain. Derived from TS007a."
+      - name: lann_qualification_level
+        description: "LANN feature — qualification level percentages by UTLA. Derived from TS067."
+      - name: lann_rooms
+        description: "LANN feature — number of rooms percentages by UTLA. Derived from TS051."
+      - name: lann_area_sqkm
+        description: "LANN feature — area in km², LSOA grain. From ONS Standard Area Measurements."
+      - name: lann_distance_to_sea
+        description: "LANN feature — distance to nearest coastline (km), LSOA grain."
+
+      # Geographic lookups
+      - name: lsoa21_to_utla22
+        description: "ONS best-fit lookup: LSOA (2021) to UTLA (2022)."
+      - name: sam_utla_2021
+        description: "ONS Standard Area Measurements — UTLA grain, December 2021."
+
+  # ── External data portal (amit_claude_data_firecrawl) ──────────────────────
+  # Fetched by the ASC data refresh agent. CSVs land in
+  # amit_claude_data_firecrawl/data/; loaded to Snowflake via
+  # dbt-asc/loaders/load_data_portal_to_snowflake.R (TODO — not yet written).
+  # Last agent run: 2026-06-30T09:24Z (manifest.json run_id bf18de6b194a).
+  - name: data_portal
+    description: |
+      External ASC datasets fetched by the data refresh agent
+      (amit_claude_data_firecrawl). All tables are UTLA grain unless noted.
+      Loader: dbt-asc/loaders/load_data_portal_to_snowflake.R (pending).
+    database: reference
+    schema: public
+    tables:
+      - name: ascfr_salt
+        description: |
+          ASCFR & SALT — adult social care activity and finance by LA (NHS Digital).
+          Last loaded: 2023-24 release (OVERDUE — 27 months; expected within 18).
+          Next update: N/A — SALT discontinued after 2023-24; successor is CLD via DHSC.
+          Source: https://digital.nhs.uk/data-and-information/publications/statistical/adult-social-care-activity-and-finance-report
+
+      - name: cqc_ratings
+        description: |
+          CQC ratings — adult social care locations, rolled up to LA level.
+          Last loaded: 2026-06-01 (June 2026 monthly release, 26MB ODS).
+          Next update: July 2026 (monthly cadence).
+          Source: https://www.cqc.org.uk/about-us/transparency/using-cqc-data
+
+      - name: asc_workforce
+        description: |
+          Adult social care workforce by LA (Skills for Care).
+          Last loaded: 2024-25 release (updated 2025-10-14).
+          Next update: ~October 2026 (annual, typically released Oct/Nov).
+          Source: https://www.skillsforcare.org.uk
+
+      - name: people_receiving_care
+        description: |
+          People receiving adult social care — STS001 (new clients) + LTS001 (long-term),
+          tidy format, merged into one source-tagged frame.
+          Last loaded: 2024-25 release.
+          Next update: ~mid-2027 (annual DHSC activity report).
+          Source: https://www.gov.uk/government/statistics/adult-social-care-activity-report-england
+
+      - name: dols
+        description: |
+          Deprivation of Liberty Safeguards — applications received and granted by LA.
+          Last loaded: 2024-25 release.
+          Next update: ~2027 (annual DHSC publication).
+          Source: https://www.gov.uk/government/statistics/deprivation-of-liberty-safeguards-england
+
+      - name: population
+        description: |
+          Mid-year population estimates by LA (NOMIS NM_31_1), total all ages.
+          Last loaded: 2026-06-30 (218 rows, NOMIS live pull).
+          Next update: annual — re-run agent when ONS releases next mid-year estimates (~mid-2027).
+          Source: nomis://NM_31_1?geography=TYPE154&date=latest&sex=7&age=0&measures=20100
+
+      - name: disability_prevalence
+        description: |
+          Disability prevalence by LA — Census 2021 (NOMIS NM_2093_1).
+          Categories: limited a lot / limited a little / not disabled. 331 rows (pivoted to one row per LA).
+          Last loaded: 2026-06-30 (one-off Census 2021 extract).
+          Next update: Census 2031 (~5 years).
+          Source: nomis://NM_2093_1?geography=TYPE154&measures=20100
+
+      - name: imd_deprivation
+        description: |
+          English Indices of Deprivation 2025 (IDAOPI), upper-tier LA summary.
+          Last loaded: 2025 release (IoD2025 File 11).
+          Next update: ~2029 (IoD published roughly every 4 years).
+          Source: https://www.gov.uk/government/statistics/english-indices-of-deprivation-2025
+
+      - name: ombudsman
+        description: |
+          LGSCO adult social care complaint reviews — complaints decided by LA.
+          Last loaded: 2024-25 release.
+          Next update: ~mid-2026 (annual LGSCO publication).
+          Source: https://www.lgo.org.uk/information-centre/reports/annual-review-reports/adult-social-care-reviews
+
+      - name: discharge_delays
+        description: |
+          LIMITATION — metric discontinued. Delays attributable to ASC was a DTOC metric
+          (ended ~2020); the Discharge Ready Date successor does not attribute delays to ASC.
+          Not loaded to Snowflake. Retained in registry as a documented gap.
+          Source: https://www.england.nhs.uk/statistics/statistical-work-areas/discharge-delays-acute-data/

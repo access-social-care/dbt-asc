@@ -5,12 +5,17 @@
   )
 }}
 
-{{ la_query_segments(months_back=1,  source_model='stg_la_queries_glos', suppress=false) }}
-UNION ALL
-{{ la_query_segments(months_back=3,  source_model='stg_la_queries_glos', suppress=false) }}
-UNION ALL
-{{ la_query_segments(months_back=6,  source_model='stg_la_queries_glos', suppress=false) }}
-UNION ALL
-{{ la_query_segments(months_back=9,  source_model='stg_la_queries_glos', suppress=false) }}
-UNION ALL
-{{ la_query_segments(months_back=12, source_model='stg_la_queries_glos', suppress=false) }}
+WITH base AS (
+    {{ la_query_segments(months_back=1,  source_model='stg_la_queries_glos', suppress=false) }}
+    UNION ALL
+    {{ la_query_segments(months_back=3,  source_model='stg_la_queries_glos', suppress=false) }}
+    UNION ALL
+    {{ la_query_segments(months_back=6,  source_model='stg_la_queries_glos', suppress=false) }}
+    UNION ALL
+    {{ la_query_segments(months_back=9,  source_model='stg_la_queries_glos', suppress=false) }}
+    UNION ALL
+    {{ la_query_segments(months_back=12, source_model='stg_la_queries_glos', suppress=false) }}
+)
+
+SELECT * FROM base
+WHERE SEGMENT NOT IN ('Unmatched', 'Unmapped', 'UNMATCHED', 'Uncategorised')
