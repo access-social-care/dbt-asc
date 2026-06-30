@@ -59,15 +59,18 @@ SIGNAL_PROCESSING_DIR <- Sys.getenv(
 
 cli::cli_h1("Step 0: NLG")
 
-nlg_script <- file.path(SIGNAL_PROCESSING_DIR, "nlg", "signal_to_narrative.py")
+nlg_script  <- file.path(SIGNAL_PROCESSING_DIR, "nlg", "signal_to_narrative.py")
+nlg_venv_py <- file.path(SIGNAL_PROCESSING_DIR, "nlg", ".venv", "bin", "python")
 prose_file  <- file.path(SIGNAL_OUTPUT_DIR, paste0("la_signals_prose_", Sys.Date(), ".json"))
 
 if (!file.exists(nlg_script)) {
   log_warn("NLG script not found at {nlg_script} — skipping prose generation")
+} else if (!file.exists(nlg_venv_py)) {
+  stop("NLG venv not found at {nlg_venv_py}. Run: bash nlg/setup_venv.sh", call. = FALSE)
 } else {
-  log_info("Running NLG: {nlg_script}")
+  log_info("Running NLG via venv: {nlg_venv_py}")
   nlg_result <- processx::run(
-    "python",
+    nlg_venv_py,
     args = c(nlg_script, "--la", LA_NAME, "--out", prose_file),
     echo = TRUE,
     error_on_status = FALSE
