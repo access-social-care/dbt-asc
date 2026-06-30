@@ -66,7 +66,7 @@ prose_file  <- file.path(SIGNAL_OUTPUT_DIR, paste0("la_signals_prose_", Sys.Date
 if (!file.exists(nlg_script)) {
   log_warn("NLG script not found at {nlg_script} — skipping prose generation")
 } else if (!file.exists(nlg_venv_py)) {
-  stop("NLG venv not found at {nlg_venv_py}. Run: bash nlg/setup_venv.sh", call. = FALSE)
+  stop("NLG venv not found at {nlg_venv_py}. Run: bash nlg/setup.sh", call. = FALSE)
 } else {
   log_info("Running NLG via venv: {nlg_venv_py}")
   nlg_result <- processx::run(
