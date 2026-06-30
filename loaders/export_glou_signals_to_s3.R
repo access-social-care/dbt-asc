@@ -29,14 +29,10 @@ library(redux)
 
 # Config ------------------------------------------------------------------
 
-SIGNAL_OUTPUT_DIR <- file.path(
-  dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))),
-  "signal_processing", "output"
+SIGNAL_OUTPUT_DIR <- Sys.getenv(
+  "SIGNAL_OUTPUT_DIR",
+  "/srv/projects/signal-processing/output"
 )
-## Fallback for non-RStudio execution
-if (!nchar(SIGNAL_OUTPUT_DIR) || !dir.exists(SIGNAL_OUTPUT_DIR)) {
-  SIGNAL_OUTPUT_DIR <- "C:/o/_ASC/signal_processing/output"
-}
 
 S3_BUCKET  <- "asc-analytics-dashboard-backend-development-data"
 S3_FOLDER  <- "gloucestershire"
