@@ -1,0 +1,183 @@
+version: 2
+
+models:
+
+  # ---------------------------------------------------------------------------
+  # Stage 1 — Source-specific staging (UT1-mapped)
+  # ---------------------------------------------------------------------------
+
+  - name: stg_accessava_segments
+    description: |
+      AccessAva conversations at topic-mention grain, normalised to UT1.
+      One row per conversation x topic (topic_entry_point flattened on '; ').
+      SEGMENT = UT1 from TOPIC_ENTRY_POINT_MAP ('Unmatched' if NULL, 'Unmapped' if not in map).
+      LOCALITY_NAME = county from accessava_locality postcode lookup (NULL where unresolved).
+      Production model — consumed by stg_la_queries_segments.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: QUERY_DATE
+        description: Date conversation started (created_at cast to date)
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Always 'AccessAva'
+        tests: [{accepted_values: {values: ['AccessAva']}}]
+      - name: QUERY_COUNT
+        description: Always 1 — sum gives topic mention counts, not conversation counts
+      - name: SEGMENT
+        description: UT1 from topic_entry_point_map. 'Unmatched' = NULL topic; 'Unmapped' = not in map
+      - name: AGE_BAND
+        description: Age band where recorded (mostly NULL)
+      - name: HAS_LETTER
+        description: 1 if a formal letter was generated (lettercode non-null), else 0
+      - name: LOCALITY_NAME
+        description: County from accessava_locality postcode lookup. NULL where unresolved.
+
+  - name: stg_advicepro_segments
+    description: |
+      AdvicePro cases at topic-mention grain, normalised to UT1.
+      One row per case x topic via case_topic_bridge (pre-exploded by ETL).
+      Mapping chain: case_topic_bridge -> s_c_csi_map -> universal_themes_map -> UT1.
+      SEGMENT = UT1 ('Unmapped' if no match in taxonomy).
+      LOCALITY_NAME = county from casework_locality postcode lookup (NULL where unresolved).
+      Production model — consumed by stg_la_queries_segments.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: QUERY_DATE
+        description: First day of the case open month (parsed from case_open_month MM/YYYY)
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Always 'AdvicePro'
+        tests: [{accepted_values: {values: ['AdvicePro']}}]
+      - name: QUERY_COUNT
+        description: Always 1 — sum gives topic mention counts, not case counts
+      - name: SEGMENT
+        description: UT1 from universal_themes_map. 'Unmapped' if no match.
+      - name: AGE_BAND
+        description: Age range from advicepro_demographics (NULL where not recorded)
+      - name: HAS_LETTER
+        description: Always 0 — AdvicePro does not generate letters
+      - name: LOCALITY_NAME
+        description: County from casework_locality postcode lookup. NULL where unresolved.
+
+  - name: stg_helplines
+    description: |
+      Helplines calls at UT1 grain. Pre-aggregated by ETL (not row-per-call).
+      QUERY_COUNT = N calls for that LA x month x UT1 combination.
+      Locality, age band, and HAS_LETTER are NULL — not available from helplines source.
+      Production model — consumed by stg_la_queries_segments.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: QUERY_DATE
+        description: First day of the call month
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Always 'Helplines'
+        tests: [{accepted_values: {values: ['Helplines']}}]
+      - name: QUERY_COUNT
+        description: Pre-aggregated call count for this LA x month x UT1 combination
+      - name: SEGMENT
+        description: UT1 from helplines ETL mapping
+      - name: AGE_BAND
+        description: Always NULL — not available from helplines
+      - name: HAS_LETTER
+        description: Always NULL — not applicable to helplines
+      - name: LOCALITY_NAME
+        description: Always NULL — helplines data has no sub-LA geography
+
+  # ---------------------------------------------------------------------------
+  # Stage 2 — Cross-source union
+  # ---------------------------------------------------------------------------
+
+  - name: stg_la_queries_segments
+    description: |
+      Union of all three UT1-mapped source models: AccessAva + AdvicePro + Helplines.
+      Canonical entry point for all LA data product analysis.
+      Grain: one row per conversation/case x topic mention.
+      QUERY_COUNT = 1 per row (except helplines which are pre-aggregated).
+      Production model — base for stg_la_queries_glos and mart_la_query_summary.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: QUERY_DATE
+        description: Date of query/call/case open
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Originating system
+        tests: [not_null, {accepted_values: {values: ['AccessAva', 'AdvicePro', 'Helplines']}}]
+      - name: QUERY_COUNT
+        description: Topic mention count (1 per row except pre-aggregated helplines)
+      - name: SEGMENT
+        description: UT1 universal theme. 'Unmatched'/'Unmapped' for AccessAva taxonomy gaps.
+      - name: AGE_BAND
+        description: Age band (NULL for helplines)
+      - name: HAS_LETTER
+        description: Letter flag (NULL for helplines, 0 always for AdvicePro)
+      - name: LOCALITY_NAME
+        description: County (NULL for helplines; NULL where postcode unresolved)
+
+  - name: stg_la_queries_glos
+    description: |
+      Gloucestershire-only slice of stg_la_queries_segments.
+      Base model for all int_glos_* and mart_glos_* models.
+      PoC scope — expand WHERE clause when product rolls out to additional LAs.
+      Production model.
+
+  # ---------------------------------------------------------------------------
+  # Intermediate — Gloucestershire aggregations (all time windows in one table)
+  # ---------------------------------------------------------------------------
+
+  - name: int_glos_la_activity_summary
+    description: |
+      Unsuppressed total query counts by LA and time window for Gloucestershire.
+      All 5 time windows (1m, 3m, 6m, 9m, 12m) in one table, keyed by TIME_WINDOW_MONTHS.
+      Raw counts — mart_glos_la_activity_summary_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_demographics
+    description: |
+      Unsuppressed query counts by LA x age band for Gloucestershire, all time windows.
+      AGE_BAND from AccessAva and AdvicePro only (helplines has no age dimension).
+      Raw counts — mart_glos_la_demographics_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_legal_letters
+    description: |
+      Unsuppressed AccessAva legal letter counts by LA for Gloucestershire, all time windows.
+      HAS_LETTER = 1 rows only (AccessAva source only — AdvicePro and Helplines excluded).
+      Raw counts — mart_glos_la_legal_letters_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_locality_overview
+    description: |
+      Unsuppressed query counts by LA x county for Gloucestershire, all time windows.
+      LOCALITY_NAME = county from postcode lookup (NULL rows excluded in marts).
+      Raw counts — mart_glos_la_locality_overview_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_query_segments
+    description: |
+      Unsuppressed query counts by LA x UT1 segment for Gloucestershire, all time windows.
+      Rank column added for display ordering. Excludes 'Unmatched'/'Unmapped' rows.
+      Raw counts — mart_glos_la_query_segments_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_queries_over_time
+    description: |
+      Unsuppressed monthly query counts by LA for Gloucestershire, all time windows.
+      QUERY_MONTH = first day of month.
+      Raw counts — mart_glos_la_queries_over_time_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_query_source
+    description: |
+      Unsuppressed query counts by LA x source system for Gloucestershire, all time windows.
+      SOURCE_SYSTEM = 'AccessAva', 'AdvicePro', or 'Helplines'.
+      Raw counts — mart_glos_la_query_source_* apply la_suppress() on top.
+      Production model.

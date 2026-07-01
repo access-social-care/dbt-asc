@@ -29,7 +29,7 @@ SELECT
     COALESCE(u.ut1, 'Unmapped')                                                       AS SEGMENT,
     d.age_range                                                                       AS AGE_BAND,
     0                                                                                 AS HAS_LETTER,
-    loc.ward                                                                          AS LOCALITY_NAME
+    loc.county                                                                        AS LOCALITY_NAME
 
 FROM {{ source('casework', 'advicepro_casework') }} c
 

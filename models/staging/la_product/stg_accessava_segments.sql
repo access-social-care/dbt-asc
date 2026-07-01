@@ -30,7 +30,7 @@ SELECT
     END                                                                     AS SEGMENT,
     a.age                                                                   AS AGE_BAND,
     CASE WHEN a.lettercode IS NOT NULL THEN 1 ELSE 0 END                    AS HAS_LETTER,
-    l.ward                                                                  AS LOCALITY_NAME
+    l.county                                                                AS LOCALITY_NAME
 
 FROM (
     SELECT
