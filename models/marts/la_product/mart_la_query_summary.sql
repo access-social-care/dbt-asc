@@ -1,40 +1,34 @@
 {{
   config(
     materialized='table',
-    description='Cross-source LA query summary: AdvicePro + AccessAva (by segment) + Helplines'
+    description='Cross-source LA query summary: AdvicePro + AccessAva + Helplines, all normalised to UT1 segment. All-time grain.'
   )
 }}
 
 /*
   Mart: LA query summary aggregated across all three source systems.
 
-  Grain: one row per LA × source system × segment combination.
-  QUERY_COUNT = total interactions / calls for that combination (all time).
+  Grain: one row per LA x source system x UT1 segment (all time).
+  QUERY_COUNT = total topic mentions for that combination.
 
-  Sources:
-    - stg_advicepro      → AdvicePro cases. SEGMENT = NULL (no shared taxonomy yet).
-    - stg_accessava_segments → AccessAva conversations, SEGMENT = CASE_SPECIFIC_ISSUES_GROUP
-                              (one row per segment per conversation after LATERAL FLATTEN).
-    - stg_helplines      → Helplines calls. SEGMENT = UT1. QUERY_COUNT = N (pre-aggregated).
+  All three sources use the UT1-mapped Track 2 staging models:
+    - stg_advicepro_segments  -> UT1 via universal_themes_map
+    - stg_accessava_segments  -> UT1 via topic_entry_point_map
+    - stg_helplines           -> UT1 natively (pre-aggregated)
 
-  Use QUERY_DATE for time-windowed versions. Add a WHERE clause on QUERY_DATE above
-  the GROUP BY to produce rolling period variants (e.g. last 3/6/12 months).
-
-  Note on double-counting: AccessAva conversations with multiple segments contribute
-  QUERY_COUNT = 1 per segment row. This is intentional — segment-level counts reflect
-  how many interactions touched each topic, not unique conversations. Use stg_la_queries
-  (which references stg_accessava, not stg_accessava_segments) for unique conversation counts.
+  QUERY_COUNT = 1 per topic-mention row. A conversation touching 3 topics contributes 3.
+  For rolling time windows, add WHERE QUERY_DATE >= DATEADD('month', -N, CURRENT_DATE()).
 */
 
 SELECT
     LA_NAME,
     SOURCE_SYSTEM,
     SEGMENT,
-    SUM(QUERY_COUNT)   AS QUERY_COUNT
+    SUM(QUERY_COUNT) AS QUERY_COUNT
 
 FROM (
     SELECT LA_NAME, SOURCE_SYSTEM, SEGMENT, QUERY_COUNT
-    FROM {{ ref('stg_advicepro') }}
+    FROM {{ ref('stg_advicepro_segments') }}
 
     UNION ALL
 
