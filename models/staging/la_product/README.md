@@ -1,6 +1,6 @@
 # LA Data Product — Staging Layer
 
-All models use **Track 2 (UT1-mapped)** — the only track. Source-specific raw-category staging models were removed; use `stg_la_queries_segments` as the canonical entry point for all analysis.
+All models use **UT1/UT2-mapped topic mentions** — the only track. Source-specific raw-category staging models (the old "Track 1") were removed; `stg_la_topic_mentions` is the canonical entry point for all analysis.
 
 ---
 
@@ -8,34 +8,26 @@ All models use **Track 2 (UT1-mapped)** — the only track. Source-specific raw-
 
 | Model | Source | SEGMENT | Notes |
 |---|---|---|---|
-| `stg_accessava_segments` | `accessava.accessava` | `topic_entry_point` → `topic_entry_point_map` → UT1 | Flattens semicolon-joined topics; joins `accessava_locality` for county |
-| `stg_advicepro_segments` | `casework.advicepro_casework` | `case_topic_bridge` → `s_c_csi_map` → `universal_themes_map` → UT1 | Joins `casework_locality` for county; `advicepro_demographics` for age |
-| `stg_helplines` | `helplines.helplines_aggregated_full` | UT1 natively (pre-aggregated by ETL) | No locality, age, or letter dimensions |
+| `stg_accessava` | `accessava.accessava` | `topic_entry_point` → `topic_entry_point_map` → UT1/UT2 | Flattens semicolon-joined topics; joins `accessava_locality` for county |
+| `stg_advicepro` | `casework.advicepro_casework` | `case_topic_bridge` → `s_c_csi_map` → `universal_themes_map` → UT1/UT2 | Joins `casework_locality` for county; `advicepro_demographics` for age |
+| `stg_helplines` | `helplines.helplines_aggregated_full` | UT1 natively (pre-aggregated by ETL) | No UT2, locality, age, or letter dimensions |
 
-Unioned in **`stg_la_queries_segments`**. Grain: one row per conversation/case × topic mention.
+Unioned in **`stg_la_topic_mentions`**. Grain: one row per conversation/case × topic mention — a conversation touching 3 topics contributes 3 rows. Named for this grain, not "queries": one query/interaction is not one row.
 
-`stg_la_queries_glos` filters `stg_la_queries_segments` to Gloucestershire and is the base for all `int_glos_*` and `mart_glos_*` models.
+`stg_la_topic_mentions_glos` filters `stg_la_topic_mentions` to Gloucestershire and is the base for all `int_glos_*` (in `models/intermediate/la_product/`) and `mart_glos_*` models.
 
 ---
 
-## Intermediate and mart models
+## Lineage
 
 ```
-stg_la_queries_segments
-└── stg_la_queries_glos  (Gloucestershire filter)
-    ├── int_glos_la_activity_summary      -> mart_glos_la_activity_summary_{1m,3m,6m,9m,12m}
-    ├── int_glos_la_demographics          -> mart_glos_la_demographics_{1m,3m,6m,9m,12m}
-    ├── int_glos_la_legal_letters         -> mart_glos_la_legal_letters_{1m,3m,6m,9m,12m}
-    ├── int_glos_la_locality_overview     -> mart_glos_la_locality_overview_{1m,3m,6m,9m,12m}
-    ├── int_glos_la_query_segments        -> mart_glos_la_query_segments_{1m,3m,6m,9m,12m}
-    ├── int_glos_la_queries_over_time     -> mart_glos_la_queries_over_time_{1m,3m,6m,9m,12m}
-    └── int_glos_la_query_source          -> mart_glos_la_query_source_{1m,3m,6m,9m,12m}
-
-stg_la_queries_segments (all LAs)
-└── mart_la_query_summary                 (all-time aggregate, all LAs)
+stg_accessava  ─┐
+stg_advicepro  ─┼─> stg_la_topic_mentions ─┬─> stg_la_topic_mentions_glos ─> int_glos_* ─> mart_glos_*
+stg_helplines  ─┘                          ├─> mart_la_query_summary  (all LAs, all-time)
+                                            └─> helplines_advicepro_accessava  (monthly UT1/UT2, models/staging/acs_helplines/)
 ```
 
-Each `int_glos_*` model pre-computes all 5 time windows (1m, 3m, 6m, 9m, 12m) in one table with a `TIME_WINDOW_MONTHS` column. The `mart_glos_*` models slice by time window and apply `la_suppress()` for small-number disclosure control.
+`int_glos_*` models live in `models/intermediate/la_product/` (not this folder) — same physical Snowflake schema (`la_product_staging`), just organised separately from source-level staging per dbt convention.
 
 ---
 
@@ -49,14 +41,15 @@ Each `int_glos_*` model pre-computes all 5 time windows (1m, 3m, 6m, 9m, 12m) in
 
 | Column | AccessAva | AdvicePro | Helplines |
 |---|---|---|---|
+| UT2 | populated where mapped | populated where mapped | always NULL |
 | LOCALITY_NAME | county (where resolved by postcode lookup) | county (where resolved by postcode lookup) | NULL |
 | AGE_BAND | age band (where recorded) | age_range (where recorded) | NULL |
 | HAS_LETTER | 0 or 1 | 0 always | NULL |
 
-**Note on LOCALITY_NAME / county:** AdvicePro county comes from `CASEWORK.PUBLIC.CASEWORK_LOCALITY` loaded by `loaders/load_casework_locality_to_snowflake.R` (findthatpostcode.uk). AccessAva county comes from `ACCESSAVA.PUBLIC.ACCESSAVA_LOCALITY` loaded by `chatbot_data/data_uploader.R` — confirm the `county` column is present in that loader before running `stg_accessava_segments` in production.
+**Note on LOCALITY_NAME / county:** AdvicePro county comes from `CASEWORK.PUBLIC.CASEWORK_LOCALITY` loaded by `loaders/load_casework_locality_to_snowflake.R` (findthatpostcode.uk). AccessAva county comes from `ACCESSAVA.PUBLIC.ACCESSAVA_LOCALITY` loaded by `chatbot_data/data_uploader.R` — confirm the `county` column is present in that loader before running `stg_accessava` in production.
 
 ---
 
 ## Production status
 
-All `mart_glos_*` tables are in production, serving the Gloucestershire LA data product. `mart_la_query_summary` is a cross-LA all-time aggregate (used for ad-hoc analysis). `helplines_advicepro_accessava` (in `staging_acs_helplines` schema) is a separate standalone model — monthly grain, reads directly from raw sources, not part of this lineage.
+All `mart_glos_*` tables are in production, serving the Gloucestershire LA data product. `mart_la_query_summary` is a cross-LA all-time aggregate (used for ad-hoc analysis). `helplines_advicepro_accessava` (in `models/staging/acs_helplines/`, `staging_acs_helplines` schema) reads from `stg_la_topic_mentions` and collapses to monthly UT1/UT2 grain — no known consumers as of 2026-07.

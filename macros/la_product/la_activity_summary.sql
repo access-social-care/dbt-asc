@@ -1,4 +1,4 @@
-{% macro la_activity_summary(months_back, source_model='stg_la_queries', suppress=true) %}
+{% macro la_activity_summary(months_back, source_model='stg_la_topic_mentions_glos', suppress=true) %}
 -- View 2: LA activity summary - total queries across all sources
 -- Grain: one row per LA for the full time window
 -- suppress=false: returns raw QUERY_COUNT_RAW for intermediate/BI use

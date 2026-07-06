@@ -1,20 +1,21 @@
 {{
   config(
     materialized='table',
-    description='AdvicePro cases flattened to one row per topic via case_topic_bridge, mapped to UT1'
+    description='AdvicePro cases flattened to one row per topic via case_topic_bridge, mapped to UT1/UT2'
   )
 }}
 
 /*
-  Stage 1c: AdvicePro with case_topic_bridge exploded.
+  Stage 1: AdvicePro with case_topic_bridge exploded.
 
   case_topic_bridge has one row per case x topic (pre-exploded by ETL).
-  Mapping chain: case_topic_bridge -> s_c_csi_map -> universal_themes_map -> UT1.
+  Mapping chain: case_topic_bridge -> s_c_csi_map -> universal_themes_map -> UT1/UT2.
   Community Care cases key on (category, case_specific_issue);
   all others key on (supercategory, category).
 
   SEGMENT = UT1 from UNIVERSAL_THEMES_MAP.
     'Unmapped' — topic exists in bridge but has no UT1 match (taxonomy drift).
+  UT2 = second-level theme from the same map (sparse; NULL where not applicable).
 
   Grain: one row per case x topic.
   QUERY_COUNT = 1 per row (sum gives topic mention counts, not case counts).
@@ -27,6 +28,7 @@ SELECT
     'AdvicePro'                                                                       AS SOURCE_SYSTEM,
     1                                                                                 AS QUERY_COUNT,
     COALESCE(u.ut1, 'Unmapped')                                                       AS SEGMENT,
+    NULLIF(u.ut2, 'NA')                                                               AS UT2,
     d.age_range                                                                       AS AGE_BAND,
     0                                                                                 AS HAS_LETTER,
     loc.county                                                                        AS LOCALITY_NAME

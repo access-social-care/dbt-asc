@@ -1,4 +1,4 @@
-{% macro la_query_source(months_back, source_model='stg_la_queries', suppress=true) %}
+{% macro la_query_source(months_back, source_model='stg_la_topic_mentions_glos', suppress=true) %}
 -- View 5: Source breakdown - same combined dataset as all other views,
 -- with SOURCE_SYSTEM added as a dimension.
 -- Grain: one row per LA x source system within the time window

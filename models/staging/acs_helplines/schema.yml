@@ -6,8 +6,12 @@ models:
       Cross-source query counts aggregated to the universal theme taxonomy
       (UT1/UT2) instead of per-source categories.
       Grain: LA_NAME x MONTH_DATE x SOURCE_SYSTEM x UT1 x UT2.
+      Reads from stg_la_topic_mentions and collapses to monthly grain — does not
+      map raw sources independently, so a taxonomy fix in the staging models
+      flows through here automatically.
       See model header for per-source count semantics and the 'Unmapped' vs
-      'Unmatched' distinction.
+      'Unmatched' distinction. No known consumers as of 2026-07 (confirmed with
+      Amit before rebuild) — safe to restructure without a downstream break.
     columns:
       - name: LA_NAME
         description: Standardised CASSR local authority name

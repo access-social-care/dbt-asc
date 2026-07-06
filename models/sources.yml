@@ -43,15 +43,11 @@ sources:
           
           - name: la_name
             description: Standardised CASSR local authority name. Used as LA_NAME in stg_accessava.
-          - name: categories
-            description: |
-              Semicolon-space-joined list of conversation categories (e.g. "Housing; Benefits").
-              Used as SEGMENT in stg_accessava (raw-category track). Split on '; '.
           - name: topic_entry_point
             description: |
               Semicolon-space-joined list of topic entry points (e.g. "Funding; Legal issues").
-              Used as SEGMENT in stg_accessava_segments (UT1-mapped track). Split on '; '.
-              Mapped to UT1 via REFERENCE.PUBLIC.TOPIC_ENTRY_POINT_MAP.
+              Used as SEGMENT in stg_accessava. Split on '; '.
+              Mapped to UT1/UT2 via REFERENCE.PUBLIC.TOPIC_ENTRY_POINT_MAP.
           - name: age
             description: Age band of the user (demographics — mostly NULL).
           - name: lettercode
@@ -59,6 +55,8 @@ sources:
           - name: transcript_id
             description: Join key to accessava_locality.
           # Additional columns present in table (not used in current models):
+          # - categories (raw-category taxonomy — was used by the deleted Track 1
+          #   stg_accessava; no model reads this column anymore)
           # - persona, supercategories, csis, consumed_resources, local_authority_name
           # - ethnicity, religion, disability (demographics - mostly NULL)
           # - tenant_id
@@ -70,9 +68,9 @@ sources:
           Loaded by chatbot_data/data_uploader.R via chatbot_locality() in ascFuncs.
           chatbot_locality() queries PostgreSQL actions_locality, dedupes by transcript_id,
           and renames local_authority_name -> la_name.
-          Joined to ACCESSAVA on transcript_id in stg_accessava_segments.
+          Joined to ACCESSAVA on transcript_id in stg_accessava.
           NOTE: county column must be confirmed present in chatbot_data loader before
-          stg_accessava_segments runs in production (stg_advicepro_segments already has it
+          stg_accessava runs in production (stg_advicepro already has it
           via casework_locality from findthatpostcode.uk).
         columns:
           - name: transcript_id
@@ -80,7 +78,7 @@ sources:
           - name: la_name
             description: LA name from postcode lookup (renamed from local_authority_name).
           - name: county
-            description: County name from postcode lookup. Used as LOCALITY_NAME in stg_accessava_segments. Confirm this column exists in chatbot_data loader output before use.
+            description: County name from postcode lookup. Used as LOCALITY_NAME in stg_accessava. Confirm this column exists in chatbot_data loader output before use.
           - name: ward
             description: Electoral ward name from postcode lookup. Retained for reference — LOCALITY_NAME now uses county.
           - name: ward_code
@@ -112,7 +110,7 @@ sources:
           Loaded by helplines_data/load_to_snowflake.R.
 
           Note: This table is already aggregated (N = call count).
-          stg_la_queries uses SUM(N) to align grain with row-level sources.
+          stg_helplines uses SUM(N) to align grain with row-level sources.
         columns:
           - name: LA_NAME
             description: Local authority name
@@ -157,7 +155,7 @@ sources:
           - name: postcode
             description: Raw client postcode used for the lookup
           - name: county
-            description: County name from postcode lookup. Used as LOCALITY_NAME in stg_advicepro_segments.
+            description: County name from postcode lookup. Used as LOCALITY_NAME in stg_advicepro.
           - name: county_code
             description: ONS county code
           - name: ward

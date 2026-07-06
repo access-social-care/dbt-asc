@@ -1,3 +1,8 @@
+> **Superseded (2026-07):** this design doc reflects the original build of `mart_la_query_summary`.
+> Model names below are stale — `stg_accessava_segments` is now `stg_accessava`, and the mart
+> now reads UT1-mapped `stg_advicepro`/`stg_accessava` (not raw AdvicePro/`CASE_SPECIFIC_ISSUES_GROUP`).
+> See `models/staging/la_product/README.md` for the current architecture. Left as-is for history.
+
 ## New cross-source LA query summary mart
 
 Three models added in `feat/la-query-summary-mart`:

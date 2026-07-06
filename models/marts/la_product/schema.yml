@@ -5,7 +5,7 @@ version: 2
 # Each view family has 5 time-window variants: 1m, 3m, 6m, 9m, 12m.
 # All counts are small-number suppressed via la_suppress() — values < 5 shown as '1-5'.
 #
-# Lineage: stg_la_queries_segments -> stg_la_queries_glos -> int_glos_* -> mart_glos_*
+# Lineage: stg_la_topic_mentions -> stg_la_topic_mentions_glos -> int_glos_* (models/intermediate/la_product/) -> mart_glos_*
 
 models:
 

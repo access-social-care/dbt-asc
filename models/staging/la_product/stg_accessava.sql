@@ -1,12 +1,12 @@
 {{
   config(
     materialized='table',
-    description='AccessAva conversations flattened to one row per topic_entry_point segment, mapped to UT1'
+    description='AccessAva conversations flattened to one row per topic_entry_point mention, mapped to UT1/UT2'
   )
 }}
 
 /*
-  Stage 1b: AccessAva with topic_entry_point flattened.
+  Stage 1: AccessAva with topic_entry_point flattened.
 
   topic_entry_point is semicolon-space-joined (e.g. "Housing; Benefits; Legal").
   Each conversation expands to one row per topic.
@@ -14,6 +14,7 @@
   SEGMENT = UT1 from TOPIC_ENTRY_POINT_MAP.
     'Unmatched' — topic_entry_point was NULL.
     'Unmapped'  — value exists but has no row in the map (taxonomy drift).
+  UT2 = second-level theme from the same map (sparse; NULL where not applicable).
 
   Grain: one row per conversation x topic.
   QUERY_COUNT = 1 per row (sum gives topic mention counts, not conversation counts).
@@ -28,6 +29,7 @@ SELECT
         WHEN a.topic_entry_point IS NULL THEN 'Unmatched'
         ELSE COALESCE(m.ut1, 'Unmapped')
     END                                                                     AS SEGMENT,
+    NULLIF(m.ut2, 'NA')                                                     AS UT2,
     a.age                                                                   AS AGE_BAND,
     CASE WHEN a.lettercode IS NOT NULL THEN 1 ELSE 0 END                    AS HAS_LETTER,
     l.county                                                                AS LOCALITY_NAME

@@ -41,6 +41,17 @@ models:
         +materialized: table
         +schema: staging_acs_helplines
 
+    intermediate:
+      # Aggregation layer between staging and marts
+      +materialized: table
+
+      la_product:
+        # Gloucestershire aggregations (int_glos_*), all time windows pre-computed.
+        # Same physical schema as staging.la_product — this is an organisational
+        # split (staging vs intermediate folders), not a schema/location change.
+        +materialized: table
+        +schema: la_product_staging
+
     marts:
       # Business logic and aggregations
       +materialized: table

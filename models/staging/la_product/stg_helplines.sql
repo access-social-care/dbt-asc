@@ -17,8 +17,8 @@
 
   QUERY_COUNT = N (already aggregated, SUM in the mart gives correct totals).
 
-  Note: Helplines does not carry locality, age band, or letter dimensions —
-  these are set NULL for compatibility with the stg_la_queries interface.
+  Note: Helplines does not carry UT2, locality, age band, or letter dimensions —
+  these are set NULL for compatibility with the stg_la_topic_mentions union.
 */
 
 SELECT
@@ -27,6 +27,7 @@ SELECT
     'Helplines'                                                    AS SOURCE_SYSTEM,
     N                                                              AS QUERY_COUNT,
     UT1                                                            AS SEGMENT,
+    NULL::VARCHAR                                                  AS UT2,
     NULL::VARCHAR                                                  AS AGE_BAND,
     0                                                              AS HAS_LETTER,
     NULL::VARCHAR                                                  AS LOCALITY_NAME
