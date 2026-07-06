@@ -1,49 +1,55 @@
 {{
   config(
     materialized='table',
-    description='AdvicePro cases with demographics and locality — Stage 1 of LA Data Product staging'
+    description='AdvicePro cases flattened to one row per topic via case_topic_bridge, mapped to UT1/UT2'
   )
 }}
 
 /*
-  Stage 1: AdvicePro casework flattened to one row per case x case_specific_issues_group value.
+  Stage 1: AdvicePro with case_topic_bridge exploded.
 
-  case_specific_issues_group is semicolon-joined in advicepro_casework.
-  LATERAL FLATTEN explodes it so SEGMENT = individual raw category value.
+  case_topic_bridge has one row per case x topic (pre-exploded by ETL).
+  Mapping chain: case_topic_bridge -> s_c_csi_map -> universal_themes_map -> UT1/UT2.
+  Community Care cases key on (category, case_specific_issue);
+  all others key on (supercategory, category).
 
-  This is the "raw category" track — SEGMENT is the source value, not mapped to UT1.
-  For UT1-mapped output (comparable across AccessAva and Helplines), use stg_advicepro_segments.
+  SEGMENT = UT1 from UNIVERSAL_THEMES_MAP.
+    'Unmapped' — topic exists in bridge but has no UT1 match (taxonomy drift).
+  UT2 = second-level theme from the same map (sparse; NULL where not applicable).
 
-  Grain: one row per case x segment value.
+  Grain: one row per case x topic.
   QUERY_COUNT = 1 per row (sum gives topic mention counts, not case counts).
+  HAS_LETTER = 0 — AdvicePro does not produce letters.
 */
 
 SELECT
     c.la_name                                                                         AS LA_NAME,
-    TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD')             AS QUERY_DATE,
+    TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD')              AS QUERY_DATE,
     'AdvicePro'                                                                       AS SOURCE_SYSTEM,
     1                                                                                 AS QUERY_COUNT,
-    c.segment_value                                                                   AS SEGMENT,
+    COALESCE(u.ut1, 'Unmapped')                                                       AS SEGMENT,
+    NULLIF(u.ut2, 'NA')                                                               AS UT2,
     d.age_range                                                                       AS AGE_BAND,
     0                                                                                 AS HAS_LETTER,
-    loc.ward                                                                          AS LOCALITY_NAME
+    loc.county                                                                        AS LOCALITY_NAME
 
-FROM (
-    SELECT
-        la_name,
-        case_open_month,
-        case_reference,
-        TRIM(f.value::VARCHAR)                                                        AS segment_value
-    FROM {{ source('casework', 'advicepro_casework') }},
-    LATERAL FLATTEN(
-        INPUT => SPLIT(case_specific_issues_group, ';'),
-        OUTER => TRUE
-    ) f
-    WHERE la_name IS NOT NULL
-) c
+FROM {{ source('casework', 'advicepro_casework') }} c
+
+INNER JOIN {{ source('casework', 'case_topic_bridge') }} b
+    ON c.case_reference = b.case_reference
+
+LEFT JOIN {{ source('reference', 's_c_csi_map') }} m
+    ON b.s_c_csi_id = m.s_c_csi_id
+
+LEFT JOIN {{ source('reference', 'universal_themes_map') }} u
+    ON  u.org = 'advicepro'
+    AND LOWER(TRIM(u.t1)) = LOWER(TRIM(IFF(m.supercategory = 'Community Care', m.category,            m.supercategory)))
+    AND LOWER(TRIM(u.t2)) = LOWER(TRIM(IFF(m.supercategory = 'Community Care', m.case_specific_issue, m.category)))
 
 LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
     ON c.case_reference = d.case_reference
 
 LEFT JOIN {{ source('casework', 'casework_locality') }} loc
     ON c.case_reference = loc.case_reference
+
+WHERE c.la_name IS NOT NULL

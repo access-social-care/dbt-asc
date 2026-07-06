@@ -1,8 +1,8 @@
-{% macro la_locality_overview(months_back, source_model='stg_la_queries', suppress=true) %}
+{% macro la_locality_overview(months_back, source_model='stg_la_topic_mentions_glos', suppress=true) %}
 -- View 1: Localities overview
 -- Grain: one row per LA x locality within the time window
--- Both sources: AdvicePro locality = ward (from postcode lookup).
---               AccessAva locality = NULL pending sub-LA field confirmation in ACCESSAVA_LOCALITY.
+-- Both sources: LOCALITY_NAME = county from postcode lookup (NULL where unresolved).
+--               AccessAva county requires the accessava_locality loader to expose it — see sources.yml.
 -- suppress=false: returns raw QUERY_COUNT_RAW for intermediate/BI use
 SELECT
     LA_NAME,

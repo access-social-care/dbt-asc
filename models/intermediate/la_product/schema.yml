@@ -1,0 +1,60 @@
+version: 2
+
+# All int_glos_* models sit between staging (stg_la_topic_mentions_glos) and the
+# mart_glos_* marts. Each pre-computes all 5 time windows (1m, 3m, 6m, 9m, 12m) in
+# one table, keyed by TIME_WINDOW_MONTHS, with unsuppressed raw counts.
+# mart_glos_* models slice by time window and apply la_suppress() on top.
+#
+# Physically materialized in the la_product_staging schema (same as staging/la_product) —
+# this folder split is organisational (staging vs intermediate), not a schema change.
+
+models:
+
+  - name: int_glos_la_activity_summary
+    description: |
+      Unsuppressed total query counts by LA and time window for Gloucestershire.
+      All 5 time windows (1m, 3m, 6m, 9m, 12m) in one table, keyed by TIME_WINDOW_MONTHS.
+      Raw counts — mart_glos_la_activity_summary_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_demographics
+    description: |
+      Unsuppressed query counts by LA x age band for Gloucestershire, all time windows.
+      AGE_BAND from AccessAva and AdvicePro only (helplines has no age dimension).
+      Raw counts — mart_glos_la_demographics_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_legal_letters
+    description: |
+      Unsuppressed AccessAva legal letter counts by LA for Gloucestershire, all time windows.
+      HAS_LETTER = 1 rows only (AccessAva source only — AdvicePro and Helplines excluded).
+      Raw counts — mart_glos_la_legal_letters_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_locality_overview
+    description: |
+      Unsuppressed query counts by LA x county for Gloucestershire, all time windows.
+      LOCALITY_NAME = county from postcode lookup (NULL rows excluded in marts).
+      Raw counts — mart_glos_la_locality_overview_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_query_segments
+    description: |
+      Unsuppressed query counts by LA x UT1 segment for Gloucestershire, all time windows.
+      Rank column added for display ordering. Excludes 'Unmatched'/'Unmapped' rows.
+      Raw counts — mart_glos_la_query_segments_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_queries_over_time
+    description: |
+      Unsuppressed monthly query counts by LA for Gloucestershire, all time windows.
+      QUERY_MONTH = first day of month.
+      Raw counts — mart_glos_la_queries_over_time_* apply la_suppress() on top.
+      Production model.
+
+  - name: int_glos_la_query_source
+    description: |
+      Unsuppressed query counts by LA x source system for Gloucestershire, all time windows.
+      SOURCE_SYSTEM = 'AccessAva', 'AdvicePro', or 'Helplines'.
+      Raw counts — mart_glos_la_query_source_* apply la_suppress() on top.
+      Production model.

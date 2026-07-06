@@ -1,0 +1,141 @@
+version: 2
+
+models:
+
+  # ---------------------------------------------------------------------------
+  # Stage 1 — Source-specific staging (UT1/UT2-mapped)
+  # ---------------------------------------------------------------------------
+
+  - name: stg_accessava
+    description: |
+      AccessAva conversations at topic-mention grain, normalised to UT1/UT2.
+      One row per conversation x topic (topic_entry_point flattened on '; ').
+      SEGMENT = UT1 from TOPIC_ENTRY_POINT_MAP ('Unmatched' if NULL, 'Unmapped' if not in map).
+      LOCALITY_NAME = county from accessava_locality postcode lookup (NULL where unresolved).
+      Production model — consumed by stg_la_topic_mentions.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: QUERY_DATE
+        description: Date conversation started (created_at cast to date)
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Always 'AccessAva'
+        tests: [{accepted_values: {values: ['AccessAva']}}]
+      - name: QUERY_COUNT
+        description: Always 1 — sum gives topic mention counts, not conversation counts
+      - name: SEGMENT
+        description: UT1 from topic_entry_point_map. 'Unmatched' = NULL topic; 'Unmapped' = not in map
+      - name: UT2
+        description: UT2 from topic_entry_point_map (sparse; NULL where not applicable)
+      - name: AGE_BAND
+        description: Age band where recorded (mostly NULL)
+      - name: HAS_LETTER
+        description: 1 if a formal letter was generated (lettercode non-null), else 0
+      - name: LOCALITY_NAME
+        description: County from accessava_locality postcode lookup. NULL where unresolved.
+
+  - name: stg_advicepro
+    description: |
+      AdvicePro cases at topic-mention grain, normalised to UT1/UT2.
+      One row per case x topic via case_topic_bridge (pre-exploded by ETL).
+      Mapping chain: case_topic_bridge -> s_c_csi_map -> universal_themes_map -> UT1/UT2.
+      SEGMENT = UT1 ('Unmapped' if no match in taxonomy).
+      LOCALITY_NAME = county from casework_locality postcode lookup (NULL where unresolved).
+      Production model — consumed by stg_la_topic_mentions.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: QUERY_DATE
+        description: First day of the case open month (parsed from case_open_month MM/YYYY)
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Always 'AdvicePro'
+        tests: [{accepted_values: {values: ['AdvicePro']}}]
+      - name: QUERY_COUNT
+        description: Always 1 — sum gives topic mention counts, not case counts
+      - name: SEGMENT
+        description: UT1 from universal_themes_map. 'Unmapped' if no match.
+      - name: UT2
+        description: UT2 from universal_themes_map (sparse; NULL where not applicable)
+      - name: AGE_BAND
+        description: Age range from advicepro_demographics (NULL where not recorded)
+      - name: HAS_LETTER
+        description: Always 0 — AdvicePro does not generate letters
+      - name: LOCALITY_NAME
+        description: County from casework_locality postcode lookup. NULL where unresolved.
+
+  - name: stg_helplines
+    description: |
+      Helplines calls at UT1 grain. Pre-aggregated by ETL (not row-per-call).
+      QUERY_COUNT = N calls for that LA x month x UT1 combination.
+      UT2, locality, age band, and HAS_LETTER are NULL — not available from helplines source.
+      Production model — consumed by stg_la_topic_mentions.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: QUERY_DATE
+        description: First day of the call month
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Always 'Helplines'
+        tests: [{accepted_values: {values: ['Helplines']}}]
+      - name: QUERY_COUNT
+        description: Pre-aggregated call count for this LA x month x UT1 combination
+      - name: SEGMENT
+        description: UT1 from helplines ETL mapping
+      - name: UT2
+        description: Always NULL — helplines has no second-level theme
+      - name: AGE_BAND
+        description: Always NULL — not available from helplines
+      - name: HAS_LETTER
+        description: Always NULL — not applicable to helplines
+      - name: LOCALITY_NAME
+        description: Always NULL — helplines data has no sub-LA geography
+
+  # ---------------------------------------------------------------------------
+  # Stage 2 — Cross-source union
+  # ---------------------------------------------------------------------------
+
+  - name: stg_la_topic_mentions
+    description: |
+      Union of all three UT1/UT2-mapped source models: AccessAva + AdvicePro + Helplines.
+      Canonical entry point for all LA data product analysis.
+      Grain: one row per conversation/case x topic mention — not one row per
+      conversation/case/query. Named for this grain, not "queries", because a
+      single conversation touching 3 topics contributes 3 rows.
+      QUERY_COUNT = 1 per row (except helplines which are pre-aggregated).
+      Production model — base for stg_la_topic_mentions_glos, mart_la_query_summary,
+      and helplines_advicepro_accessava.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: QUERY_DATE
+        description: Date of query/call/case open
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Originating system
+        tests: [not_null, {accepted_values: {values: ['AccessAva', 'AdvicePro', 'Helplines']}}]
+      - name: QUERY_COUNT
+        description: Topic mention count (1 per row except pre-aggregated helplines)
+      - name: SEGMENT
+        description: UT1 universal theme. 'Unmatched'/'Unmapped' for AccessAva taxonomy gaps.
+      - name: UT2
+        description: UT2 universal theme (sparse; NULL for helplines)
+      - name: AGE_BAND
+        description: Age band (NULL for helplines)
+      - name: HAS_LETTER
+        description: Letter flag (NULL for helplines, 0 always for AdvicePro)
+      - name: LOCALITY_NAME
+        description: County (NULL for helplines; NULL where postcode unresolved)
+
+  - name: stg_la_topic_mentions_glos
+    description: |
+      Gloucestershire-only slice of stg_la_topic_mentions.
+      Base model for all int_glos_* and mart_glos_* models (see models/intermediate/la_product/).
+      PoC scope — expand WHERE clause when product rolls out to additional LAs.
+      Production model.

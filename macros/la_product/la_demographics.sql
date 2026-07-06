@@ -1,4 +1,4 @@
-{% macro la_demographics(months_back, source_model='stg_la_queries', suppress=true) %}
+{% macro la_demographics(months_back, source_model='stg_la_topic_mentions_glos', suppress=true) %}
 -- View 6: Demographics breakdown by age band
 -- Grain: one row per LA x age band within the time window
 -- Note: AccessAva age field is <5% populated; AdvicePro has age_range.

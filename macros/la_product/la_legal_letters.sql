@@ -1,6 +1,6 @@
-{% macro la_legal_letters(months_back, source_model='stg_la_queries', suppress=true) %}
+{% macro la_legal_letters(months_back, source_model='stg_la_topic_mentions_glos', suppress=true) %}
 -- View 7: Legal letters - total queries vs letters generated
--- AccessAva only: only source with HAS_LETTER dimension in stg_la_queries
+-- AccessAva only: only source with HAS_LETTER dimension in stg_la_topic_mentions
 -- Grain: one row per LA for the full time window
 -- suppress=false: returns raw QUERY_COUNT_RAW / HAS_LETTER_RAW for intermediate/BI use
 SELECT

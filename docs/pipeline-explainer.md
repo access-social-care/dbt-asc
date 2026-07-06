@@ -219,7 +219,7 @@ SELECT
     LA_NAME,
     {{ la_suppress('SUM(QUERY_COUNT)') }} AS QUERY_COUNT_DISPLAY,
     {{ months_back }}                     AS TIME_WINDOW_MONTHS
-FROM {{ ref('stg_la_queries') }}
+FROM {{ ref('stg_la_topic_mentions_glos') }}
 WHERE QUERY_DATE >= DATEADD('month', -{{ months_back }}, CURRENT_DATE())
 GROUP BY 1
 {% endmacro %}
@@ -408,7 +408,7 @@ One subtlety: `ROLE_DBT_TRANSFORM` is the default role for the ETL_USER account.
 | **dbt compile** | Validates SQL and expands macros without running anything in Snowflake |
 | **dbt deps** | Installs packages listed in `packages.yml` (run manually when packages.yml changes) |
 | **materialisation** | How dbt stores a model's output - `table` (replace entire table) or `view` (SQL view, no data stored). Staging models are views; mart models are tables. |
-| **ref()** | Jinja function that declares a dependency on another dbt model - `{{ ref('stg_la_queries') }}` |
+| **ref()** | Jinja function that declares a dependency on another dbt model - `{{ ref('stg_la_topic_mentions') }}` |
 | **source()** | Jinja function that references a raw Snowflake table managed outside dbt - `{{ source('casework', 'advicepro_casework') }}` |
 | **macro** | Jinja function that generates SQL - think of it as a SQL template parameterised by dbt |
 | **DAG** | Directed Acyclic Graph - the dependency tree dbt builds from all `ref()` and `source()` calls |

@@ -1,0 +1,139 @@
+version: 2
+
+# All mart_glos_* models are in production serving the Gloucestershire LA data product.
+# They are in the `la_product` schema (RBAC-restricted in Snowflake).
+# Each view family has 5 time-window variants: 1m, 3m, 6m, 9m, 12m.
+# All counts are small-number suppressed via la_suppress() — values < 5 shown as '1-5'.
+#
+# Lineage: stg_la_topic_mentions -> stg_la_topic_mentions_glos -> int_glos_* (models/intermediate/la_product/) -> mart_glos_*
+
+models:
+
+  # ---------------------------------------------------------------------------
+  # mart_la_query_summary — cross-LA, all-time, all sources
+  # ---------------------------------------------------------------------------
+
+  - name: mart_la_query_summary
+    description: |
+      All-time query count by LA x source system x UT1 segment, across all LAs (not Glos-only).
+      All three sources normalised to UT1 via Track 2 staging models.
+      No time-window filtering — add WHERE QUERY_DATE clause for rolling periods.
+      Not small-number suppressed.
+      Used for ad-hoc cross-LA analysis, not the Gloucestershire product tables.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Originating system (AccessAva, AdvicePro, or Helplines)
+        tests: [not_null, {accepted_values: {values: ['AccessAva', 'AdvicePro', 'Helplines']}}]
+      - name: SEGMENT
+        description: UT1 universal theme
+      - name: QUERY_COUNT
+        description: Total topic mentions for this LA x source x segment combination (all time)
+        tests: [not_null]
+
+  # ---------------------------------------------------------------------------
+  # mart_glos_la_activity_summary — total queries by time window
+  # ---------------------------------------------------------------------------
+
+  - name: mart_glos_la_activity_summary_1m
+    description: Gloucestershire total query count, last 1 month. Small-number suppressed. Production.
+  - name: mart_glos_la_activity_summary_3m
+    description: Gloucestershire total query count, last 3 months. Small-number suppressed. Production.
+  - name: mart_glos_la_activity_summary_6m
+    description: Gloucestershire total query count, last 6 months. Small-number suppressed. Production.
+  - name: mart_glos_la_activity_summary_9m
+    description: Gloucestershire total query count, last 9 months. Small-number suppressed. Production.
+  - name: mart_glos_la_activity_summary_12m
+    description: Gloucestershire total query count, last 12 months. Small-number suppressed. Production.
+
+  # ---------------------------------------------------------------------------
+  # mart_glos_la_demographics — queries by age band
+  # ---------------------------------------------------------------------------
+
+  - name: mart_glos_la_demographics_1m
+    description: Gloucestershire query count by age band, last 1 month. Small-number suppressed. Production.
+  - name: mart_glos_la_demographics_3m
+    description: Gloucestershire query count by age band, last 3 months. Small-number suppressed. Production.
+  - name: mart_glos_la_demographics_6m
+    description: Gloucestershire query count by age band, last 6 months. Small-number suppressed. Production.
+  - name: mart_glos_la_demographics_9m
+    description: Gloucestershire query count by age band, last 9 months. Small-number suppressed. Production.
+  - name: mart_glos_la_demographics_12m
+    description: Gloucestershire query count by age band, last 12 months. Small-number suppressed. Production.
+
+  # ---------------------------------------------------------------------------
+  # mart_glos_la_legal_letters — AccessAva legal letter counts
+  # ---------------------------------------------------------------------------
+
+  - name: mart_glos_la_legal_letters_1m
+    description: Gloucestershire AccessAva legal letter count, last 1 month. Small-number suppressed. Production.
+  - name: mart_glos_la_legal_letters_3m
+    description: Gloucestershire AccessAva legal letter count, last 3 months. Small-number suppressed. Production.
+  - name: mart_glos_la_legal_letters_6m
+    description: Gloucestershire AccessAva legal letter count, last 6 months. Small-number suppressed. Production.
+  - name: mart_glos_la_legal_letters_9m
+    description: Gloucestershire AccessAva legal letter count, last 9 months. Small-number suppressed. Production.
+  - name: mart_glos_la_legal_letters_12m
+    description: Gloucestershire AccessAva legal letter count, last 12 months. Small-number suppressed. Production.
+
+  # ---------------------------------------------------------------------------
+  # mart_glos_la_locality_overview — queries by county
+  # ---------------------------------------------------------------------------
+
+  - name: mart_glos_la_locality_overview_1m
+    description: Gloucestershire query count by county, last 1 month. Small-number suppressed. Production.
+  - name: mart_glos_la_locality_overview_3m
+    description: Gloucestershire query count by county, last 3 months. Small-number suppressed. Production.
+  - name: mart_glos_la_locality_overview_6m
+    description: Gloucestershire query count by county, last 6 months. Small-number suppressed. Production.
+  - name: mart_glos_la_locality_overview_9m
+    description: Gloucestershire query count by county, last 9 months. Small-number suppressed. Production.
+  - name: mart_glos_la_locality_overview_12m
+    description: Gloucestershire query count by county, last 12 months. Small-number suppressed. Production.
+
+  # ---------------------------------------------------------------------------
+  # mart_glos_la_query_segments — queries by UT1 segment
+  # ---------------------------------------------------------------------------
+
+  - name: mart_glos_la_query_segments_1m
+    description: Gloucestershire query count by UT1 segment, last 1 month. Excludes Unmatched/Unmapped. Small-number suppressed. Production.
+  - name: mart_glos_la_query_segments_3m
+    description: Gloucestershire query count by UT1 segment, last 3 months. Excludes Unmatched/Unmapped. Small-number suppressed. Production.
+  - name: mart_glos_la_query_segments_6m
+    description: Gloucestershire query count by UT1 segment, last 6 months. Excludes Unmatched/Unmapped. Small-number suppressed. Production.
+  - name: mart_glos_la_query_segments_9m
+    description: Gloucestershire query count by UT1 segment, last 9 months. Excludes Unmatched/Unmapped. Small-number suppressed. Production.
+  - name: mart_glos_la_query_segments_12m
+    description: Gloucestershire query count by UT1 segment, last 12 months. Excludes Unmatched/Unmapped. Small-number suppressed. Production.
+
+  # ---------------------------------------------------------------------------
+  # mart_glos_la_queries_over_time — monthly time series
+  # ---------------------------------------------------------------------------
+
+  - name: mart_glos_la_queries_over_time_1m
+    description: Gloucestershire monthly query count time series, last 1 month window. Small-number suppressed. Production.
+  - name: mart_glos_la_queries_over_time_3m
+    description: Gloucestershire monthly query count time series, last 3 months. Small-number suppressed. Production.
+  - name: mart_glos_la_queries_over_time_6m
+    description: Gloucestershire monthly query count time series, last 6 months. Small-number suppressed. Production.
+  - name: mart_glos_la_queries_over_time_9m
+    description: Gloucestershire monthly query count time series, last 9 months. Small-number suppressed. Production.
+  - name: mart_glos_la_queries_over_time_12m
+    description: Gloucestershire monthly query count time series, last 12 months. Small-number suppressed. Production.
+
+  # ---------------------------------------------------------------------------
+  # mart_glos_la_query_source — queries by source system
+  # ---------------------------------------------------------------------------
+
+  - name: mart_glos_la_query_source_1m
+    description: Gloucestershire query count by source system, last 1 month. Small-number suppressed. Production.
+  - name: mart_glos_la_query_source_3m
+    description: Gloucestershire query count by source system, last 3 months. Small-number suppressed. Production.
+  - name: mart_glos_la_query_source_6m
+    description: Gloucestershire query count by source system, last 6 months. Small-number suppressed. Production.
+  - name: mart_glos_la_query_source_9m
+    description: Gloucestershire query count by source system, last 9 months. Small-number suppressed. Production.
+  - name: mart_glos_la_query_source_12m
+    description: Gloucestershire query count by source system, last 12 months. Small-number suppressed. Production.

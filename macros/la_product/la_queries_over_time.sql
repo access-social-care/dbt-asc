@@ -1,4 +1,4 @@
-{% macro la_queries_over_time(months_back, source_model='stg_la_queries', suppress=true) %}
+{% macro la_queries_over_time(months_back, source_model='stg_la_topic_mentions_glos', suppress=true) %}
 -- View 3: Queries over time - monthly time series across all sources
 -- Grain: one row per LA x calendar month
 -- Note: ORDER BY omitted - ORDER BY inside UNION ALL is invalid SQL;

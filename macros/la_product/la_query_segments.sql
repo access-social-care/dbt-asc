@@ -1,4 +1,4 @@
-{% macro la_query_segments(months_back, source_model='stg_la_queries', suppress=true) %}
+{% macro la_query_segments(months_back, source_model='stg_la_topic_mentions_glos', suppress=true) %}
 -- Grain: one row per LA x segment within the time window.
 -- suppress=false: returns raw QUERY_COUNT_RAW for intermediate/BI use.
 SELECT
