@@ -46,7 +46,7 @@ stg_helplines  ─┘                          ├─> mart_la_query_summary  (a
 | AGE_BAND | age band (where recorded) | age_range (where recorded) | NULL |
 | HAS_LETTER | 0 or 1 | 0 always | NULL |
 
-**Note on LOCALITY_NAME / county:** AdvicePro county comes from `CASEWORK.PUBLIC.CASEWORK_LOCALITY` loaded by `loaders/load_casework_locality_to_snowflake.R` (findthatpostcode.uk). AccessAva county comes from `ACCESSAVA.PUBLIC.ACCESSAVA_LOCALITY` loaded by `chatbot_data/data_uploader.R` — confirm the `county` column is present in that loader before running `stg_accessava` in production.
+**Note on LOCALITY_NAME / county:** AdvicePro county comes from `CASEWORK.PUBLIC.CASEWORK_LOCALITY` loaded by `loaders/load_casework_locality_to_snowflake.R` (findthatpostcode.uk). AccessAva county comes from `ACCESSAVA.PUBLIC.ACCESSAVA_LOCALITY` loaded by `chatbot_data/data_uploader.R` — `county` and `county_code` confirmed present in both loaders (2026-07).
 
 ---
 

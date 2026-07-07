@@ -1,5 +1,11 @@
 # dbt-asc Implementation Status
 
+> **Superseded (2026-07):** the "single ANALYTICS.PUBLIC schema for all marts" decision below
+> was later replaced by schema-per-folder (`la_product`, `la_product_staging`,
+> `staging_acs_helplines`) once the LA data product was added. `ANALYTICS.PUBLIC` remains
+> accurate for chatbot marts only. See `README.md` and `docs/pipeline-explainer.md` for the
+> current architecture. Left as-is below for history.
+
 **Date:** 2026-03-11  
 **Session:** Initial setup with ANALYTICS.PUBLIC architecture
 

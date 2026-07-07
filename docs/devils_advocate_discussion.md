@@ -1,5 +1,9 @@
 # Devil's Advocate Discussion: dbt Architecture Decision
 
+> **Superseded (2026-07):** the "single ANALYTICS.PUBLIC schema" decision reached here predates
+> the LA data product, which now uses schema-per-folder (`la_product`, `la_product_staging`,
+> `staging_acs_helplines`). See `README.md` for the current architecture. Left as-is below for history.
+
 **Date:** March 11, 2026  
 **Topic:** Whether to implement dbt transformation layer for Snowflake analytics  
 **Participants:** Data team + Devil's Advocate agent

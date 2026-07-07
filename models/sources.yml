@@ -69,16 +69,16 @@ sources:
           chatbot_locality() queries PostgreSQL actions_locality, dedupes by transcript_id,
           and renames local_authority_name -> la_name.
           Joined to ACCESSAVA on transcript_id in stg_accessava.
-          NOTE: county column must be confirmed present in chatbot_data loader before
-          stg_accessava runs in production (stg_advicepro already has it
-          via casework_locality from findthatpostcode.uk).
+          county and county_code confirmed present in the loader output (2026-07).
         columns:
           - name: transcript_id
             description: Primary key — unique conversation identifier. FK to ACCESSAVA.transcript_id.
           - name: la_name
             description: LA name from postcode lookup (renamed from local_authority_name).
           - name: county
-            description: County name from postcode lookup. Used as LOCALITY_NAME in stg_accessava. Confirm this column exists in chatbot_data loader output before use.
+            description: County name from postcode lookup. Used as LOCALITY_NAME in stg_accessava.
+          - name: county_code
+            description: ONS county code.
           - name: ward
             description: Electoral ward name from postcode lookup. Retained for reference — LOCALITY_NAME now uses county.
           - name: ward_code
