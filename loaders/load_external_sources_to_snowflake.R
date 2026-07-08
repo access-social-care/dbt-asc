@@ -22,7 +22,7 @@
 ## past the CLI/console output that scrolls away.
 ##
 ## Usage:
-##   Rscript loaders/load_data_portal_to_snowflake.R
+##   Rscript loaders/load_external_sources_to_snowflake.R
 ##   (run from dbt-asc/ root, or via absolute path from cron)
 ##
 ## SOURCE_DIR defaults to a sibling checkout; override via env var if the
