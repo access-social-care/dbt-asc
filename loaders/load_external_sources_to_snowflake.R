@@ -12,7 +12,14 @@
 ##
 ## Per-dataset status from manifest.json drives the action:
 ##   SUCCESS    -> load (data changed this run)
-##   NO_UPDATE  -> skip (table is already current, nothing to reload)
+##   NO_UPDATE  -> load ONLY if the target Snowflake table doesn't exist yet
+##                 (first-time load using the still-valid on-disk CSV);
+##                 skip if the table already exists (nothing to reload).
+##                 NO_UPDATE means "the SOURCE hasn't changed since last
+##                 extraction" - a completely different question from "has
+##                 this ever been loaded to Snowflake," which bit on the very
+##                 first loader run (every dataset came back NO_UPDATE against
+##                 a valid on-disk CSV, and all 10 were skipped for no reason).
 ##   LIMITATION -> skip (documented gap, e.g. discharge_delays — never loaded)
 ##   FAILED_*   -> skip + warn loudly; script exits non-zero if any occurred
 ##                 (cc picks this up like any other pipeline failure)
@@ -87,6 +94,19 @@ extract_drift_flag <- function(dataset) {
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
+## Mirrors the existence check inside ascFuncs::snowflake_write_table itself -
+## cheap, tryCatch-based, never assumes.
+table_exists <- function(con, database, schema, table_name) {
+  full_name <- paste(database, schema, toupper(table_name), sep = ".")
+  tryCatch(
+    {
+      DBI::dbGetQuery(con, paste0("SELECT 1 FROM ", full_name, " LIMIT 0"))
+      TRUE
+    },
+    error = function(e) FALSE
+  )
+}
+
 # Load each dataset ------------------------------------------------------------
 
 n_loaded <- 0L
@@ -102,17 +122,21 @@ for (dataset in manifest$datasets) {
     n_skipped <- n_skipped + 1L
     next
   }
-  if (status == "NO_UPDATE") {
-    log_info("{id}: NO_UPDATE — table already current, skipping")
-    n_skipped <- n_skipped + 1L
-    next
-  }
   if (grepl("^FAILED_", status)) {
     log_warn("{id}: {status} — {dataset$message %||% 'no message'} — NOT loaded")
     n_failed <- n_failed + 1L
     next
   }
-  if (status != "SUCCESS") {
+  first_time_load <- FALSE
+  if (status == "NO_UPDATE") {
+    if (table_exists(con, TARGET_DB, "PUBLIC", id)) {
+      log_info("{id}: NO_UPDATE — table already current, skipping")
+      n_skipped <- n_skipped + 1L
+      next
+    }
+    log_info("{id}: NO_UPDATE from source, but table doesn't exist in Snowflake yet — first-time load")
+    first_time_load <- TRUE
+  } else if (status != "SUCCESS") {
     log_warn("{id}: unrecognised status '{status}' — skipping defensively")
     n_skipped <- n_skipped + 1L
     next
@@ -120,7 +144,7 @@ for (dataset in manifest$datasets) {
 
   csv_path <- file.path(SOURCE_DIR, paste0(id, ".csv"))
   if (!file.exists(csv_path)) {
-    log_warn("{id}: SUCCESS in manifest but {csv_path} missing — skipping")
+    log_warn("{id}: {status} in manifest but {csv_path} missing — skipping")
     n_failed <- n_failed + 1L
     next
   }
@@ -144,7 +168,8 @@ for (dataset in manifest$datasets) {
     schema     = "PUBLIC",
     overwrite  = TRUE
   )
-  log_info("{id}: loaded {nrow(df)} rows -> {TARGET_DB}.PUBLIC.{toupper(id)}")
+  load_kind <- if (first_time_load) "first-time load" else "loaded"
+  log_info("{id}: {load_kind}, {nrow(df)} rows -> {TARGET_DB}.PUBLIC.{toupper(id)}")
   n_loaded <- n_loaded + 1L
 }
 
