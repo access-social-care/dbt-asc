@@ -24,9 +24,10 @@
 ##   FAILED_*   -> skip + warn loudly; script exits non-zero if any occurred
 ##                 (cc picks this up like any other pipeline failure)
 ##
-## Every dataset's row also gets a _RUN_ID, _RUN_AT, _PUBLICATION_DATE and
-## _DRIFT_FLAG column (from manifest provenance) so drift warnings survive
-## past the CLI/console output that scrolls away.
+## Every dataset's row also gets a _RUN_ID, _RUN_AT and _DRIFT_FLAG column
+## (from manifest provenance) so drift warnings survive past the CLI/console
+## output that scrolls away. Publication date is NOT added here - the CSV
+## already carries `_publication_date` from source_checker's own tagging.
 ##
 ## Usage:
 ##   Rscript loaders/load_external_sources_to_snowflake.R
@@ -150,9 +151,13 @@ for (dataset in manifest$datasets) {
   }
 
   df <- readr::read_csv(csv_path, show_col_types = FALSE)
+  # NOTE: does NOT add a publication-date column here - source_checker's own
+  # tagging.py already writes one (`_publication_date`, same value, same
+  # source: resolved.inferred_publication_date / last_known_good). Adding a
+  # second one collided case-insensitively once Snowflake uppercases every
+  # column name ("duplicate column name '_PUBLICATION_DATE'").
   df$`_RUN_ID` <- manifest$run_id
   df$`_RUN_AT` <- manifest$run_at
-  df$`_PUBLICATION_DATE` <- dataset$publication_date %||% NA_character_
   df$`_DRIFT_FLAG` <- extract_drift_flag(dataset)
 
   drift_flag <- extract_drift_flag(dataset)
