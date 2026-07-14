@@ -44,10 +44,18 @@ library(cli)
 
 # Config --------------------------------------------------------------------
 
+## Default folder name below is the actual on-disk sibling checkout
+## (amit_claude_data_firecrawl) - the repo has NOT been renamed/re-cloned
+## under external_source_freshness_checker on disk yet, only on GitHub
+## (see fork note above). Confirmed 2026-07-14: the previous default here
+## pointed at a folder that doesn't exist, which meant this loader had
+## never successfully run in prod and REFERENCE.PUBLIC.PEOPLE_RECEIVING_CARE
+## (and every other data_portal table) was never created - silent no-op,
+## not an error, until dbt's source test hit the missing table.
 SOURCE_DIR <- Sys.getenv(
   "DATA_PORTAL_SOURCE_DIR",
   normalizePath(
-    file.path(dirname(getwd()), "external_source_freshness_checker", "data"),
+    file.path(dirname(getwd()), "amit_claude_data_firecrawl", "data"),
     mustWork = FALSE
   )
 )

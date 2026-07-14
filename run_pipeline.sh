@@ -46,6 +46,7 @@ run_loader() {
 # Source system loads
 run_loader load_member_orgs_to_snowflake             # Monday.com -> REFERENCE.MEMBER_ORGANISATIONS
 run_loader load_advicepro_demographics_to_snowflake  # AdvicePro FD7DXGL4 -> CASEWORK.ADVICEPRO_DEMOGRAPHICS
+run_loader load_external_sources_to_snowflake        # asc-agent data-portal CSVs -> REFERENCE.PUBLIC.<dataset_id>
 
 # Derived / lookup loads (depend on source loads above)
 run_loader load_casework_locality_to_snowflake       # case postcodes -> findthatpostcode.uk -> CASEWORK.CASEWORK_LOCALITY
