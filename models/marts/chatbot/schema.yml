@@ -92,3 +92,33 @@ models:
       
       - name: DAYS_ACTIVE
         description: Number of days between first and last conversation
+
+  - name: persona_bridge_dbt
+    description: |
+      PoC: dbt-generated shadow of AVA.PUBLIC.PERSONA_BRIDGE (currently built by
+      ascFuncs::make_bridge_dim() in R). Suffixed _dbt for row-level diffing
+      against the production table - not a replacement yet.
+
+      **Purpose**: Test whether bridge/dim generation for AccessAva's
+      multi-valued columns can move from R into dbt.
+      **Grain**: One row per transcript_id x persona value.
+    columns:
+      - name: TRANSCRIPT_ID
+        description: FK to ACCESSAVA.transcript_id
+        tests: [not_null]
+      - name: PERSONA
+        description: Single persona value (source column is semicolon-joined; split here)
+        tests: [not_null]
+
+  - name: persona_dim_dbt
+    description: |
+      PoC: dbt-generated shadow of AVA.PUBLIC.PERSONA_DIM. See persona_bridge_dbt
+      for context.
+      **Grain**: One row per distinct persona value.
+    columns:
+      - name: PERSONA_ID
+        description: Surrogate key, assigned by alphabetical order of PERSONA
+        tests: [unique, not_null]
+      - name: PERSONA
+        description: Distinct persona value
+        tests: [unique, not_null]
