@@ -402,83 +402,128 @@ sources:
       - name: sam_utla_2021
         description: "ONS Standard Area Measurements — UTLA grain, December 2021."
 
-  # ── External data portal (amit_claude_data_firecrawl) ──────────────────────
-  # Fetched by the ASC data refresh agent. CSVs land in
-  # amit_claude_data_firecrawl/data/; loaded to Snowflake via
-  # dbt-asc/loaders/load_data_portal_to_snowflake.R (TODO — not yet written).
-  # Last agent run: 2026-06-30T09:24Z (manifest.json run_id bf18de6b194a).
+  # ── External data portal (external_source_freshness_checker) ───────────────
+  # Fetched by asc-agent (fork: access-social-care/external_source_freshness_checker,
+  # upstream: mpr3z1v3/amit_claude_data_firecrawl). CSVs + manifest.json land in
+  # that repo's data/; loaded here by dbt-asc/loaders/load_data_portal_to_snowflake.R.
+  #
+  # Freshness is dbt-native (warn_after/error_after off INFORMATION_SCHEMA.LAST_ALTERED,
+  # same pattern as accessava/helplines/casework above) — NOT hand-typed "Last
+  # loaded"/"Next update" prose. That prose was tried in this block and correctly
+  # flagged as a duplicate, manually-maintained freshness channel; removed.
+  #
+  # warn_after/error_after below are PROVISIONAL — set from the researched cadence
+  # in external_source_freshness_checker/docs/onboarding.md at the time this block
+  # was written, pending the formal per-source next_release re-onboarding pass
+  # (asc-agent's own OVERDUE check, using next_release/next_release_source, is the
+  # authoritative evidence-based signal at extraction time; these thresholds are
+  # a wider-margin dbt-side backstop, not a duplicate of the same claim).
   - name: data_portal
     description: |
-      External ASC datasets fetched by the data refresh agent
-      (amit_claude_data_firecrawl). All tables are UTLA grain unless noted.
-      Loader: dbt-asc/loaders/load_data_portal_to_snowflake.R (pending).
+      External ASC benchmarking datasets fetched by asc-agent. All tables are
+      UTLA/LA grain unless noted. Loader: dbt-asc/loaders/load_data_portal_to_snowflake.R.
     database: reference
     schema: public
     tables:
       - name: ascfr_salt
         description: |
           ASCFR & SALT — adult social care activity and finance by LA (NHS Digital).
-          Last loaded: 2023-24 release (OVERDUE — 27 months; expected within 18).
-          Next update: N/A — SALT discontinued after 2023-24; successor is CLD via DHSC.
+          2023-24 was the final release — SALT is discontinued; successor is CLD
+          via DHSC (see people_receiving_care). Will never publish again under
+          this identity.
           Source: https://digital.nhs.uk/data-and-information/publications/statistical/adult-social-care-activity-and-finance-report
+        config:
+          freshness: null  # discontinued series — no freshness expectation, ever
 
       - name: cqc_ratings
         description: |
           CQC ratings — adult social care locations, rolled up to LA level.
-          Last loaded: 2026-06-01 (June 2026 monthly release, 26MB ODS).
-          Next update: July 2026 (monthly cadence).
+          Monthly release (~1st of the month).
           Source: https://www.cqc.org.uk/about-us/transparency/using-cqc-data
+        config:
+          freshness:
+            warn_after: {count: 45, period: day}
+            error_after: {count: 75, period: day}
 
       - name: asc_workforce
         description: |
           Adult social care workforce by LA (Skills for Care).
-          Last loaded: 2024-25 release (updated 2025-10-14).
-          Next update: ~October 2026 (annual, typically released Oct/Nov).
+          Annual, typically released Oct/Nov.
           Source: https://www.skillsforcare.org.uk
+        config:
+          freshness:
+            warn_after: {count: 400, period: day}
+            error_after: {count: 550, period: day}
 
       - name: people_receiving_care
         description: |
-          People receiving adult social care — STS001 (new clients) + LTS001 (long-term),
-          tidy format, merged into one source-tagged frame.
-          Last loaded: 2024-25 release.
-          Next update: ~mid-2027 (annual DHSC activity report).
+          People receiving adult social care — STS001 (new clients) + LTS001
+          (long-term), tidy format, merged into one source-tagged frame. The
+          ``metric`` column distinguishes the two (new_clients / long_term_clients).
+          Annual DHSC activity report, typically ~June.
           Source: https://www.gov.uk/government/statistics/adult-social-care-activity-report-england
+        config:
+          freshness:
+            warn_after: {count: 400, period: day}
+            error_after: {count: 550, period: day}
+        columns:
+          - name: metric
+            description: Which source file this row came from — new_clients (STS001) or long_term_clients (LTS001).
+            tests:
+              - accepted_values:
+                  values: ["new_clients", "long_term_clients"]
+                  config:
+                    severity: warn
 
       - name: dols
         description: |
           Deprivation of Liberty Safeguards — applications received and granted by LA.
-          Last loaded: 2024-25 release.
-          Next update: ~2027 (annual DHSC publication).
+          Annual DHSC publication, typically ~March.
           Source: https://www.gov.uk/government/statistics/deprivation-of-liberty-safeguards-england
+        config:
+          freshness:
+            warn_after: {count: 400, period: day}
+            error_after: {count: 550, period: day}
 
       - name: population
         description: |
           Mid-year population estimates by LA (NOMIS NM_31_1), total all ages.
-          Last loaded: 2026-06-30 (218 rows, NOMIS live pull).
-          Next update: annual — re-run agent when ONS releases next mid-year estimates (~mid-2027).
+          Annual — live NOMIS API pull, no fixed release page to check for a
+          stated next-release date.
           Source: nomis://NM_31_1?geography=TYPE154&date=latest&sex=7&age=0&measures=20100
+        config:
+          freshness:
+            warn_after: {count: 400, period: day}
+            error_after: {count: 550, period: day}
 
       - name: disability_prevalence
         description: |
           Disability prevalence by LA — Census 2021 (NOMIS NM_2093_1).
-          Categories: limited a lot / limited a little / not disabled. 331 rows (pivoted to one row per LA).
-          Last loaded: 2026-06-30 (one-off Census 2021 extract).
-          Next update: Census 2031 (~5 years).
+          Categories: limited a lot / limited a little / not disabled (pivoted
+          to one row per LA). Next update is Census 2031 — no meaningful
+          day-count freshness threshold applies for a decade-scale gap.
           Source: nomis://NM_2093_1?geography=TYPE154&measures=20100
+        config:
+          freshness: null  # one-off until Census 2031
 
       - name: imd_deprivation
         description: |
           English Indices of Deprivation 2025 (IDAOPI), upper-tier LA summary.
-          Last loaded: 2025 release (IoD2025 File 11).
-          Next update: ~2029 (IoD published roughly every 4 years).
+          IoD releases are multi-year (2019 -> 2025 was 6 years) with no fixed
+          month — genuinely unresearched next_release at the time of writing.
           Source: https://www.gov.uk/government/statistics/english-indices-of-deprivation-2025
+        config:
+          freshness: null  # multi-year cadence, no researched next-release date yet
 
       - name: ombudsman
         description: |
           LGSCO adult social care complaint reviews — complaints decided by LA.
-          Last loaded: 2024-25 release.
-          Next update: ~mid-2026 (annual LGSCO publication).
+          Annual LGSCO publication, typically ~December.
           Source: https://www.lgo.org.uk/information-centre/reports/annual-review-reports/adult-social-care-reviews
+        config:
+          freshness:
+            warn_after: {count: 400, period: day}
+            error_after: {count: 550, period: day}
 
       - name: discharge_delays
         description: |
