@@ -1,6 +1,7 @@
 ## Load the external data-portal CSVs (ASC benchmarking statistics) to Snowflake
 ##
-## Source: external_source_freshness_checker (extract → verify → CSV + manifest.json)
+## Source: external_source_freshness_checker
+##   (extract → verify → CSV + manifest.json)
 ##   repo: access-social-care/external_source_freshness_checker
 ##   (fork of mpr3z1v3/amit_claude_data_firecrawl — asc-agent)
 ## Target: REFERENCE.PUBLIC.<dataset_id> (one table per registry dataset)
@@ -66,7 +67,10 @@ cli::cli_h1("Loading data-portal CSVs to Snowflake")
 cli::cli_alert_info("Source: {SOURCE_DIR}")
 
 if (!file.exists(MANIFEST_PATH)) {
-  stop("manifest.json not found at ", MANIFEST_PATH, " — run asc-agent first.", call. = FALSE)
+  stop(
+    "manifest.json not found at ", MANIFEST_PATH, " — run asc-agent first.",
+    call. = FALSE
+  )
 }
 
 manifest <- jsonlite::fromJSON(MANIFEST_PATH, simplifyDataFrame = FALSE)
@@ -94,20 +98,10 @@ log_info(
 
 # Per-dataset provenance helper -----------------------------------------------
 
-## Drift codes are recorded per-source in provenance$warnings (a list of
-## {code, message, details}); a dataset can have >1 source (multi-file merge).
-extract_drift_flag <- function(dataset) {
-  sources <- dataset$provenance$sources
-  all_warnings <- dataset$provenance$warnings
-  codes <- character(0)
-  if (!is.null(all_warnings)) {
-    codes <- c(codes, vapply(all_warnings, function(w) w$code %||% "", character(1)))
-  }
-  drift_codes <- unique(codes[codes %in% c("SCHEMA_DRIFT", "SEMANTIC_DRIFT_SUSPECTED")])
-  if (length(drift_codes) == 0) NA_character_ else paste(drift_codes, collapse = "+")
-}
-
-`%||%` <- function(x, y) if (is.null(x)) y else x
+## extract_drift_flag() and %||% now live in loaders/lib/extract_drift_flag.R
+## so they can be unit-tested without a Snowflake connection (see tests/
+## testthat/test-extract_drift_flag.R).
+source("loaders/lib/extract_drift_flag.R")
 
 ## Mirrors the existence check inside ascFuncs::snowflake_write_table - but
 ## that check is a local variable inside the function body, not exported or
@@ -146,7 +140,9 @@ for (dataset in manifest$datasets) {
     next
   }
   if (grepl("^FAILED_", status)) {
-    log_warn("{id}: {status} — {dataset$message %||% 'no message'} — NOT loaded")
+    log_warn(
+      "{id}: {status} — {dataset$message %||% 'no message'} — NOT loaded"
+    )
     n_failed <- n_failed + 1L
     next
   }
@@ -157,7 +153,10 @@ for (dataset in manifest$datasets) {
       n_skipped <- n_skipped + 1L
       next
     }
-    log_info("{id}: NO_UPDATE from source, but table doesn't exist in Snowflake yet — first-time load")
+    log_info(
+      "{id}: NO_UPDATE from source, but table doesn't exist in Snowflake ",
+      "yet — first-time load"
+    )
     first_time_load <- TRUE
   } else if (status != "SUCCESS") {
     log_warn("{id}: unrecognised status '{status}' — skipping defensively")
@@ -184,7 +183,9 @@ for (dataset in manifest$datasets) {
 
   drift_flag <- extract_drift_flag(dataset)
   if (!is.na(drift_flag)) {
-    cli::cli_alert_warning("{id}: drift flagged this run — {drift_flag} (see manifest for detail)")
+    cli::cli_alert_warning(
+      "{id}: drift flagged this run — {drift_flag} (see manifest for detail)"
+    )
   }
 
   ascFuncs::snowflake_write_table(
@@ -196,13 +197,21 @@ for (dataset in manifest$datasets) {
     overwrite  = TRUE
   )
   load_kind <- if (first_time_load) "first-time load" else "loaded"
-  log_info("{id}: {load_kind}, {nrow(df)} rows -> {TARGET_DB}.PUBLIC.{toupper(id)}")
+  log_info(
+    "{id}: {load_kind}, {nrow(df)} rows -> ",
+    "{TARGET_DB}.PUBLIC.{toupper(id)}"
+  )
   n_loaded <- n_loaded + 1L
 }
 
 cli::cli_h2("Summary")
-cli::cli_alert_success("{n_loaded} loaded, {n_skipped} skipped, {n_failed} failed")
+cli::cli_alert_success(
+  "{n_loaded} loaded, {n_skipped} skipped, {n_failed} failed"
+)
 
 if (n_failed > 0) {
-  stop(n_failed, " dataset(s) failed to load — see warnings above.", call. = FALSE)
+  stop(
+    n_failed, " dataset(s) failed to load — see warnings above.",
+    call. = FALSE
+  )
 }
