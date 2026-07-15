@@ -1,12 +1,39 @@
 #!/bin/bash
 ##
-## Daily pipeline: load raw data, run dbt transforms, export to S3 + Redis.
+## Daily pipeline: extract external sources, load raw data, run dbt
+## transforms, export to S3 + Redis.
 ##
 
 LOADERS_DIR="/srv/projects/dbt-asc/loaders"
 PROJECT_DIR="/srv/projects/dbt-asc"
 LOG_DIR="/srv/projects/dbt-asc/logs/"
+EXTRACTOR_DIR="/srv/projects/external_source_freshness_checker"
 FAILURES=0
+
+#  Stage 0: Extract external sources (gov.uk/CQC/NOMIS/etc -> CSVs + manifest)
+#
+# Runs FIRST, sequentially, so Stage 1 never loads stale/half-written CSVs -
+# no separate cron job with a fragile time-offset guess between them.
+# No Snowflake/AWS creds needed here (source-checker only reads public data).
+
+echo "=== Stage 0: External source extraction starting at $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+cd "$EXTRACTOR_DIR"
+"$EXTRACTOR_DIR/.venv/bin/source-checker" --out data run > "${LOG_DIR}/source_checker.log" 2>&1
+EXTRACT_EXIT=$?
+
+if [ $EXTRACT_EXIT -ne 0 ]; then
+    # source-checker's own error budget already tolerates partial source
+    # failures (its exit code is 0 unless >=25% of datasets FAILED_*) - a
+    # non-zero exit here means a real problem worth flagging via cc, but
+    # Stage 1 still loads whatever DID succeed rather than aborting the
+    # whole daily pipeline over one or two bad sources.
+    echo "WARN: Stage 0 extraction exited $EXTRACT_EXIT - check ${LOG_DIR}/source_checker.log (Stage 1 proceeds with whatever succeeded)"
+else
+    echo "OK: Stage 0 extraction completed"
+fi
+
+cd "$PROJECT_DIR"
 
 # Load credentials (not stored in repo -- must exist on the VM)
 # shellcheck source=/dev/null
