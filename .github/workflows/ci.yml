@@ -3,9 +3,6 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
-  workflow_dispatch:
 
 jobs:
   dbt-parse:
@@ -45,31 +42,3 @@ jobs:
         env:
           SNOWFLAKE_USER: ci-dummy
           SNOWFLAKE_KEY_FILE: /tmp/ci_key.p8
-
-  # --------------------------------------------------
-  # CD: deploy to VM via org self-hosted runner
-  # Runs only on push to main, and only if dbt-parse passes.
-  # Was previously a standalone workflow (cd.yml) that never got
-  # picked up by the runner (100% of runs cancelled after 24h
-  # "awaiting a runner", 2026-05-26 through 2026-07-22). Merged
-  # into this file, matching the combined CI+CD pattern that works
-  # in ascFuncs/chatbot_data/helplines_data.
-  # --------------------------------------------------
-  deploy:
-    name: Deploy via Self-Hosted Runner
-    runs-on: self-hosted
-    needs: dbt-parse
-    if: github.event_name == 'push'
-
-    steps:
-      - name: Deploy latest changes
-        run: |
-          cd /srv/projects/dbt-asc
-
-          git fetch origin
-          git checkout main
-          git reset --hard origin/main
-
-          echo "Deployment successful"
-          echo "Current commit: $(git rev-parse --short HEAD)"
-          echo "Last commit message: $(git log -1 --pretty=%B)"
