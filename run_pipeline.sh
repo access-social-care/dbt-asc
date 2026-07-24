@@ -73,7 +73,16 @@ run_loader() {
 # Source system loads
 run_loader load_member_orgs_to_snowflake             # Monday.com -> REFERENCE.MEMBER_ORGANISATIONS
 run_loader load_advicepro_demographics_to_snowflake  # AdvicePro FD7DXGL4 -> CASEWORK.ADVICEPRO_DEMOGRAPHICS
-run_loader load_external_sources_to_snowflake        # asc-agent data-portal CSVs -> REFERENCE.PUBLIC.<dataset_id>
+
+# load_external_sources_to_snowflake.R's own default assumes it's run from
+# dbt-asc/'s root with the extractor checked out as a sibling folder named
+# amit_claude_data_firecrawl. Neither holds here: run_loader() has already
+# cd'd into dbt-asc/loaders (so its relative-path guess resolves one level
+# too shallow), and the extractor was forked/renamed to
+# external_source_freshness_checker (EXTRACTOR_DIR above) on disk, not just
+# on GitHub. Point it at Stage 0's real output dir explicitly instead of
+# letting it guess.
+DATA_PORTAL_SOURCE_DIR="${EXTRACTOR_DIR}/data" run_loader load_external_sources_to_snowflake  # asc-agent data-portal CSVs -> REFERENCE.PUBLIC.<dataset_id>
 
 # Derived / lookup loads (depend on source loads above)
 run_loader load_casework_locality_to_snowflake       # case postcodes -> findthatpostcode.uk -> CASEWORK.CASEWORK_LOCALITY
