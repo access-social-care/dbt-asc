@@ -32,10 +32,17 @@
 ##
 ## Usage:
 ##   Rscript loaders/load_external_sources_to_snowflake.R
-##   (run from dbt-asc/ root, or via absolute path from cron)
+##   run_pipeline.sh's run_loader() cd's into dbt-asc/loaders/ before calling
+##   this, so DATA_PORTAL_SOURCE_DIR below is NOT a sibling of this script's
+##   own cwd at runtime — see run_pipeline.sh, which sets the env var
+##   explicitly to Stage 0's real output dir (EXTRACTOR_DIR/data) rather than
+##   relying on the fallback default below.
 ##
-## SOURCE_DIR defaults to a sibling checkout; override via env var if the
-## extraction repo lives elsewhere (e.g. a different path on the VM).
+## SOURCE_DIR: override via DATA_PORTAL_SOURCE_DIR env var (run_pipeline.sh
+## always does). The hardcoded fallback below is only for manual/ad-hoc runs
+## outside the pipeline and is frequently wrong — verify it before trusting
+## it (confirmed 2026-07-24: it pointed at dbt-asc/amit_claude_data_
+## firecrawl/data, a folder that has never existed on the VM).
 
 library(ascFuncs)
 library(tidyverse)
@@ -45,18 +52,16 @@ library(cli)
 
 # Config --------------------------------------------------------------------
 
-## Default folder name below is the actual on-disk sibling checkout
-## (amit_claude_data_firecrawl) - the repo has NOT been renamed/re-cloned
-## under external_source_freshness_checker on disk yet, only on GitHub
-## (see fork note above). Confirmed 2026-07-14: the previous default here
-## pointed at a folder that doesn't exist, which meant this loader had
-## never successfully run in prod and REFERENCE.PUBLIC.PEOPLE_RECEIVING_CARE
-## (and every other data_portal table) was never created - silent no-op,
-## not an error, until dbt's source test hit the missing table.
+## Confirmed 2026-07-24: the extraction repo WAS renamed/re-cloned on disk to
+## external_source_freshness_checker (see EXTRACTOR_DIR in run_pipeline.sh) -
+## a prior version of this comment claimed otherwise. Fallback below assumes
+## a sibling checkout of dbt-asc/ itself (not dbt-asc/loaders/) under that
+## name; still only correct for manual runs from dbt-asc/ root with that
+## exact layout - prefer setting DATA_PORTAL_SOURCE_DIR explicitly.
 SOURCE_DIR <- Sys.getenv(
   "DATA_PORTAL_SOURCE_DIR",
   normalizePath(
-    file.path(dirname(getwd()), "amit_claude_data_firecrawl", "data"),
+    file.path(dirname(getwd()), "external_source_freshness_checker", "data"),
     mustWork = FALSE
   )
 )
