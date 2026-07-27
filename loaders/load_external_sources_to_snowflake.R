@@ -106,7 +106,7 @@ log_info(
 ## extract_drift_flag() and %||% now live in loaders/lib/extract_drift_flag.R
 ## so they can be unit-tested without a Snowflake connection (see tests/
 ## testthat/test-extract_drift_flag.R).
-source("loaders/lib/extract_drift_flag.R")
+source("lib/extract_drift_flag.R")
 
 ## Mirrors the existence check inside ascFuncs::snowflake_write_table - but
 ## that check is a local variable inside the function body, not exported or
