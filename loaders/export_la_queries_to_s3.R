@@ -1,6 +1,11 @@
-## Export all tables in ANALYTICS.PUBLIC_LA_PRODUCT to S3 (JSON) and Redis
+## Export the allowlisted la_product marts to S3 (JSON) and Redis
 ##
-## Source:  ANALYTICS.PUBLIC_LA_PRODUCT (all tables — discovered at runtime)
+## Source:  ANALYTICS.PUBLIC_LA_PRODUCT — only tables named in
+##          ALLOWED_LA_EXPORT_TABLES (loaders/lib/resolve_export_tables.R)
+##          are exported. This is deliberately NOT a schema-wide discovery
+##          (see admin#5: schema-wide discovery is how the unsuppressed
+##          mart_la_query_summary table ended up exported to S3/Redis
+##          alongside the suppressed mart_glos_la_* marts).
 ## Targets: s3://asc-analytics-dashboard-backend-development-data/gloucestershire/{TABLE}.json
 ##          Redis  gloucestershire:{table} (via SSH tunnel through bastion)
 ##
@@ -32,6 +37,12 @@ if (!requireNamespace("aws.s3", quietly = TRUE)) install.packages("aws.s3", repo
 if (!requireNamespace("redux", quietly = TRUE)) install.packages("redux", repos = "https://cloud.r-project.org")
 library(redux)
 
+## Explicit allowlist of exportable tables + resolution logic (admin#5).
+## run_pipeline.sh's run_loader() cd's into dbt-asc/loaders/ before calling
+## this script (see loaders/load_external_sources_to_snowflake.R, #68), so
+## this path is relative to loaders/, not the repo root.
+source("lib/resolve_export_tables.R")
+
 # Config ------------------------------------------------------------------
 
 SOURCE_DB     <- "ANALYTICS"
@@ -61,19 +72,52 @@ log_info("Connecting to {SOURCE_DB}.{SOURCE_SCHEMA}")
 con <- ascFuncs::connect_snowflake(database = SOURCE_DB)
 on.exit(DBI::dbDisconnect(con), add = TRUE)
 
-# Discover tables via INFORMATION_SCHEMA — dbListTables() invalidates the ODBC pointer
+# Discover tables via INFORMATION_SCHEMA — dbListTables() invalidates the
+# ODBC pointer. Route SOURCE_DB through the same ROLE_DEV -> _DEV logic
+# ascFuncs::snowflake_read_table() applies internally (admin#5), so this
+# discovery query targets the same database the reads below will hit.
+discovery_db <- ascFuncs::snowflake_route_dev_database(con, SOURCE_DB)
+
 tables <- DBI::dbGetQuery(con, glue::glue(
-  "SELECT TABLE_NAME FROM {SOURCE_DB}.INFORMATION_SCHEMA.TABLES ",
+  "SELECT TABLE_NAME FROM {discovery_db}.INFORMATION_SCHEMA.TABLES ",
   "WHERE TABLE_SCHEMA = '{SOURCE_SCHEMA}' AND TABLE_TYPE = 'BASE TABLE' ",
   "ORDER BY TABLE_NAME"
 ))
-table_names <- tables$TABLE_NAME
 
-if (length(table_names) == 0) {
-  stop(glue::glue("No tables found in {SOURCE_DB}.{SOURCE_SCHEMA}."), call. = FALSE)
+# Explicit allowlist, not schema-wide export (admin#5) — a table existing in
+# this schema is never sufficient on its own to get exported.
+resolved <- resolve_export_tables(tables$TABLE_NAME)
+table_names <- resolved$export
+
+if (length(resolved$unexpected) > 0) {
+  log_warn(
+    "{length(resolved$unexpected)} table(s) present in {discovery_db}.",
+    "{SOURCE_SCHEMA} are NOT in the export allowlist and will be SKIPPED: ",
+    "{paste(resolved$unexpected, collapse = ', ')}. If this is a new ",
+    "suppressed mart, add it to ALLOWED_LA_EXPORT_TABLES in ",
+    "loaders/lib/resolve_export_tables.R."
+  )
 }
 
-log_info("Found {length(table_names)} tables: {paste(table_names, collapse = ', ')}")
+if (length(resolved$missing) > 0) {
+  log_warn(
+    "{length(resolved$missing)} allowlisted table(s) not found in ",
+    "{discovery_db}.{SOURCE_SCHEMA} (stale allowlist, or dbt hasn't run ",
+    "yet): {paste(resolved$missing, collapse = ', ')}"
+  )
+}
+
+if (length(table_names) == 0) {
+  stop(glue::glue(
+    "None of the allowlisted tables were found in ",
+    "{discovery_db}.{SOURCE_SCHEMA}."
+  ), call. = FALSE)
+}
+
+log_info(
+  "Exporting {length(table_names)} allowlisted tables: ",
+  "{paste(table_names, collapse = ', ')}"
+)
 
 # Fetch all tables once, cache for Redis phase
 data_cache <- list()
