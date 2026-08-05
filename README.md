@@ -136,9 +136,10 @@ dbt-asc/
 │       ├── chatbot/
 │       │   ├── mart_chatbot_conversations_by_tenant_monthly.sql
 │       │   └── mart_chatbot_conversations_by_tenant_total.sql
-│       └── la_product/
-│           ├── mart_glos_*_{1m,3m,6m,9m,12m}.sql   # 35 models: 7 view families × 5 time windows
-│           └── mart_la_query_summary.sql            # All LAs, all-time, no suppression
+│       ├── la_product/
+│       │   └── mart_glos_*_{1m,3m,6m,9m,12m}.sql   # 35 models: 7 view families × 5 time windows
+│       └── analytics/
+│           └── mart_la_query_summary.sql            # All LAs, all-time, no suppression, separate schema from la_product (admin#5)
 │
 ├── macros/
 │   └── la_product/           # Reusable SQL logic called once per time window by int_glos_* models

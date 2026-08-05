@@ -23,7 +23,7 @@ Unioned in **`stg_la_topic_mentions`**. Grain: one row per conversation/case × 
 ```
 stg_accessava  ─┐
 stg_advicepro  ─┼─> stg_la_topic_mentions ─┬─> stg_la_topic_mentions_glos ─> int_glos_* ─> mart_glos_*
-stg_helplines  ─┘                          ├─> mart_la_query_summary  (all LAs, all-time)
+stg_helplines  ─┘                          ├─> mart_la_query_summary  (all LAs, all-time, models/marts/analytics/)
                                             └─> helplines_advicepro_accessava  (monthly UT1/UT2, models/staging/acs_helplines/)
 ```
 
@@ -52,4 +52,4 @@ stg_helplines  ─┘                          ├─> mart_la_query_summary  (a
 
 ## Production status
 
-All `mart_glos_*` tables are in production, serving the Gloucestershire LA data product. `mart_la_query_summary` is a cross-LA all-time aggregate (used for ad-hoc analysis). `helplines_advicepro_accessava` (in `models/staging/acs_helplines/`, `staging_acs_helplines` schema) reads from `stg_la_topic_mentions` and collapses to monthly UT1/UT2 grain — no known consumers as of 2026-07.
+All `mart_glos_*` tables are in production, serving the Gloucestershire LA data product. `mart_la_query_summary` (in `models/marts/analytics/`, `analytics` schema, relocated 2026-08 out of the RBAC-restricted `la_product` schema, see admin#5) is a cross-LA all-time aggregate (used for ad-hoc analysis). `helplines_advicepro_accessava` (in `models/staging/acs_helplines/`, `staging_acs_helplines` schema) reads from `stg_la_topic_mentions` and collapses to monthly UT1/UT2 grain — no known consumers as of 2026-07.
