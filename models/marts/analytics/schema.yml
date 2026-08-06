@@ -1,0 +1,33 @@
+version: 2
+
+# Unsuppressed / ad-hoc analysis marts. Deliberately separate from the `la_product`
+# schema (models/marts/la_product/) which is RBAC-restricted for the suppressed
+# Gloucestershire LA data product. Relocated here 2026-08 (see admin#5) because a
+# folder-level RBAC role scoped to `la_product` would otherwise also grant access
+# to this unsuppressed table.
+
+models:
+
+  # ---------------------------------------------------------------------------
+  # mart_la_query_summary — cross-LA, all-time, all sources
+  # ---------------------------------------------------------------------------
+
+  - name: mart_la_query_summary
+    description: |
+      All-time query count by LA x source system x UT1 segment, across all LAs (not Glos-only).
+      All three sources normalised to UT1 via Track 2 staging models.
+      No time-window filtering — add WHERE QUERY_DATE clause for rolling periods.
+      Not small-number suppressed.
+      Used for ad-hoc cross-LA analysis, not the Gloucestershire product tables.
+    columns:
+      - name: LA_NAME
+        description: Standardised CASSR local authority name
+        tests: [not_null]
+      - name: SOURCE_SYSTEM
+        description: Originating system (AccessAva, AdvicePro, or Helplines)
+        tests: [not_null, {accepted_values: {values: ['AccessAva', 'AdvicePro', 'Helplines']}}]
+      - name: SEGMENT
+        description: UT1 universal theme
+      - name: QUERY_COUNT
+        description: Total topic mentions for this LA x source x segment combination (all time)
+        tests: [not_null]

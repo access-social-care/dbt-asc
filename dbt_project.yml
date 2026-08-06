@@ -63,8 +63,19 @@ models:
       la_product:
         # Pre-materialized views for LA Data Product PoC (35 models = 7 views x 5 windows)
         # RBAC: grant SELECT on this schema to ANALYTICS_LA_READER role only
+        # All models here MUST be small-number suppressed (la_suppress()), this schema
+        # is the RBAC boundary for the DPIA-scoped S3 export role. Unsuppressed/ad-hoc
+        # models belong in marts.analytics instead (see mart_la_query_summary relocation,
+        # admin#5).
         +materialized: table
         +schema: la_product
+
+      analytics:
+        # Unsuppressed / ad-hoc cross-LA analysis marts. Deliberately a separate schema
+        # from la_product so RBAC roles scoped to the suppressed la_product schema (e.g.
+        # the DPIA-scoped S3 export role) do not also grant access to unsuppressed data.
+        +materialized: table
+        +schema: analytics
 
 # Quoting behavior
 # Use Snowflake defaults (unquoted = UPPERCASE)

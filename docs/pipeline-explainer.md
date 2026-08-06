@@ -86,8 +86,9 @@ dbt writes into different schemas depending on which folder a model lives in, co
 | `models/staging/la_product/` | `la_product_staging` | `ANALYTICS.PUBLIC_LA_PRODUCT_STAGING` | `stg_accessava`, `stg_advicepro`, `stg_helplines`, `stg_la_topic_mentions`, `stg_la_topic_mentions_glos` |
 | `models/intermediate/la_product/` | `la_product_staging` (same as above — organisational split only) | `ANALYTICS.PUBLIC_LA_PRODUCT_STAGING` | `int_glos_*` (7 models, all 5 time windows pre-computed) |
 | `models/staging/acs_helplines/` | `staging_acs_helplines` | `ANALYTICS.PUBLIC_STAGING_ACS_HELPLINES` | `helplines_advicepro_accessava` |
-| `models/marts/la_product/` | `la_product` | `ANALYTICS.PUBLIC_LA_PRODUCT` | All 35 `mart_glos_*` models + `mart_la_query_summary` — RBAC-restricted, exported to S3/Redis |
+| `models/marts/la_product/` | `la_product` | `ANALYTICS.PUBLIC_LA_PRODUCT` | All 35 `mart_glos_*` models — RBAC-restricted, exported to S3/Redis |
 | `models/marts/chatbot/` | (default) | `ANALYTICS.PUBLIC` | Chatbot tenant marts |
+| `models/marts/analytics/` | `analytics` | `ANALYTICS.PUBLIC_ANALYTICS` | `mart_la_query_summary`, unsuppressed ad-hoc cross-LA mart, deliberately kept out of the RBAC-restricted `la_product` schema (admin#5) |
 
 ---
 
@@ -129,8 +130,8 @@ HELPLINES.HELPLINES_AGGREGATED_FULL                 │
         ▼           ▼                              ▼                          │
 stg_la_topic_    mart_la_query_summary   helplines_advicepro_accessava        │
 mentions_glos    (all LAs, all-time,     (monthly UT1/UT2 grain,              │
-(Gloucestershire  LA x source x segment) staging_acs_helplines schema)        │
-  filter)                                                                     │
+(Gloucestershire  LA x source x segment, staging_acs_helplines schema)        │
+  filter)         analytics schema)                                          │
         │                                                                     │
         ▼                                                                     │
 int_glos_* (7 models, models/intermediate/la_product/, all 5 time windows)    │
@@ -225,7 +226,9 @@ Marts are the final output tables - what Power BI, S3/Redis, and web products ac
 
 **Chatbot marts** (`models/marts/chatbot/`): simple conversation counts by tenant, monthly and all-time. No suppression - internal operational metrics.
 
-**LA product marts** (`models/marts/la_product/`): 35 tables (7 view families x 5 time windows) plus `mart_la_query_summary` (all LAs, all-time, no suppression). Each `mart_glos_*` view family slices its `int_glos_*` source by `TIME_WINDOW_MONTHS` and applies `la_suppress()`.
+**LA product marts** (`models/marts/la_product/`): 35 tables (7 view families x 5 time windows), all small-number suppressed. Each `mart_glos_*` view family slices its `int_glos_*` source by `TIME_WINDOW_MONTHS` and applies `la_suppress()`.
+
+**Analytics marts** (`models/marts/analytics/`): `mart_la_query_summary` (all LAs, all-time, no suppression). Kept in its own `analytics` schema, separate from `la_product`, so RBAC roles scoped to the suppressed LA product schema don't also grant access to this unsuppressed table (admin#5).
 
 The mart model files themselves are very short:
 ```sql
