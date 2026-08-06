@@ -84,130 +84,155 @@ log_info("Manifest run_id={manifest$run_id} run_at={manifest$run_at}")
 # Connect once, reuse for every table ----------------------------------------
 
 con <- ascFuncs::connect_snowflake(database = TARGET_DB, role = NULL)
-on.exit(DBI::dbDisconnect(con), add = TRUE)
 
-## Raw DBI call, not a hand-rolled anti-pattern here — ascFuncs exports no
-## session-info helper, and this is the exact pattern used identically in
-## load_advicepro_demographics_to_snowflake.R, load_casework_locality_to_
-## snowflake.R and load_member_orgs_to_snowflake.R (confirmed by grep across
-## loaders/*.R). Matched to that convention here, including CURRENT_USER().
-session_info <- DBI::dbGetQuery(
-  con,
-  "SELECT CURRENT_ROLE(), CURRENT_DATABASE(), CURRENT_SCHEMA(), CURRENT_USER()"
-)
-log_info(
-  "Snowflake session: role={session_info[[1, 'CURRENT_ROLE()']]} ",
-  "database={session_info[[1, 'CURRENT_DATABASE()']]} ",
-  "user={session_info[[1, 'CURRENT_USER()']]}"
-)
-
-# Per-dataset provenance helper -----------------------------------------------
-
-## extract_drift_flag() and %||% now live in loaders/lib/extract_drift_flag.R
-## so they can be unit-tested without a Snowflake connection (see tests/
-## testthat/test-extract_drift_flag.R).
-source("lib/extract_drift_flag.R")
-
-## Mirrors the existence check inside ascFuncs::snowflake_write_table - but
-## that check is a local variable inside the function body, not exported or
-## callable on its own (confirmed by reading ascFuncs source, 2026-07-14:
-## ascFuncs has no exported table-exists/session-info helper at all). This
-## loader needs the answer standalone, before calling snowflake_write_table,
-## to decide first-time-load logging - so the duplication here is
-## unavoidable given ascFuncs's current public API, not a shortcut taken in
-## place of an available helper.
-table_exists <- function(con, database, schema, table_name) {
-  full_name <- paste(database, schema, toupper(table_name), sep = ".")
-  tryCatch(
-    expr  = {
-      DBI::dbGetQuery(conn = con, statement = paste0(
-        "SELECT 1 FROM ", full_name, " LIMIT 0"
-      ))
-      TRUE
-    },
-    error = function(e) FALSE
-  )
-}
-
-# Load each dataset ------------------------------------------------------------
-
+## The connect+loop body below is wrapped in tryCatch(..., finally = ...)
+## rather than a top-level on.exit(). on.exit() registered at top level
+## (outside a function frame) persists for the rest of the interactive R
+## session and re-fires — accumulating — on every subsequent source() of
+## this script, since only function frames get a fresh on.exit scope on
+## each call. tryCatch's finally is scoped to this single call and carries
+## no such state across repeated interactive runs, while still guaranteeing
+## the disconnect runs if readr::read_csv() or
+## ascFuncs::snowflake_write_table() throws mid-loop (previously: a
+## mid-loop error skipped the bare dbDisconnect() below entirely and the
+## script terminated with the connection still open).
 n_loaded <- 0L
 n_skipped <- 0L
 n_failed <- 0L
 
-for (dataset in manifest$datasets) {
-  id <- dataset$dataset_id
-  status <- dataset$status
-
-  if (status == "LIMITATION") {
-    log_info("{id}: LIMITATION — not loaded (documented gap)")
-    n_skipped <- n_skipped + 1L
-    next
-  }
-  if (grepl("^FAILED_", status)) {
-    log_warn(
-      "{id}: {status} — {dataset$message %||% 'no message'} — NOT loaded"
+tryCatch(
+  expr = {
+    ## Raw DBI call, not a hand-rolled anti-pattern here — ascFuncs exports
+    ## no session-info helper, and this is the exact pattern used
+    ## identically in load_advicepro_demographics_to_snowflake.R,
+    ## load_casework_locality_to_snowflake.R and
+    ## load_member_orgs_to_snowflake.R (confirmed by grep across
+    ## loaders/*.R). Matched to that convention here, including
+    ## CURRENT_USER().
+    session_info <- DBI::dbGetQuery(
+      con,
+      paste(
+        "SELECT CURRENT_ROLE(), CURRENT_DATABASE(), CURRENT_SCHEMA(),",
+        "CURRENT_USER()"
+      )
     )
-    n_failed <- n_failed + 1L
-    next
-  }
-  first_time_load <- FALSE
-  if (status == "NO_UPDATE") {
-    if (table_exists(con, TARGET_DB, "PUBLIC", id)) {
-      log_info("{id}: NO_UPDATE — table already current, skipping")
-      n_skipped <- n_skipped + 1L
-      next
-    }
     log_info(
-      "{id}: NO_UPDATE from source, but table doesn't exist in Snowflake ",
-      "yet — first-time load"
+      "Snowflake session: role={session_info[[1, 'CURRENT_ROLE()']]} ",
+      "database={session_info[[1, 'CURRENT_DATABASE()']]} ",
+      "user={session_info[[1, 'CURRENT_USER()']]}"
     )
-    first_time_load <- TRUE
-  } else if (status != "SUCCESS") {
-    log_warn("{id}: unrecognised status '{status}' — skipping defensively")
-    n_skipped <- n_skipped + 1L
-    next
-  }
 
-  csv_path <- file.path(SOURCE_DIR, paste0(id, ".csv"))
-  if (!file.exists(csv_path)) {
-    log_warn("{id}: {status} in manifest but {csv_path} missing — skipping")
-    n_failed <- n_failed + 1L
-    next
-  }
+    ## extract_drift_flag() and %||% now live in
+    ## loaders/lib/extract_drift_flag.R so they can be unit-tested without a
+    ## Snowflake connection (see tests/testthat/test-extract_drift_flag.R).
+    source("lib/extract_drift_flag.R")
 
-  df <- readr::read_csv(csv_path, show_col_types = FALSE)
-  # NOTE: does NOT add a publication-date column here - source_checker's own
-  # tagging.py already writes one (`_publication_date`, same value, same
-  # source: resolved.inferred_publication_date / last_known_good). Adding a
-  # second one collided case-insensitively once Snowflake uppercases every
-  # column name ("duplicate column name '_PUBLICATION_DATE'").
-  df$`_RUN_ID` <- manifest$run_id
-  df$`_RUN_AT` <- manifest$run_at
-  df$`_DRIFT_FLAG` <- extract_drift_flag(dataset)
+    ## Mirrors the existence check inside ascFuncs::snowflake_write_table -
+    ## but that check is a local variable inside the function body, not
+    ## exported or callable on its own (confirmed by reading ascFuncs
+    ## source, 2026-07-14: ascFuncs has no exported table-exists/
+    ## session-info helper at all). This loader needs the answer standalone,
+    ## before calling snowflake_write_table, to decide first-time-load
+    ## logging - so the duplication here is unavoidable given ascFuncs's
+    ## current public API, not a shortcut taken in place of an available
+    ## helper.
+    table_exists <- function(con, database, schema, table_name) {
+      full_name <- paste(database, schema, toupper(table_name), sep = ".")
+      tryCatch(
+        expr  = {
+          DBI::dbGetQuery(conn = con, statement = paste0(
+            "SELECT 1 FROM ", full_name, " LIMIT 0"
+          ))
+          TRUE
+        },
+        error = function(e) FALSE
+      )
+    }
 
-  drift_flag <- extract_drift_flag(dataset)
-  if (!is.na(drift_flag)) {
-    cli::cli_alert_warning(
-      "{id}: drift flagged this run — {drift_flag} (see manifest for detail)"
-    )
-  }
+    # Load each dataset ------------------------------------------------------
 
-  ascFuncs::snowflake_write_table(
-    con        = con,
-    table_name = id,
-    data       = df,
-    database   = TARGET_DB,
-    schema     = "PUBLIC",
-    overwrite  = TRUE
-  )
-  load_kind <- if (first_time_load) "first-time load" else "loaded"
-  log_info(
-    "{id}: {load_kind}, {nrow(df)} rows -> ",
-    "{TARGET_DB}.PUBLIC.{toupper(id)}"
-  )
-  n_loaded <- n_loaded + 1L
-}
+    for (dataset in manifest$datasets) {
+      id <- dataset$dataset_id
+      status <- dataset$status
+
+      if (status == "LIMITATION") {
+        log_info("{id}: LIMITATION — not loaded (documented gap)")
+        n_skipped <- n_skipped + 1L
+        next
+      }
+      if (grepl("^FAILED_", status)) {
+        log_warn(
+          "{id}: {status} — {dataset$message %||% 'no message'} — NOT loaded"
+        )
+        n_failed <- n_failed + 1L
+        next
+      }
+      first_time_load <- FALSE
+      if (status == "NO_UPDATE") {
+        if (table_exists(con, TARGET_DB, "PUBLIC", id)) {
+          log_info("{id}: NO_UPDATE — table already current, skipping")
+          n_skipped <- n_skipped + 1L
+          next
+        }
+        log_info(
+          "{id}: NO_UPDATE from source, but table doesn't exist in ",
+          "Snowflake yet — first-time load"
+        )
+        first_time_load <- TRUE
+      } else if (status != "SUCCESS") {
+        log_warn(
+          "{id}: unrecognised status '{status}' — skipping defensively"
+        )
+        n_skipped <- n_skipped + 1L
+        next
+      }
+
+      csv_path <- file.path(SOURCE_DIR, paste0(id, ".csv"))
+      if (!file.exists(csv_path)) {
+        log_warn(
+          "{id}: {status} in manifest but {csv_path} missing — skipping"
+        )
+        n_failed <- n_failed + 1L
+        next
+      }
+
+      df <- readr::read_csv(csv_path, show_col_types = FALSE)
+      # NOTE: does NOT add a publication-date column here - source_
+      # checker's own tagging.py already writes one (`_publication_date`,
+      # same value, same source: resolved.inferred_publication_date /
+      # last_known_good). Adding a second one collided case-insensitively
+      # once Snowflake uppercases every column name ("duplicate column
+      # name '_PUBLICATION_DATE'").
+      df$`_RUN_ID` <- manifest$run_id
+      df$`_RUN_AT` <- manifest$run_at
+      df$`_DRIFT_FLAG` <- extract_drift_flag(dataset)
+
+      drift_flag <- extract_drift_flag(dataset)
+      if (!is.na(drift_flag)) {
+        cli::cli_alert_warning(
+          "{id}: drift flagged this run — {drift_flag} (see manifest ",
+          "for detail)"
+        )
+      }
+
+      ascFuncs::snowflake_write_table(
+        con        = con,
+        table_name = id,
+        data       = df,
+        database   = TARGET_DB,
+        schema     = "PUBLIC",
+        overwrite  = TRUE
+      )
+      load_kind <- if (first_time_load) "first-time load" else "loaded"
+      log_info(
+        "{id}: {load_kind}, {nrow(df)} rows -> ",
+        "{TARGET_DB}.PUBLIC.{toupper(id)}"
+      )
+      n_loaded <- n_loaded + 1L
+    }
+  },
+  finally = DBI::dbDisconnect(con)
+)
 
 cli::cli_h2("Summary")
 cli::cli_alert_success(
