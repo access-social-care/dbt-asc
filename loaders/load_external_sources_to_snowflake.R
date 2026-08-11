@@ -84,6 +84,52 @@ log_info("Manifest run_id={manifest$run_id} run_at={manifest$run_at}")
 # Connect once, reuse for every table ----------------------------------------
 
 con <- ascFuncs::connect_snowflake(database = TARGET_DB, role = NULL)
+# on.exit(DBI::dbDisconnect(con), add = TRUE)
+
+## Raw DBI call, not a hand-rolled anti-pattern here — ascFuncs exports no
+## session-info helper, and this is the exact pattern used identically in
+## load_advicepro_demographics_to_snowflake.R, load_casework_locality_to_
+## snowflake.R and load_member_orgs_to_snowflake.R (confirmed by grep across
+## loaders/*.R). Matched to that convention here, including CURRENT_USER().
+session_info <- DBI::dbGetQuery(
+  con,
+  "SELECT CURRENT_ROLE(), CURRENT_DATABASE(), CURRENT_SCHEMA(), CURRENT_USER()"
+)
+log_info(
+  "Snowflake session: role={session_info[[1, 'CURRENT_ROLE()']]} ",
+  "database={session_info[[1, 'CURRENT_DATABASE()']]} ",
+  "user={session_info[[1, 'CURRENT_USER()']]}"
+)
+
+# Per-dataset provenance helper -----------------------------------------------
+
+## extract_drift_flag() and %||% now live in loaders/lib/extract_drift_flag.R
+## so they can be unit-tested without a Snowflake connection (see tests/
+## testthat/test-extract_drift_flag.R).
+source("lib/extract_drift_flag.R")
+
+## Mirrors the existence check inside ascFuncs::snowflake_write_table - but
+## that check is a local variable inside the function body, not exported or
+## callable on its own (confirmed by reading ascFuncs source, 2026-07-14:
+## ascFuncs has no exported table-exists/session-info helper at all). This
+## loader needs the answer standalone, before calling snowflake_write_table,
+## to decide first-time-load logging - so the duplication here is
+## unavoidable given ascFuncs's current public API, not a shortcut taken in
+## place of an available helper.
+table_exists <- function(con, database, schema, table_name) {
+  full_name <- paste(database, schema, toupper(table_name), sep = ".")
+  tryCatch(
+    expr  = {
+      DBI::dbGetQuery(conn = con, statement = paste0(
+        "SELECT 1 FROM ", full_name, " LIMIT 0"
+      ))
+      TRUE
+    },
+    error = function(e) FALSE
+  )
+}
+
+# Load each dataset ------------------------------------------------------------
 
 ## The connect+loop body below is wrapped in tryCatch(..., finally = ...)
 ## rather than a top-level on.exit(). on.exit() registered at top level
