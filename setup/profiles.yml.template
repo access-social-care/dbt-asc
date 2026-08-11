@@ -31,11 +31,13 @@ asc:
       type: snowflake
       account: RWPQBWL-QD95964
       user: "{{ env_var('SNOWFLAKE_USER') }}"
-      role: ROLE_DBT_TRANSFORM
+      role: ROLE_DEV  # admin#5: ROLE_DBT_TRANSFORM must never touch _DEV databases -
+                      # it is scoped to prod ANALYTICS only under the RBAC redesign.
+                      # ROLE_DEV has full control on every _DEV database instead.
       warehouse: COMPUTE_WH
       database: ANALYTICS_DEV  # Separate database (not schema) for dev isolation
       schema: PUBLIC            # Keep PUBLIC within the dev database
-      
+
       # Why a separate database and not just a DEV schema in ANALYTICS?
       # Independent RBAC, cloneable from prod, no accidental cross-env joins.
       # Provision with: CREATE DATABASE ANALYTICS_DEV CLONE ANALYTICS;
