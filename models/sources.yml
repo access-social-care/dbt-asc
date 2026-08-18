@@ -31,8 +31,15 @@ sources:
         columns:
           - name: "transcript_id"
             description: Primary key - unique conversation identifier
-            # Tests removed: Source data quality is chatbot_data ETL's responsibility
-            # dbt focuses on testing transformation outputs (mart tables)
+            # Re-added 2026-08-18: removed 2026-03-16 (da6ba9c) on the assumption
+            # chatbot_data ETL enforced uniqueness on write. It never did (no
+            # dedup step, no test suite) - a live duplicate reached prod
+            # undetected for ~2 months and broke the Power BI one-to-many
+            # relationship on this column. dbt is the backstop now; chatbot_data
+            # ETL (data_uploader.R) also dedupes before write as the primary fix.
+            tests:
+              - unique
+              - not_null
           
           - name: "created_at"
             description: Date conversation started (Date type, not timestamp)
