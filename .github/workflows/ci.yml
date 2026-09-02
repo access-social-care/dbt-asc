@@ -42,3 +42,36 @@ jobs:
         env:
           SNOWFLAKE_USER: ci-dummy
           SNOWFLAKE_KEY_FILE: /tmp/ci_key.p8
+
+  r-tests:
+    name: Run R loader tests
+    # self-hosted, matching case_data/signal_processing/helplines_data CI -
+    # ascFuncs is a private, non-CRAN package already installed on that
+    # runner; there is no cross-repo GITHUB_TOKEN wired up to install it
+    # from access-social-care/ascFuncs on a GitHub-hosted runner instead.
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure test dependencies are installed
+        # ascFuncs itself is assumed already present on this runner (same
+        # assumption sibling repos' CI makes - it's never installed there
+        # either). Everything else here is CRAN and safe to install/skip.
+        run: |
+          Rscript -e '
+            pkgs <- c("testthat", "withr", "tidyverse", "logger", "cli",
+                      "httr", "jsonlite", "DBI")
+            missing <- pkgs[!vapply(
+              pkgs, requireNamespace, logical(1), quietly = TRUE
+            )]
+            if (length(missing) > 0) {
+              install.packages(missing, repos = "https://cloud.r-project.org")
+            }
+          '
+
+      - name: Run testthat suite
+        run: |
+          Rscript -e '
+            testthat::test_dir("tests/testthat", stop_on_failure = TRUE)
+          '
