@@ -204,7 +204,13 @@ if (table_exists) {
   DBI::dbAppendTable(con, table_id, new_locality)
   log_info("Appended {nrow(new_locality)} rows to {target_full}")
 } else {
-  ascFuncs::snowflake_write_table(con, TARGET_TABLE, new_locality, database = TARGET_DB)
+  ascFuncs::snowflake_write_table(
+    con        = con,
+    table_name = TARGET_TABLE,
+    data       = new_locality,
+    database   = TARGET_DB,
+    operation  = "create"
+  )
   log_info("Created {target_full} with {nrow(new_locality)} rows")
 }
 

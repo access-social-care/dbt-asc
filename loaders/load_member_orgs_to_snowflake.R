@@ -106,7 +106,7 @@ ascFuncs::snowflake_write_table(
   data       = orgs_df,
   database   = TARGET_DB,
   schema     = "PUBLIC",
-  overwrite  = TRUE
+  operation  = "overwrite"
 )
 
 row_count <- DBI::dbGetQuery(
