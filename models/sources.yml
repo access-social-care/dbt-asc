@@ -539,6 +539,84 @@ sources:
           Not loaded to Snowflake. Retained in registry as a documented gap.
           Source: https://www.england.nhs.uk/statistics/statistical-work-areas/discharge-delays-acute-data/
 
+      # ── Onboarded 2026-08-18: audit of the old "External Data sources" Monday
+      # board (id 7826166799, procured Nov 2024) found these 5 datasets tracked
+      # on the board but never wired into any pipeline. Two further board items
+      # (LG Inform "% carers receiving direct payments", LG Inform S42
+      # safeguarding data) were found to be LG Inform's own re-presentation of
+      # ascof/safeguarding_adults below, not separate sources — not onboarded
+      # separately. signal_processing (a third repo, separate ingest) was
+      # deliberately left out of this pass per user instruction.
+      - name: ascof
+        description: |
+          Measures from the Adult Social Care Outcomes Framework (ASCOF), by LA.
+          DHSC took over publishing from NHS Digital starting FY2024/25.
+          No stated next-release date found at onboarding (2026-08-18) — freshness
+          thresholds below are a provisional wide-margin backstop, not evidence-based.
+          Source: https://www.gov.uk/government/statistics/measures-from-the-adult-social-care-outcomes-framework-england-2024-to-2025
+        config:
+          freshness:
+            warn_after: {count: 400, period: day}
+            error_after: {count: 550, period: day}
+
+      - name: safeguarding_adults
+        description: |
+          Safeguarding Adults Collection (SAC) — S42 enquiries and safeguarding
+          concerns by LA. NHS Digital, annual (Apr-Mar reporting year).
+          Latest full report at onboarding (2026-08-18) is 2023-24; the 2024-25
+          collection was still mid-submission (SDCS). No stated next-release
+          date found — freshness thresholds below are a provisional backstop.
+          Known data-quality flag on the source: Derby City Council demographics
+          in Tables 4-6.
+          Source: https://digital.nhs.uk/data-and-information/publications/statistical/safeguarding-adults
+        config:
+          freshness:
+            warn_after: {count: 400, period: day}
+            error_after: {count: 550, period: day}
+
+      - name: self_funders
+        description: |
+          Self-funded vs state-funded community care service users, by REGION
+          (not LA — this is the finest grain ONS publishes for this estimate).
+          ONS "experimental statistics", explicitly irregular cadence — page
+          states "Next release: To be announced". Only two editions exist
+          (2021-22, 2022-23) at onboarding (2026-08-18) — not enough points to
+          infer a schedule, so freshness is null rather than a guessed threshold.
+          Source: https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/socialcare/datasets/estimatingthesizeoftheselffundingpopulationinthecommunityengland
+        config:
+          freshness: null  # irregular/experimental series, no researched cadence
+
+      - name: chc_fnc
+        description: |
+          NHS Continuing Healthcare (CHC) and FNC quarterly activity.
+          Grain is Sub-ICB Location, NOT local authority — no ICB-to-LA
+          crosswalk exists yet, so this does not join to other ASC sources
+          without further work (registry.yaml geographic_unit is a
+          best-fit placeholder, see that file's comment).
+          LIMITATION: NHS England has scheduled this collection to retire
+          after Q4 2026/27 (observed 2026-08-18) — will need freshness: null
+          once the final submission lands, same treatment as ascfr_salt.
+          Source: https://www.england.nhs.uk/statistics/statistical-work-areas/nhs-chc-fnc/
+        config:
+          freshness:
+            warn_after: {count: 120, period: day}
+            error_after: {count: 180, period: day}
+
+      - name: household_carers
+        description: |
+          Adults/children in household x unpaid carers in household x no-long-
+          term-health-condition count, by upper-tier LA. Bespoke ONS Census
+          2021 flexible-table-builder cross-tab (same class of source as
+          signal_processing's RM070-custom pull) — not a standard release page.
+          NOT YET LOADED: the registry entry's download_url is provisional
+          (ONS's download links are generated dynamically by the page UI, not
+          stable static URLs — confirmed 2026-08-18, needs a browser-automation
+          calibration pass before this can run unattended). Decennial —
+          freshness null, next real update is Census 2031.
+          Source: https://www.ons.gov.uk/datasets/create/filter-outputs/42906d92-3a29-404f-8d59-98d8ebcfdff3
+        config:
+          freshness: null  # decennial Census cross-tab; also not yet loadable, see note above
+
   # ── Monday.com boards (ETL/ELT-relevant only) ────────────────────────────────
   # Only boards that feed data pipelines or are consumed by loaders/exports.
   # Board IDs are the authoritative reference here; monday-pipeline/config/boards.json
