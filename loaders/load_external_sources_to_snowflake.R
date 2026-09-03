@@ -267,7 +267,7 @@ tryCatch(
         data       = df,
         database   = TARGET_DB,
         schema     = "PUBLIC",
-        overwrite  = TRUE
+        operation  = "overwrite"
       )
       load_kind <- if (first_time_load) "first-time load" else "loaded"
       log_info(

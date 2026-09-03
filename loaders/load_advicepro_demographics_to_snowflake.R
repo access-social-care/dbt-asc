@@ -113,7 +113,7 @@ ascFuncs::snowflake_write_table(
   data       = df,
   database   = TARGET_DB,
   schema     = "PUBLIC",
-  overwrite  = TRUE
+  operation  = "overwrite"
 )
 on.exit(DBI::dbDisconnect(con), add = TRUE)
 
