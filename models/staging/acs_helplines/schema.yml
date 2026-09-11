@@ -10,8 +10,12 @@ models:
       map raw sources independently, so a taxonomy fix in the staging models
       flows through here automatically.
       See model header for per-source count semantics and the 'Unmapped' vs
-      'Unmatched' distinction. No known consumers as of 2026-07 (confirmed with
-      Amit before rebuild) — safe to restructure without a downstream break.
+      'Unmatched' distinction.
+      KNOWN EXTERNAL CONSUMER (2026-09): helplines_data's State of the Nation
+      (SOTN) build reads ANALYTICS.STAGING_ACS_HELPLINES directly via a
+      Snowflake grant (ROLE_ETL_WRITE), outside dbt lineage - see model
+      header for detail. No longer safe to restructure freely; check with
+      the helplines_data pipeline owner first.
     columns:
       - name: LA_NAME
         description: Standardised CASSR local authority name

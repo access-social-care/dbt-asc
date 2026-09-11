@@ -25,6 +25,17 @@
   drift or map gap). Kept visible rather than dropped - tests/warn_unmapped_ut1_share.sql
   warns when any source's Unmapped share exceeds threshold.
   'Unmatched' = AccessAva topic_entry_point was NULL (no topic recorded at all).
+
+  KNOWN EXTERNAL CONSUMER (2026-09): the helplines_data repo's State of the
+  Nation (SOTN) build reads this model's output directly via a Snowflake
+  grant on ANALYTICS.STAGING_ACS_HELPLINES (ROLE_ETL_WRITE - see
+  admin/snowflake_helplines_advicepro_accessava_grant.sql), combining it with
+  its own PARTNER_HISTORY_MENCAP/PARTNER_HISTORY_RNIB tables into
+  HELPLINES.PUBLIC.HELPLINES_STATE_OF_THE_NATION. That's a cross-repo,
+  cross-database read outside dbt's own ref()/lineage graph, so `dbt` will
+  not flag it as a breaking change. Do not restructure this model's grain,
+  column names, or SOURCE_SYSTEM/UT1/UT2 semantics without checking with the
+  helplines_data pipeline owner first.
 */
 
 SELECT
