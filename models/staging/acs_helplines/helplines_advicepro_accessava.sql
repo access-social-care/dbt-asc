@@ -1,7 +1,7 @@
 {{
   config(
     materialized='table',
-    schema='staging_acs_helplines',
+    schema='staging_asc_helplines',
     description='Cross-source query counts aggregated to UT1/UT2 - Helplines + AdvicePro + AccessAva'
   )
 }}
