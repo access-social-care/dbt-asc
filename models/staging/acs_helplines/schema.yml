@@ -12,7 +12,7 @@ models:
       See model header for per-source count semantics and the 'Unmapped' vs
       'Unmatched' distinction.
       KNOWN EXTERNAL CONSUMER (2026-09): helplines_data's State of the Nation
-      (SOTN) build reads ANALYTICS.STAGING_ACS_HELPLINES directly via a
+      (SOTN) build reads ANALYTICS.PUBLIC_STAGING_ASC_HELPLINES directly via a
       Snowflake grant (ROLE_ETL_WRITE), outside dbt lineage - see model
       header for detail. No longer safe to restructure freely; check with
       the helplines_data pipeline owner first.

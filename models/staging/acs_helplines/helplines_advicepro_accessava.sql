@@ -28,7 +28,7 @@
 
   KNOWN EXTERNAL CONSUMER (2026-09): the helplines_data repo's State of the
   Nation (SOTN) build reads this model's output directly via a Snowflake
-  grant on ANALYTICS.STAGING_ACS_HELPLINES (ROLE_ETL_WRITE - see
+  grant on ANALYTICS.PUBLIC_STAGING_ASC_HELPLINES (ROLE_ETL_WRITE - see
   admin/snowflake_helplines_advicepro_accessava_grant.sql), combining it with
   its own PARTNER_HISTORY_MENCAP/PARTNER_HISTORY_RNIB tables into
   HELPLINES.PUBLIC.HELPLINES_STATE_OF_THE_NATION. That's a cross-repo,
