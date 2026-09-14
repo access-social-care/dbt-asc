@@ -38,8 +38,14 @@ models:
 
       acs_helplines:
         # Cross-source UT1/UT2-aggregated staging (Helplines + AdvicePro + AccessAva)
+        # Schema fixed 2026-09-14: "acs_helplines" was a typo for "asc_helplines"
+        # (Access Social Care). The live schema (previously
+        # PUBLIC_STAGING_ACS_HELPLINES, per dbt's default generate_schema_name
+        # rule of "<target default schema>_<this config>") has been manually
+        # renamed to PUBLIC_STAGING_ASC_HELPLINES - this config must match or
+        # the next `dbt run` recreates the old typo'd schema.
         +materialized: table
-        +schema: staging_acs_helplines
+        +schema: staging_asc_helplines
 
     intermediate:
       # Aggregation layer between staging and marts
