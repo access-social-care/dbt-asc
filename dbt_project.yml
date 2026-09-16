@@ -41,6 +41,15 @@ models:
         +materialized: table
         +schema: staging_acs_helplines
 
+      external:
+        # Typed/deduped views over the append-only external landing tables in
+        # REFERENCE.LANDING (written by loaders/load_external_sources_to_snowflake.R).
+        # These models do real work - Total-row exclusion, month parsing,
+        # suppression handling, latest-vintage-per-period dedupe - so they are
+        # staging models, not source passthroughs.
+        +materialized: table
+        +schema: staging_external
+
     intermediate:
       # Aggregation layer between staging and marts
       +materialized: table

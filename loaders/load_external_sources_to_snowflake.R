@@ -68,6 +68,47 @@ SOURCE_DIR <- Sys.getenv(
 TARGET_DB <- "REFERENCE"
 MANIFEST_PATH <- file.path(SOURCE_DIR, "manifest.json")
 
+# Landing (append-mode) datasets ----------------------------------------------
+#
+# UNVERIFIED AGAINST A LIVE WAREHOUSE (2026-09-16): written without any
+# Snowflake connection available. Nothing below has been executed. See
+# models/staging/external/README.md for the exact manual verification steps
+# required before this is trusted in production.
+#
+# Most datasets in this loader are a full-replace ("overwrite"): the CSV is
+# the whole current truth and history is not retained. The CLD quarterly
+# series is different. Each quarterly release republishes a rolling window of
+# months, and an LA-month present in an older vintage can be ABSENT from a
+# newer one. Overwriting would silently drop those months. So these datasets
+# ACCUMULATE: every vintage is appended to a landing table and the dbt
+# staging models (models/staging/external/stg_cld_*.sql) pick the newest
+# vintage per LA-month with a window function.
+#
+# Location: REFERENCE.LANDING, i.e. a new SCHEMA inside the EXISTING
+# REFERENCE database - deliberately NOT a new EXTERNAL_DATA database.
+# CREATE DATABASE needs SYSADMIN (or an equivalently privileged role), which
+# could not be verified from the session that wrote this, and a loader that
+# assumes a database it cannot create fails at runtime on the VM rather than
+# at review time. CREATE SCHEMA inside a database the ETL role already owns
+# is the lower-risk option.
+#   FOLLOW-UP: once someone with the right grants provisions EXTERNAL_DATA
+#   properly, the only change needed here is LANDING_DB below (plus the
+#   matching `database:` on the data_portal_landing source in
+#   models/sources.yml and a one-off copy/backfill of existing landing rows).
+#   Nothing else in this file or in the dbt models hardcodes REFERENCE.
+LANDING_DB <- "REFERENCE"
+LANDING_SCHEMA <- "LANDING"
+
+## Registry-driven would be cleaner still, but the manifest this loader reads
+## does not carry per-dataset target overrides today, and inventing a
+## `snowflake_target:` key in the checker's registry.yaml would mean shipping
+## a coordinated change to a second repo before this one can run at all. The
+## override therefore lives here as an explicit, greppable allow-list keyed by
+## dataset_id. Adding a dataset to this vector is the ONLY way to get
+## append/landing behaviour - every other dataset keeps its existing
+## overwrite-to-REFERENCE.PUBLIC behaviour untouched.
+LANDING_DATASETS <- c("cld_long_term_support", "cld_assessments")
+
 cli::cli_h1("Loading data-portal CSVs to Snowflake")
 cli::cli_alert_info("Source: {SOURCE_DIR}")
 
@@ -127,6 +168,58 @@ table_exists <- function(con, database, schema, table_name) {
     },
     error = function(e) FALSE
   )
+}
+
+# Landing helpers --------------------------------------------------------------
+
+## The CLD tidy output carries source column headers verbatim, and several of
+## them contain spaces ("Support setting", "Age group", "LA code", "Area
+## code", "Area unit"). snowflake_write_table() uppercases names but does not
+## de-space them, and DBI quotes identifiers on create - so those would land
+## as quoted identifiers ("SUPPORT SETTING") that every downstream dbt model
+## would then have to quote too, against this repo's standing no-quoted-
+## identifiers rule (dbt_project.yml sets quoting: false throughout).
+## Sanitising to snake_case here is identifier hygiene, not transformation:
+## no value is altered, only the column label. Applied ONLY on the landing
+## path so no existing table's column names change.
+sanitize_column_names <- function(nm) {
+  out <- gsub("[^A-Za-z0-9_]+", "_", nm)
+  out <- gsub("_+", "_", out)
+  out <- sub("_$", "", out)
+  tolower(out)
+}
+
+## Idempotency guard for append mode. Unlike "overwrite", a re-run of an
+## append load silently doubles every row, so the guard is load-bearing, not
+## a nicety: the VM's cron can re-run this loader on the same on-disk CSV
+## (e.g. after a downstream failure) and NO_UPDATE alone does not protect the
+## landing path, because a landing table that already exists is exactly the
+## normal steady state rather than a reason to skip.
+##
+## A vintage is identified by (publication_date, source_url): gov.uk mints a
+## new asset URL for each quarterly release, and publication_date alone would
+## collide if two files were ever published the same day. Both columns come
+## from the checker's own tagging.py (_publication_date / _source_url), so
+## they are present on every row of every tidy CSV it writes.
+##
+## Returns TRUE when rows for this vintage are already in the landing table.
+## A non-existent table is NOT already loaded (FALSE) - the first append
+## creates it.
+landing_vintage_loaded <- function(con, database, schema, table_name,
+                                   publication_date, source_url) {
+  if (!table_exists(con, database, schema, table_name)) {
+    return(FALSE)
+  }
+  full_name <- paste(database, schema, toupper(table_name), sep = ".")
+  n <- DBI::dbGetQuery(
+    conn      = con,
+    statement = paste0(
+      "SELECT COUNT(*) AS N FROM ", full_name,
+      " WHERE _PUBLICATION_DATE = ? AND _SOURCE_URL = ?"
+    ),
+    params    = list(publication_date, source_url)
+  )
+  as.numeric(n[[1, "N"]]) > 0
 }
 
 # Load each dataset ------------------------------------------------------------
@@ -213,18 +306,37 @@ tryCatch(
         n_failed <- n_failed + 1L
         next
       }
+      ## Landing datasets accumulate vintages instead of being replaced -
+      ## see the LANDING_DATASETS block at the top of this file.
+      is_landing <- id %in% LANDING_DATASETS
+      dataset_db <- if (is_landing) LANDING_DB else TARGET_DB
+      dataset_schema <- if (is_landing) LANDING_SCHEMA else "PUBLIC"
+
       first_time_load <- FALSE
       if (status == "NO_UPDATE") {
-        if (table_exists(con, TARGET_DB, "PUBLIC", id)) {
+        ## Landing datasets deliberately do NOT early-skip on table
+        ## existence: the landing table existing is the normal steady state
+        ## (it holds every prior vintage), and NO_UPDATE only says the SOURCE
+        ## hasn't changed since the last EXTRACTION - not that this vintage
+        ## has ever been loaded. The per-vintage guard below is the correct
+        ## and sufficient stop for the append path.
+        if (!is_landing && table_exists(con, dataset_db, dataset_schema, id)) {
           log_info("{id}: NO_UPDATE — table already current, skipping")
           n_skipped <- n_skipped + 1L
           next
         }
-        log_info(
-          "{id}: NO_UPDATE from source, but table doesn't exist in ",
-          "Snowflake yet — first-time load"
-        )
-        first_time_load <- TRUE
+        if (is_landing) {
+          log_info(
+            "{id}: NO_UPDATE from source — landing path, deferring to the ",
+            "per-vintage idempotency guard"
+          )
+        } else {
+          log_info(
+            "{id}: NO_UPDATE from source, but table doesn't exist in ",
+            "Snowflake yet — first-time load"
+          )
+          first_time_load <- TRUE
+        }
       } else if (status != "SUCCESS") {
         log_warn(
           "{id}: unrecognised status '{status}' — skipping defensively"
@@ -259,6 +371,68 @@ tryCatch(
           "{id}: drift flagged this run — {drift_flag} (see manifest ",
           "for detail)"
         )
+      }
+
+      if (is_landing) {
+        ## --- Append / landing path (CLD quarterly series only) -------------
+        ##
+        ## operation = "append" is a real, supported mode of
+        ## ascFuncs::snowflake_write_table() - confirmed by reading
+        ## ascFuncs/R/snowflake.R (2026-09-16): the "append" branch
+        ## existence-checks the table, then uses DBI::dbAppendTable() with a
+        ## DBI::Id() identifier (no row clearing), falling back to a plain
+        ## create when the table does not exist yet. It is NOT
+        ## dbWriteTable(append = TRUE), which has a case-sensitivity
+        ## landmine documented in that same file.
+        pub_date <- unique(as.character(df[["_publication_date"]]))
+        src_url <- unique(as.character(df[["_source_url"]]))
+        if (length(pub_date) != 1 || is.na(pub_date) ||
+              length(src_url) != 1 || is.na(src_url)) {
+          ## Fail loudly rather than append rows that can never be
+          ## de-duplicated or attributed to a vintage afterwards.
+          log_warn(
+            "{id}: landing path requires exactly one non-NA ",
+            "_publication_date and _source_url across the file (got ",
+            "{length(pub_date)} / {length(src_url)}) — NOT loaded"
+          )
+          n_failed <- n_failed + 1L
+          next
+        }
+
+        ## snowflake_write_table() reroutes `database` to its _DEV
+        ## counterpart when the session role is ROLE_DEV (admin#5,
+        ## snowflake_route_dev_database() - read in ascFuncs/R/snowflake.R).
+        ## The guard MUST probe the same database the write will land in,
+        ## otherwise a ROLE_DEV run checks REFERENCE, finds nothing, and
+        ## appends a duplicate vintage into REFERENCE_DEV on every run.
+        guard_db <- ascFuncs::snowflake_route_dev_database(con, dataset_db)
+        if (landing_vintage_loaded(
+          con, guard_db, dataset_schema, id, pub_date, src_url
+        )) {
+          log_info(
+            "{id}: vintage {pub_date} already present in ",
+            "{guard_db}.{dataset_schema}.{toupper(id)} — skipping ",
+            "(append is not idempotent on its own)"
+          )
+          n_skipped <- n_skipped + 1L
+          next
+        }
+
+        names(df) <- sanitize_column_names(names(df))
+        ascFuncs::snowflake_write_table(
+          con        = con,
+          table_name = id,
+          data       = df,
+          database   = dataset_db,
+          schema     = dataset_schema,
+          operation  = "append"
+        )
+        log_info(
+          "{id}: appended vintage {pub_date}, {nrow(df)} rows -> ",
+          "{guard_db}.{dataset_schema}.{toupper(id)}"
+        )
+        n_loaded <- n_loaded + 1L
+        next
       }
 
       ascFuncs::snowflake_write_table(
