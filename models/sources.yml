@@ -636,7 +636,11 @@ sources:
       loaders/load_external_sources_to_snowflake.R (LANDING_DATASETS). One row
       per LA x month-metric x vintage. Grain is NOT unique on (LA, month) -
       read via stg_cld_long_term_support / stg_cld_assessments instead.
-    database: reference
+      Lives in EXTERNAL_DATA, a dedicated database - not REFERENCE, which is
+      curated denominator/reference data and should never mix with raw landed
+      source rows. Requires loaders/sql/create_external_data_database.sql to
+      have been run first (one-time DDL, needs SYSADMIN).
+    database: external_data
     schema: landing
     tables:
       - name: cld_long_term_support

@@ -70,11 +70,6 @@ MANIFEST_PATH <- file.path(SOURCE_DIR, "manifest.json")
 
 # Landing (append-mode) datasets ----------------------------------------------
 #
-# UNVERIFIED AGAINST A LIVE WAREHOUSE (2026-09-16): written without any
-# Snowflake connection available. Nothing below has been executed. See
-# models/staging/external/README.md for the exact manual verification steps
-# required before this is trusted in production.
-#
 # Most datasets in this loader are a full-replace ("overwrite"): the CSV is
 # the whole current truth and history is not retained. The CLD quarterly
 # series is different. Each quarterly release republishes a rolling window of
@@ -84,19 +79,14 @@ MANIFEST_PATH <- file.path(SOURCE_DIR, "manifest.json")
 # staging models (models/staging/external/stg_cld_*.sql) pick the newest
 # vintage per LA-month with a window function.
 #
-# Location: REFERENCE.LANDING, i.e. a new SCHEMA inside the EXISTING
-# REFERENCE database - deliberately NOT a new EXTERNAL_DATA database.
-# CREATE DATABASE needs SYSADMIN (or an equivalently privileged role), which
-# could not be verified from the session that wrote this, and a loader that
-# assumes a database it cannot create fails at runtime on the VM rather than
-# at review time. CREATE SCHEMA inside a database the ETL role already owns
-# is the lower-risk option.
-#   FOLLOW-UP: once someone with the right grants provisions EXTERNAL_DATA
-#   properly, the only change needed here is LANDING_DB below (plus the
-#   matching `database:` on the data_portal_landing source in
-#   models/sources.yml and a one-off copy/backfill of existing landing rows).
-#   Nothing else in this file or in the dbt models hardcodes REFERENCE.
-LANDING_DB <- "REFERENCE"
+# Location: EXTERNAL_DATA.LANDING (a dedicated database, not a schema tucked
+# inside REFERENCE - REFERENCE is curated denominator/reference data, this is
+# raw landed source data, and the two should never share a database). Needs
+# EXTERNAL_DATA + its schemas created and granted to this loader's role
+# BEFORE this runs - see loaders/sql/create_external_data_database.sql, a
+# one-time script for whoever holds SYSADMIN to run. This loader does not and
+# should not attempt to create the database itself.
+LANDING_DB <- "EXTERNAL_DATA"
 LANDING_SCHEMA <- "LANDING"
 
 ## Registry-driven would be cleaner still, but the manifest this loader reads

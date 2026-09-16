@@ -1,13 +1,13 @@
 # External data staging
 
-Typed, deduped views over the append-only landing tables in `REFERENCE.LANDING`. This folder exists because the landing tables are not queryable on their own - they hold every vintage of every LA-month, so a naive `SELECT` or aggregate over them double-counts. Each model here resolves that down to one current row per LA-month before anyone else touches it.
+Typed, deduped views over the append-only landing tables in `EXTERNAL_DATA.LANDING`. This folder exists because the landing tables are not queryable on their own - they hold every vintage of every LA-month, so a naive `SELECT` or aggregate over them double-counts. Each model here resolves that down to one current row per LA-month before anyone else touches it.
 
 ## Models
 
 | Model | Source table | Measure | Grain | Never |
 |---|---|---|---|---|
-| `stg_cld_long_term_support` | `REFERENCE.LANDING.CLD_LONG_TERM_SUPPORT` | Stock (month-end snapshot) | `la_code, support_setting, age_group, period_start` | Sum across months |
-| `stg_cld_assessments` | `REFERENCE.LANDING.CLD_ASSESSMENTS` | Flow (monthly count) | `la_code, age_group, period_start` | Include a `Total` row in a sum (excluded here, but re-verify if the source format ever changes) |
+| `stg_cld_long_term_support` | `EXTERNAL_DATA.LANDING.CLD_LONG_TERM_SUPPORT` | Stock (month-end snapshot) | `la_code, support_setting, age_group, period_start` | Sum across months |
+| `stg_cld_assessments` | `EXTERNAL_DATA.LANDING.CLD_ASSESSMENTS` | Flow (monthly count) | `la_code, age_group, period_start` | Include a `Total` row in a sum (excluded here, but re-verify if the source format ever changes) |
 
 Full column contracts, test coverage, and the reasoning behind each transform are in `schema.yml` and the model files themselves - this README is for the shape of the system, not the field-by-field detail.
 
@@ -32,10 +32,10 @@ Run these in order. Stop and fix before continuing if any step fails.
    ```sql
    SELECT CURRENT_ROLE(), CURRENT_DATABASE(), CURRENT_SCHEMA();
    ```
-   The loader targets `REFERENCE.LANDING` (a schema inside the existing `REFERENCE` database, not a new database - see the `LANDING_DB`/`LANDING_SCHEMA` comment block at the top of `loaders/load_external_sources_to_snowflake.R` for why). Confirm the role has `CREATE TABLE` on `REFERENCE.LANDING`, or `CREATE SCHEMA` on `REFERENCE` if the schema doesn't exist yet.
+   The loader targets `EXTERNAL_DATA.LANDING` - a dedicated database, not a schema tucked inside `REFERENCE` (which is curated denominator/reference data and shouldn't mix with raw landed source rows). Run `loaders/sql/create_external_data_database.sql` first if `EXTERNAL_DATA` doesn't exist yet - that's one-time DDL for whoever holds `SYSADMIN`, not something this loader or any agent session does itself. Then confirm the connecting role has `CREATE TABLE` on `EXTERNAL_DATA.LANDING`.
 
 2. **Dry-run the loader against one dataset.** Run `load_external_sources_to_snowflake.R` with `external_source_freshness_checker`'s manifest pointed at just `cld_long_term_support` (or temporarily trim `LANDING_DATASETS` to one entry). Confirm:
-   - the table is created in `REFERENCE.LANDING`, not `REFERENCE.PUBLIC`
+   - the table is created in `EXTERNAL_DATA.LANDING`, not `REFERENCE.PUBLIC`
    - column names landed as unquoted snake_case (`support_setting`, not `"Support setting"`)
    - re-running the loader immediately afterward is a no-op (the vintage guard should log a skip, not double the row count)
 
@@ -50,6 +50,8 @@ Run these in order. Stop and fix before continuing if any step fails.
 
 5. **Append behaviour, once a second vintage exists.** Re-run the loader after the *next* quarterly CLD release lands. Confirm the landing table gained a new vintage's rows (didn't overwrite), and that `stg_cld_*` picked the newer value for months both vintages cover while keeping any month only the older vintage had.
 
-## When EXTERNAL_DATA gets provisioned
+## Setting up EXTERNAL_DATA
 
-The design target (see `_ASC/signal_processing/README.md`, "External Data Pipeline") is a dedicated `EXTERNAL_DATA` database with `LANDING`/`RAW`/`NORMALISED`/`SIGNALS` schemas. That didn't happen in this pass because `CREATE DATABASE` needs `SYSADMIN`, which wasn't available to verify. When it is: change `LANDING_DB`/`LANDING_SCHEMA` in the loader, update the `database:` on the `data_portal_landing` source in `models/sources.yml`, and one-off copy the existing `REFERENCE.LANDING` rows across. Nothing else in the loader or these models hardcodes `REFERENCE`.
+`EXTERNAL_DATA` (database, with `LANDING`/`RAW`/`NORMALISED`/`SIGNALS` schemas) needs to exist before any of this can run - see `loaders/sql/create_external_data_database.sql`, one-time DDL for whoever holds `SYSADMIN`. Only `LANDING` is used today; `RAW` is where these staging models materialize once dbt is pointed at a real connection, `NORMALISED`/`SIGNALS` are for later work (see `_ASC/signal_processing/README.md`, "External Data Pipeline", for the full picture).
+
+A publication_date note worth knowing before backfilling any further history: it follows `external_source_freshness_checker`'s own convention (the advertised release period, e.g. `"2026-03"`), not a page's "Last updated" revision date - see the comment block in `scripts/backfill_cld_history.py` in that repo. Two CLD releases can share a revision date without sharing a release period, and only the release period is safe to rank vintages by.

@@ -6,7 +6,7 @@
 }}
 
 /*
-  Stage: REFERENCE.LANDING.CLD_LONG_TERM_SUPPORT -> typed, deduped LA-month grain.
+  Stage: EXTERNAL_DATA.LANDING.CLD_LONG_TERM_SUPPORT -> typed, deduped LA-month grain.
 
   !! UNVERIFIED (2026-09-16) !! Written without any Snowflake connection. This
   model has never been compiled or run. See README.md in this folder for the
