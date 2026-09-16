@@ -167,8 +167,13 @@ ranked AS (
         -- in the partition key even though the checker's row_filter currently
         -- pins both to "All": if that filter is ever widened, this keeps each
         -- breakdown as its own series instead of silently collapsing them.
+        -- Partitioned by AREA_CODE, not LA_CODE - LA_CODE is blank for some
+        -- legitimate LAs (confirmed live: 2023 reorganisation unitaries),
+        -- and NULL groups as equal in a window PARTITION BY, which would
+        -- silently merge every blank-LA_CODE authority into one partition
+        -- and drop all but one of their rows for any shared period.
         ROW_NUMBER() OVER (
-            PARTITION BY la_code, support_setting, age_group, period_start
+            PARTITION BY area_code, support_setting, age_group, period_start
             ORDER BY publication_date DESC NULLS LAST,
                      run_at DESC NULLS LAST
         ) AS vintage_rank

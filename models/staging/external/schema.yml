@@ -4,8 +4,9 @@ models:
   - name: stg_cld_long_term_support
     description: |
       CLD quarterly long-term support, typed and deduped from the append-only
-      landing table. Grain: one row per LA_CODE x SUPPORT_SETTING x AGE_GROUP
+      landing table. Grain: one row per AREA_CODE x SUPPORT_SETTING x AGE_GROUP
       x PERIOD_START, holding the newest published value for that LA-month.
+      AREA_CODE, not LA_CODE - see the LA_CODE column note below.
 
       STOCK measure - a point-in-time count at each month-end. Correct
       aggregation is the latest snapshot or a mean over calendar months.
@@ -20,11 +21,16 @@ models:
       warehouse. See README.md in this folder.
     columns:
       - name: LA_CODE
-        description: Published LA code, as-is from source. Not yet validated against a REFERENCE lookup.
+        description: |
+          Published LA code, as-is from source. NOT reliably populated - the
+          publisher leaves this blank for at least the 2023 local-government-
+          reorganisation unitaries (confirmed live: Westmorland and Furness,
+          North Northamptonshire both blank here). Not yet validated against
+          a REFERENCE lookup. Use AREA_CODE to join, not this column.
+      - name: AREA_CODE
+        description: Published area (ONS) code. Populated for every row, including the LAs where LA_CODE is blank - this is the reliable join key.
         tests:
           - not_null
-      - name: AREA_CODE
-        description: Published area (ONS) code.
       - name: AREA_NAME
         description: LA name as published. NOT standardised to CASSR names - do not join on this.
       - name: AREA_UNIT
@@ -75,9 +81,13 @@ models:
       - name: RUN_AT
         description: Extraction run timestamp, tiebreaker when two vintages share a publication date.
     tests:
+      # AREA_CODE, not LA_CODE - LA_CODE is blank for some legitimate LAs
+      # (confirmed: 2023 reorganisation unitaries), and NULL groups as equal
+      # in a uniqueness GROUP BY, so different LAs sharing a blank LA_CODE
+      # would falsely collide as duplicates.
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
-            - LA_CODE
+            - AREA_CODE
             - SUPPORT_SETTING
             - AGE_GROUP
             - PERIOD_START
@@ -85,7 +95,8 @@ models:
   - name: stg_cld_assessments
     description: |
       CLD quarterly assessments, typed and deduped from the append-only
-      landing table. Grain: one row per LA_CODE x AGE_GROUP x PERIOD_START.
+      landing table. Grain: one row per AREA_CODE x AGE_GROUP x PERIOD_START.
+      AREA_CODE, not LA_CODE - see the LA_CODE column note below.
 
       FLOW measure - people assessed that month who had NOT had long-term
       support in the prior 12 months. A sum over a contiguous 12-month window
@@ -99,11 +110,15 @@ models:
       warehouse. See README.md in this folder.
     columns:
       - name: LA_CODE
-        description: Published LA code, as-is from source.
+        description: |
+          Published LA code, as-is from source. NOT reliably populated - see
+          the same column on stg_cld_assessments for the confirmed gap
+          (2023 local-government-reorganisation unitaries). Use AREA_CODE to
+          join, not this column.
+      - name: AREA_CODE
+        description: Published area (ONS) code. Populated for every row - this is the reliable join key.
         tests:
           - not_null
-      - name: AREA_CODE
-        description: Published area (ONS) code.
       - name: AREA_NAME
         description: LA name as published. NOT standardised to CASSR names.
       - name: AREA_UNIT
@@ -146,8 +161,9 @@ models:
       - name: RUN_AT
         description: Extraction run timestamp, tiebreaker within a publication date.
     tests:
+      # AREA_CODE, not LA_CODE - see the same note on stg_cld_long_term_support.
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
-            - LA_CODE
+            - AREA_CODE
             - AGE_GROUP
             - PERIOD_START

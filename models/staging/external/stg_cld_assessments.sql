@@ -123,10 +123,17 @@ typed AS (
 
 ranked AS (
 
+    -- Partitioned by AREA_CODE, not LA_CODE. LA_CODE is blank for some
+    -- legitimate LAs (confirmed live: 2023 reorganisation unitaries), and
+    -- NULL groups as equal in a window PARTITION BY - partitioning on
+    -- LA_CODE would silently merge every blank-LA_CODE authority into one
+    -- partition, so only one of them would survive the vintage_rank = 1
+    -- filter below for any period they share, dropping the other's real
+    -- data with no error. AREA_CODE is populated for every row.
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY la_code, age_group, period_start
+            PARTITION BY area_code, age_group, period_start
             ORDER BY publication_date DESC NULLS LAST,
                      run_at DESC NULLS LAST
         ) AS vintage_rank
