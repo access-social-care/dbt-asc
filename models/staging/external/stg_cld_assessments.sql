@@ -65,7 +65,10 @@ parsed AS (
             IFF(metric ILIKE '%[p]', LEFT(metric, LENGTH(metric) - 3), metric)
         )                                             AS metric_label,
         (metric ILIKE '%[p]')                         AS is_provisional,
-        (TRIM(value) = '[c]')                         AS is_suppressed,
+        -- COALESCE, not a bare comparison: TRIM(NULL) = '[c]' evaluates to
+        -- NULL (SQL three-valued logic), not FALSE - see
+        -- stg_cld_long_term_support.sql for the full note.
+        COALESCE(TRIM(value) = '[c]', FALSE)          AS is_suppressed,
         value                                         AS value_raw,
         TRY_TO_DATE(_publication_date)                AS publication_date,
         _source_url                                   AS source_url,

@@ -95,7 +95,12 @@ parsed AS (
         -- Suppression marker. Checked on the raw cell before any numeric cast,
         -- because TRY_TO_NUMBER('[c]') and TRY_TO_NUMBER(NULL) are both NULL
         -- and this is the only place the two can still be told apart.
-        (TRIM(value) = '[c]')                         AS is_suppressed,
+        -- COALESCE, not a bare comparison: TRIM(NULL) = '[c]' evaluates to
+        -- NULL (SQL three-valued logic), not FALSE, so a genuinely blank
+        -- cell - a different data-quality situation to an explicit "[c]"
+        -- suppression marker - would otherwise fail the not_null test on
+        -- this column instead of correctly reading as "not suppressed".
+        COALESCE(TRIM(value) = '[c]', FALSE)          AS is_suppressed,
 
         value                                         AS value_raw,
         TRY_TO_DATE(_publication_date)                AS publication_date,
