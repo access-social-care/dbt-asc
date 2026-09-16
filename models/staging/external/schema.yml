@@ -75,7 +75,7 @@ models:
         tests:
           - not_null
       - name: PUBLICATION_DATE
-        description: Publication date of the vintage this row's value came from.
+        description: Release period this row's value came from (e.g. "2026-03") - text, not a DATE. Ranked as text for the vintage dedup above; do not TRY_TO_DATE() it, that silently nulls it out.
       - name: SOURCE_URL
         description: Download URL of the vintage this row's value came from.
       - name: RUN_AT
@@ -155,7 +155,7 @@ models:
         tests:
           - not_null
       - name: PUBLICATION_DATE
-        description: Publication date of the winning vintage for this row.
+        description: Release period of the winning vintage for this row (e.g. "2026-03") - text, not a DATE. Do not TRY_TO_DATE() it, that silently nulls it out - see stg_cld_long_term_support.sql for the confirmed incident.
       - name: SOURCE_URL
         description: Download URL of the winning vintage.
       - name: RUN_AT

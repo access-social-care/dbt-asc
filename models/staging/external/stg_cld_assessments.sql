@@ -70,7 +70,14 @@ parsed AS (
         -- stg_cld_long_term_support.sql for the full note.
         COALESCE(TRIM(value) = '[c]', FALSE)          AS is_suppressed,
         value                                         AS value_raw,
-        TRY_TO_DATE(_publication_date)                AS publication_date,
+        -- NOT a real date - the checker tags this dataset with its release
+        -- period ("2026-03", "2025-09"), not a calendar date, so
+        -- TRY_TO_DATE() on it silently returns NULL (confirmed live: every
+        -- row's publication_date came back blank, and the vintage ranking
+        -- below was accidentally falling back entirely to run_at instead).
+        -- Kept as text and ranked as text - "YYYY-MM" sorts correctly
+        -- lexicographically, which is all the ranking actually needs.
+        _publication_date                              AS publication_date,
         _source_url                                   AS source_url,
         TRY_TO_TIMESTAMP_NTZ(_run_at)                 AS run_at
     FROM landing

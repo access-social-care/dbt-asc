@@ -103,7 +103,12 @@ parsed AS (
         COALESCE(TRIM(value) = '[c]', FALSE)          AS is_suppressed,
 
         value                                         AS value_raw,
-        TRY_TO_DATE(_publication_date)                AS publication_date,
+        -- NOT a real date - see the full note in stg_cld_assessments.sql.
+        -- The checker tags this dataset with its release period ("2026-03"),
+        -- not a calendar date, so TRY_TO_DATE() silently nulled it out and
+        -- the vintage ranking below was accidentally running on run_at
+        -- alone. Kept and ranked as text.
+        _publication_date                              AS publication_date,
         _source_url                                   AS source_url,
         TRY_TO_TIMESTAMP_NTZ(_run_at)                 AS run_at
     FROM landing
