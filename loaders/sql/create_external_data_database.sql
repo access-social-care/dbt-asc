@@ -38,6 +38,13 @@ CREATE SCHEMA IF NOT EXISTS EXTERNAL_DATA.SIGNALS;
 GRANT USAGE ON DATABASE EXTERNAL_DATA TO ROLE ROLE_DBT_TRANSFORM;
 GRANT USAGE, CREATE TABLE ON SCHEMA EXTERNAL_DATA.LANDING TO ROLE ROLE_DBT_TRANSFORM;
 
+-- dbt's Snowflake adapter runs its own CREATE SCHEMA IF NOT EXISTS before
+-- building models into a schema, even one that already exists - confirmed
+-- live 2026-09-16: dbt run failed on this exact grant despite RAW already
+-- existing and already having CREATE TABLE granted below, because IF NOT
+-- EXISTS still requires the privilege to attempt the statement at all.
+GRANT CREATE SCHEMA ON DATABASE EXTERNAL_DATA TO ROLE ROLE_DBT_TRANSFORM;
+
 -- dbt needs to build RAW and (later) NORMALISED as models, and read LANDING.
 GRANT USAGE ON SCHEMA EXTERNAL_DATA.LANDING TO ROLE ROLE_DBT_TRANSFORM;
 GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA.RAW TO ROLE ROLE_DBT_TRANSFORM;
