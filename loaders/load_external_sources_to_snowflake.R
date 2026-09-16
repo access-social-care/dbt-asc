@@ -344,7 +344,32 @@ tryCatch(
         next
       }
 
-      df <- readr::read_csv(csv_path, show_col_types = FALSE)
+      ## Landing datasets: force every column to character on read.
+      ## readr::read_csv() infers each column's type from its CONTENT, not
+      ## its declared purpose - and for an append-only table, the first
+      ## vintage ever loaded silently fixes the Snowflake column's type
+      ## forever. Confirmed live 2026-09-16: a CLD backfill CSV whose
+      ## `_publication_date` happened to read "2026-07-23" (a full ISO date)
+      ## got readr-inferred as <date>, so CREATE TABLE made that column
+      ## DATE - then a later, correctly-tagged vintage with
+      ## `_publication_date = "2025-09"` (not a full date) failed to insert
+      ## with "Invalid character value for cast specification", because a
+      ## DATE column can't hold that string. The same failure mode is latent
+      ## on `value` too (numeric in one vintage, a "[c]" suppression marker
+      ## in another) - not yet hit, but the same bug. LANDING is meant to
+      ## hold everything untyped until dbt types it downstream (see
+      ## models/staging/external/), so forcing character here isn't a
+      ## workaround, it's the correct type for this table regardless of
+      ## which vintage happens to create it first.
+      df <- if (is_landing) {
+        readr::read_csv(
+          csv_path,
+          col_types = readr::cols(.default = readr::col_character()),
+          show_col_types = FALSE
+        )
+      } else {
+        readr::read_csv(csv_path, show_col_types = FALSE)
+      }
       # NOTE: does NOT add a publication-date column here - source_
       # checker's own tagging.py already writes one (`_publication_date`,
       # same value, same source: resolved.inferred_publication_date /
