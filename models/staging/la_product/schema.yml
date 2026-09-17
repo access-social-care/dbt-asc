@@ -13,10 +13,17 @@ models:
       SEGMENT = UT1 from TOPIC_ENTRY_POINT_MAP ('Unmatched' if NULL, 'Unmapped' if not in map).
       LOCALITY_NAME = county from accessava_locality postcode lookup (NULL where unresolved).
       Production model — consumed by stg_la_topic_mentions.
+      No row-level filter on LA_NAME (removed 2026-09-17, see the model's own
+      header comment) — every conversation is kept, including the majority
+      (87.5% overall, 96-98% in recent months) whose source LA_NAME is NULL.
     columns:
       - name: LA_NAME
-        description: Standardised CASSR local authority name
-        tests: [not_null]
+        description: |
+          Standardised CASSR local authority name. Frequently NULL (majority
+          of rows, worsening over time — see model header comment) — this is
+          expected, not a bug, since the row-level la_name filter was removed
+          2026-09-17 to stop silently dropping this data. Deliberately no
+          not_null test.
       - name: QUERY_DATE
         description: Date conversation started (created_at cast to date)
         tests: [not_null]
@@ -39,9 +46,17 @@ models:
   - name: stg_advicepro
     description: |
       AdvicePro cases at topic-mention grain, normalised to UT1/UT2.
-      One row per case x topic via case_topic_bridge (pre-exploded by ETL).
+      One row per case x topic via case_topic_bridge (pre-exploded by ETL) -
+      LEFT JOIN as of 2026-09-17 (was INNER JOIN; see model header comment).
+      A case with no case_topic_bridge row (e.g. SUPER_CATEGORY = 'Multi-Matter'
+      cases, which the bridge-building ETL in advicePro_queries never explodes -
+      39.4% of all AdvicePro cases as of 2026-09-17) now contributes exactly
+      one row with SEGMENT = 'Unmapped' and UT2 = NULL, instead of being
+      silently dropped. This makes those cases visible/countable but does NOT
+      give them real per-topic UT1/UT2 classification - that needs a fix in
+      advicePro_queries' case_topic_bridge build, tracked separately.
       Mapping chain: case_topic_bridge -> s_c_csi_map -> universal_themes_map -> UT1/UT2.
-      SEGMENT = UT1 ('Unmapped' if no match in taxonomy).
+      SEGMENT = UT1 ('Unmapped' if no match in taxonomy, or no bridge row at all).
       LOCALITY_NAME = county from casework_locality postcode lookup (NULL where unresolved).
       Production model — consumed by stg_la_topic_mentions.
     columns:
@@ -110,10 +125,16 @@ models:
       QUERY_COUNT = 1 per row (except helplines which are pre-aggregated).
       Production model — base for stg_la_topic_mentions_glos, mart_la_query_summary,
       and helplines_advicepro_accessava.
+      LA_NAME may be NULL for AccessAva-origin rows (row-level filter removed
+      2026-09-17 from stg_accessava — see that model's header comment).
+      AdvicePro and Helplines rows still always carry a non-NULL LA_NAME.
     columns:
       - name: LA_NAME
-        description: Standardised CASSR local authority name
-        tests: [not_null]
+        description: |
+          Standardised CASSR local authority name. NULL for a large and
+          growing share of AccessAva rows (expected, not a bug — see
+          stg_accessava's header comment); always populated for AdvicePro and
+          Helplines. Deliberately no not_null test at this grain.
       - name: QUERY_DATE
         description: Date of query/call/case open
         tests: [not_null]

@@ -9,7 +9,7 @@ All models use **UT1/UT2-mapped topic mentions** — the only track. Source-spec
 | Model | Source | SEGMENT | Notes |
 |---|---|---|---|
 | `stg_accessava` | `accessava.accessava` | `topic_entry_point` → `topic_entry_point_map` → UT1/UT2 | Flattens semicolon-joined topics; joins `accessava_locality` for county |
-| `stg_advicepro` | `casework.advicepro_casework` | `case_topic_bridge` → `s_c_csi_map` → `universal_themes_map` → UT1/UT2 | Joins `casework_locality` for county; `advicepro_demographics` for age |
+| `stg_advicepro` | `casework.advicepro_casework` | `case_topic_bridge` → `s_c_csi_map` → `universal_themes_map` → UT1/UT2 | LEFT JOIN to `case_topic_bridge` (was INNER, fixed 2026-09-17) — a case with no bridge row (e.g. `SUPER_CATEGORY='Multi-Matter'`, never exploded by that repo's ETL) still gets one row, SEGMENT='Unmapped', instead of being dropped. Joins `casework_locality` for county; `advicepro_demographics` for age |
 | `stg_helplines` | `helplines.helplines_aggregated_full` | UT1 natively (pre-aggregated by ETL) | No UT2, locality, age, or letter dimensions |
 
 Unioned in **`stg_la_topic_mentions`**. Grain: one row per conversation/case × topic mention — a conversation touching 3 topics contributes 3 rows. Named for this grain, not "queries": one query/interaction is not one row.
@@ -41,6 +41,7 @@ stg_helplines  ─┘                          ├─> mart_la_query_summary  (a
 
 | Column | AccessAva | AdvicePro | Helplines |
 |---|---|---|---|
+| LA_NAME | frequently NULL (majority of rows as of 2026-09-17, worsening over time — no row-level filter as of 2026-09-17, see `stg_accessava`'s header comment) | always populated (`WHERE la_name IS NOT NULL` still applies) | always populated |
 | UT2 | populated where mapped | populated where mapped | always NULL |
 | LOCALITY_NAME | county (where resolved by postcode lookup) | county (where resolved by postcode lookup) | NULL |
 | AGE_BAND | age band (where recorded) | age_range (where recorded) | NULL |

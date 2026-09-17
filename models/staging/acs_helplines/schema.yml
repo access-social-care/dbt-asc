@@ -16,11 +16,21 @@ models:
       Snowflake grant (ROLE_ETL_WRITE), outside dbt lineage - see model
       header for detail. No longer safe to restructure freely; check with
       the helplines_data pipeline owner first.
+      LA_NAME may be NULL for AccessAva rows as of 2026-09-17 (row-level
+      filter removed upstream in stg_accessava - see that model's header
+      comment). Confirmed safe for the known SOTN consumer: build_sotn_table.R
+      filters on LA_CODE, not LA_NAME, and AccessAva/AdvicePro rows never
+      carry LA_CODE from this source (they pass its England-only filter via
+      the is.na(LA_CODE) branch regardless), and its LA_NAME/LA_CODE
+      reference check only evaluates rows where LA_CODE is also non-NA - so a
+      NULL LA_NAME here does not trigger new false positives there.
     columns:
       - name: LA_NAME
-        description: Standardised CASSR local authority name
-        tests:
-          - not_null
+        description: |
+          Standardised CASSR local authority name. NULL for a large and
+          growing share of AccessAva rows (expected, not a bug, since NULL
+          forms its own GROUP BY key here same as any other value - see
+          model description). Deliberately no not_null test.
       - name: MONTH_DATE
         description: First day of month (all sources truncated to month grain)
         tests:
