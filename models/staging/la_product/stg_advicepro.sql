@@ -14,12 +14,33 @@
   all others key on (supercategory, category).
 
   SEGMENT = UT1 from UNIVERSAL_THEMES_MAP.
-    'Unmapped' — topic exists in bridge but has no UT1 match (taxonomy drift).
+    'Unmapped' — topic exists in bridge but has no UT1 match (taxonomy drift),
+    OR (2026-09-17) the case has no row in case_topic_bridge at all (see below).
   UT2 = second-level theme from the same map (sparse; NULL where not applicable).
 
-  Grain: one row per case x topic.
+  Grain: one row per case x topic — except a case with zero case_topic_bridge
+  rows now contributes exactly one row with UT2 = NULL (see below), not zero.
   QUERY_COUNT = 1 per row (sum gives topic mention counts, not case counts).
   HAS_LETTER = 0 — AdvicePro does not produce letters.
+
+  LEFT JOIN, not INNER JOIN (2026-09-17 fix, confirmed via live investigation):
+  case_topic_bridge (built by a separate repo, advicePro_queries — not this
+  one) never explodes cases whose SUPER_CATEGORY = 'Multi-Matter' into topic
+  rows at all, so an INNER JOIN here silently dropped every one of those
+  cases entirely — 1,107 of 2,810 AdvicePro cases (39.4%), 99.6% of which
+  were Multi-Matter, confirmed live 2026-09-17. Amit's direction: "the map
+  DEFINITELY needs to account for the SUPERCATEGORY=MULTI-MATTER!" This
+  LEFT JOIN is a MITIGATION, not the real fix — a case with no bridge match
+  now lands as one row with SEGMENT = 'Unmapped' (via the existing
+  COALESCE(u.ut1, 'Unmapped') below) instead of vanishing silently, so it is
+  at least visible and countable. It does NOT give these cases real per-topic
+  UT1/UT2 classification — that requires case_topic_bridge itself to actually
+  explode Multi-Matter cases, which is out of scope for this repo (needs
+  investigation in advicePro_queries: whether advicepro_casework's raw
+  case_specific_issues/super_category fields have usable data for Multi-Matter
+  cases that the bridge ETL is just failing to explode, or whether the
+  underlying data is genuinely absent for these cases — not yet answered,
+  flagged as a required follow-up).
 */
 
 SELECT
@@ -35,7 +56,7 @@ SELECT
 
 FROM {{ source('casework', 'advicepro_casework') }} c
 
-INNER JOIN {{ source('casework', 'case_topic_bridge') }} b
+LEFT JOIN {{ source('casework', 'case_topic_bridge') }} b
     ON c.case_reference = b.case_reference
 
 LEFT JOIN {{ source('reference', 's_c_csi_map') }} m
