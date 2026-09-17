@@ -1,0 +1,169 @@
+version: 2
+
+models:
+  - name: stg_cld_long_term_support
+    description: |
+      CLD quarterly long-term support, typed and deduped from the append-only
+      landing table. Grain: one row per AREA_CODE x SUPPORT_SETTING x AGE_GROUP
+      x PERIOD_START, holding the newest published value for that LA-month.
+      AREA_CODE, not LA_CODE - see the LA_CODE column note below.
+
+      STOCK measure - a point-in-time count at each month-end. Correct
+      aggregation is the latest snapshot or a mean over calendar months.
+      NEVER sum this across months.
+
+      Total rows are excluded, "[p]" is lifted into IS_PROVISIONAL, "[c]" into
+      IS_SUPPRESSED (with VALUE left NULL, not zero), and each LA-month is
+      resolved to its latest vintage. See the model header for the full
+      rationale on each.
+
+      UNVERIFIED as of 2026-09-16 - never compiled or run against a live
+      warehouse. See README.md in this folder.
+    columns:
+      - name: LA_CODE
+        description: |
+          Published LA code, as-is from source. NOT reliably populated - the
+          publisher leaves this blank for at least the 2023 local-government-
+          reorganisation unitaries (confirmed live: Westmorland and Furness,
+          North Northamptonshire both blank here). Not yet validated against
+          a REFERENCE lookup. Use AREA_CODE to join, not this column.
+      - name: AREA_CODE
+        description: Published area (ONS) code. Populated for every row, including the LAs where LA_CODE is blank - this is the reliable join key.
+        tests:
+          - not_null
+      - name: AREA_NAME
+        description: LA name as published. NOT standardised to CASSR names - do not join on this.
+      - name: AREA_UNIT
+        description: Pinned to "Local Authority" by the checker's row_filter.
+      - name: SUPPORT_SETTING
+        description: Currently always "All" (row_filter). Part of the grain so a widened filter does not collapse series.
+        tests:
+          - not_null
+      - name: AGE_GROUP
+        description: Currently always "All" (row_filter).
+        tests:
+          - not_null
+      - name: MEASURE
+        description: Constant literal identifying the series.
+        tests:
+          - accepted_values:
+              values: ['long_term_support']
+      - name: PERIOD_START
+        description: First day of the reporting month, parsed from the published month header.
+        tests:
+          - not_null
+      - name: PERIOD_END
+        description: Last day of the reporting month (LAST_DAY of PERIOD_START).
+        tests:
+          - not_null
+      - name: VALUE
+        description: |
+          Numeric value. NULL where IS_SUPPRESSED is true (a suppressed small
+          number is unknown, not zero) and NULL where the published cell was
+          blank - IS_SUPPRESSED is what distinguishes the two. Deliberately not
+          not_null tested for that reason.
+      - name: IS_SUPPRESSED
+        description: True where the published cell was the "[c]" disclosure-suppression marker.
+        tests:
+          - not_null
+      - name: IS_PROVISIONAL
+        description: True where the published month header carried the "[p]" provisional marker.
+        tests:
+          - not_null
+      - name: METRIC_RAW
+        description: The original published month header, retained for traceability and for the Total assertion test.
+        tests:
+          - not_null
+      - name: PUBLICATION_DATE
+        description: Release period this row's value came from (e.g. "2026-03") - text, not a DATE. Ranked as text for the vintage dedup above; do not TRY_TO_DATE() it, that silently nulls it out.
+      - name: SOURCE_URL
+        description: Download URL of the vintage this row's value came from.
+      - name: RUN_AT
+        description: Extraction run timestamp, tiebreaker when two vintages share a publication date.
+    tests:
+      # AREA_CODE, not LA_CODE - LA_CODE is blank for some legitimate LAs
+      # (confirmed: 2023 reorganisation unitaries), and NULL groups as equal
+      # in a uniqueness GROUP BY, so different LAs sharing a blank LA_CODE
+      # would falsely collide as duplicates.
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - AREA_CODE
+            - SUPPORT_SETTING
+            - AGE_GROUP
+            - PERIOD_START
+
+  - name: stg_cld_assessments
+    description: |
+      CLD quarterly assessments, typed and deduped from the append-only
+      landing table. Grain: one row per AREA_CODE x AGE_GROUP x PERIOD_START.
+      AREA_CODE, not LA_CODE - see the LA_CODE column note below.
+
+      FLOW measure - people assessed that month who had NOT had long-term
+      support in the prior 12 months. A sum over a contiguous 12-month window
+      is valid, but ONLY because the Total rows are excluded here; summing
+      with them still in double-counts every LA.
+
+      No SUPPORT_SETTING column - this file has one fewer breakdown dimension
+      than long-term support. Otherwise identical shape and conventions.
+
+      UNVERIFIED as of 2026-09-16 - never compiled or run against a live
+      warehouse. See README.md in this folder.
+    columns:
+      - name: LA_CODE
+        description: |
+          Published LA code, as-is from source. NOT reliably populated - see
+          the same column on stg_cld_assessments for the confirmed gap
+          (2023 local-government-reorganisation unitaries). Use AREA_CODE to
+          join, not this column.
+      - name: AREA_CODE
+        description: Published area (ONS) code. Populated for every row - this is the reliable join key.
+        tests:
+          - not_null
+      - name: AREA_NAME
+        description: LA name as published. NOT standardised to CASSR names.
+      - name: AREA_UNIT
+        description: Pinned to "Local Authority" by the checker's row_filter.
+      - name: AGE_GROUP
+        description: Currently always "All" (row_filter).
+        tests:
+          - not_null
+      - name: MEASURE
+        description: Constant literal identifying the series.
+        tests:
+          - accepted_values:
+              values: ['assessments']
+      - name: PERIOD_START
+        description: First day of the reporting month.
+        tests:
+          - not_null
+      - name: PERIOD_END
+        description: Last day of the reporting month.
+        tests:
+          - not_null
+      - name: VALUE
+        description: Numeric value; NULL where suppressed or blank (see IS_SUPPRESSED).
+      - name: IS_SUPPRESSED
+        description: True where the published cell was "[c]".
+        tests:
+          - not_null
+      - name: IS_PROVISIONAL
+        description: True where the month header carried "[p]".
+        tests:
+          - not_null
+      - name: METRIC_RAW
+        description: Original published month header.
+        tests:
+          - not_null
+      - name: PUBLICATION_DATE
+        description: Release period of the winning vintage for this row (e.g. "2026-03") - text, not a DATE. Do not TRY_TO_DATE() it, that silently nulls it out - see stg_cld_long_term_support.sql for the confirmed incident.
+      - name: SOURCE_URL
+        description: Download URL of the winning vintage.
+      - name: RUN_AT
+        description: Extraction run timestamp, tiebreaker within a publication date.
+    tests:
+      # AREA_CODE, not LA_CODE - see the same note on stg_cld_long_term_support.
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - AREA_CODE
+            - AGE_GROUP
+            - PERIOD_START
