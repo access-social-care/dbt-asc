@@ -2,7 +2,7 @@
 ##
 ## Source: external_source_freshness_checker
 ##   (extract → verify → CSV + manifest.json)
-##   repo: access-social-care/external_source_freshness_checker
+##   GitHub repo "access-social-care/external_source_freshness_checker"
 ##   (fork of mpr3z1v3/amit_claude_data_firecrawl — asc-agent)
 ## Target: REFERENCE.PUBLIC.<dataset_id> (one table per registry dataset)
 ##
@@ -115,7 +115,6 @@ log_info("Manifest run_id={manifest$run_id} run_at={manifest$run_at}")
 # Connect once, reuse for every table ----------------------------------------
 
 con <- ascFuncs::connect_snowflake(database = TARGET_DB, role = NULL)
-# on.exit(DBI::dbDisconnect(con), add = TRUE)
 
 ## Raw DBI call, not a hand-rolled anti-pattern here — ascFuncs exports no
 ## session-info helper, and this is the exact pattern used identically in
