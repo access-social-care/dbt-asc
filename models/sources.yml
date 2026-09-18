@@ -596,11 +596,14 @@ sources:
           LIMITATION: NHS England has scheduled this collection to retire
           after Q4 2026/27 (observed 2026-08-18) — will need freshness: null
           once the final submission lands, same treatment as ascfr_salt.
+          NOT YET LOADED (confirmed 2026-09-18): table doesn't exist in
+          Snowflake yet, causing an unhandled freshness-check error rather
+          than a threshold breach. freshness: null until asc-agent's loader
+          actually lands this table — restore the warn/error thresholds
+          below once it does.
           Source: https://www.england.nhs.uk/statistics/statistical-work-areas/nhs-chc-fnc/
         config:
-          freshness:
-            warn_after: {count: 120, period: day}
-            error_after: {count: 180, period: day}
+          freshness: null  # table not loaded yet — see LIMITATION note above
 
       - name: household_carers
         description: |
