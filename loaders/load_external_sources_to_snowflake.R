@@ -49,7 +49,12 @@ library(ascFuncs) # nolint: object_usage_linter. ascFuncs is a private package
 ## up - see .github/workflows/ci.yml's lint-r job) - object_usage_linter can
 ## never resolve its exports there, so this is a permanent suppression, not
 ## a symptom to chase.
-library(tidyverse)
+library(tidyverse) # nolint: object_usage_linter. Confirmed live 2026-09-21:
+## installing full tidyverse from source on the lint job's ubuntu-latest
+## runner fails - several of its deps (ragg, rvest, httr, googledrive,
+## googlesheets4, reprex) need system libraries the runner doesn't have,
+## and the build alone takes 5+ minutes before failing. Not worth chasing
+## for a lint-only job; suppressed the same way as ascFuncs above.
 library(jsonlite)
 library(logger)
 library(cli)

@@ -99,18 +99,23 @@ jobs:
 
       - name: Install CRAN packages used by loaders (for object_usage_linter)
         # Confirmed live 2026-09-17: without these, lintr's object_usage_linter
-        # can't resolve library(tidyverse)/library(jsonlite)/library(logger)'s
-        # exports and emits a false-positive warning on every such library()
-        # call - which still counts toward "N lint error(s) found" and fails
-        # the job even though nothing is actually wrong. ascFuncs is NOT
-        # installed here - it's a private package with no cross-repo token
-        # wired up on this GitHub-hosted runner (see the self-hosted job's own
-        # comment above) - that warning is suppressed at the call site with
-        # `# nolint: object_usage_linter.` instead, matching this repo's
-        # existing convention for symbols lintr can't statically resolve.
+        # can't resolve library(jsonlite)/library(logger)'s exports and emits
+        # a false-positive warning on every such library() call - which still
+        # counts toward "N lint error(s) found" and fails the job even though
+        # nothing is actually wrong.
+        #
+        # tidyverse deliberately excluded (confirmed live 2026-09-21): it
+        # failed to build from source here - several of its deps (ragg,
+        # rvest, httr, googledrive, googlesheets4, reprex) need system
+        # libraries this runner doesn't have, and the attempt alone took 5+
+        # minutes before failing. Suppressed at the call site instead with
+        # `# nolint: object_usage_linter.`, same as ascFuncs is NOT installed
+        # here either - it's a private package with no cross-repo token wired
+        # up on this GitHub-hosted runner (see the self-hosted job's own
+        # comment above), same suppression convention.
         run: |
           Rscript -e '
-            pkgs <- c("tidyverse", "logger", "jsonlite")
+            pkgs <- c("logger", "jsonlite")
             missing <- pkgs[!vapply(
               pkgs, requireNamespace, logical(1), quietly = TRUE
             )]
