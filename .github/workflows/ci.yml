@@ -97,6 +97,28 @@ jobs:
         run: |
           Rscript -e 'if (!requireNamespace("lintr", quietly = TRUE)) install.packages("lintr", repos = "https://cloud.r-project.org")'
 
+      - name: Install CRAN packages used by loaders (for object_usage_linter)
+        # Confirmed live 2026-09-17: without these, lintr's object_usage_linter
+        # can't resolve library(tidyverse)/library(jsonlite)/library(logger)'s
+        # exports and emits a false-positive warning on every such library()
+        # call - which still counts toward "N lint error(s) found" and fails
+        # the job even though nothing is actually wrong. ascFuncs is NOT
+        # installed here - it's a private package with no cross-repo token
+        # wired up on this GitHub-hosted runner (see the self-hosted job's own
+        # comment above) - that warning is suppressed at the call site with
+        # `# nolint: object_usage_linter.` instead, matching this repo's
+        # existing convention for symbols lintr can't statically resolve.
+        run: |
+          Rscript -e '
+            pkgs <- c("tidyverse", "logger", "jsonlite")
+            missing <- pkgs[!vapply(
+              pkgs, requireNamespace, logical(1), quietly = TRUE
+            )]
+            if (length(missing) > 0) {
+              install.packages(missing, repos = "https://cloud.r-project.org")
+            }
+          '
+
       - name: Determine changed R files
         # Diff-only scope: lint only .R files this PR actually touches, under
         # loaders/, analyses/, tests/ (excludes renv/ — not present yet, but

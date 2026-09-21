@@ -44,7 +44,11 @@
 ## it (confirmed 2026-07-24: it pointed at dbt-asc/amit_claude_data_
 ## firecrawl/data, a folder that has never existed on the VM).
 
-library(ascFuncs)
+library(ascFuncs) # nolint: object_usage_linter. ascFuncs is a private package
+## not installed on the GitHub-hosted lint runner (no cross-repo token wired
+## up - see .github/workflows/ci.yml's lint-r job) - object_usage_linter can
+## never resolve its exports there, so this is a permanent suppression, not
+## a symptom to chase.
 library(tidyverse)
 library(jsonlite)
 library(logger)
