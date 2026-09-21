@@ -21,8 +21,12 @@ models:
       Used for ad-hoc cross-LA analysis, not the Gloucestershire product tables.
     columns:
       - name: LA_NAME
-        description: Standardised CASSR local authority name
-        tests: [not_null]
+        description: |
+          Standardised CASSR local authority name. Can be NULL — AccessAva's
+          la_name is NULL for the large majority of conversations (2026-09-17,
+          see stg_accessava.sql header); those rows are kept deliberately, not
+          dropped. not_null test removed here to match (previously mismatched
+          the upstream decision, causing 11 stale test failures 2026-09-18).
       - name: SOURCE_SYSTEM
         description: Originating system (AccessAva, AdvicePro, or Helplines)
         tests: [not_null, {accepted_values: {values: ['AccessAva', 'AdvicePro', 'Helplines']}}]
