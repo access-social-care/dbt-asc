@@ -620,6 +620,97 @@ sources:
         config:
           freshness: null  # decennial Census cross-tab; also not yet loadable, see note above
 
+  # ── External data portal — APPEND-ONLY LANDING (CLD quarterly) ──────────────
+  # UNVERIFIED as of 2026-09-16: neither the schema nor the tables below have
+  # been observed in a live Snowflake account. Written from the checker's
+  # registry.yaml + tagging.py column contract, not from a warehouse. See
+  # models/staging/external/README.md for the verification steps.
+  #
+  # Separate source from `data_portal` above because the write semantics are
+  # different in kind, not just in target: `data_portal` tables are
+  # full-replace (one row set = current truth), these are append-only, one
+  # vintage of rows per quarterly release, with de-duplication deferred to
+  # models/staging/external/stg_cld_*.sql. Never SELECT from these tables
+  # directly in a mart - they contain every vintage of every LA-month and any
+  # naive aggregate over them double-counts.
+  - name: data_portal_landing
+    description: |
+      Append-only landing tables for the CLD quarterly series, written by
+      loaders/load_external_sources_to_snowflake.R (LANDING_DATASETS). One row
+      per LA x month-metric x vintage. Grain is NOT unique on (LA, month) -
+      read via stg_cld_long_term_support / stg_cld_assessments instead.
+      Lives in EXTERNAL_DATA, a dedicated database - not REFERENCE, which is
+      curated denominator/reference data and should never mix with raw landed
+      source rows. Requires loaders/sql/create_external_data_database.sql to
+      have been run first (one-time DDL, needs SYSADMIN).
+    database: external_data
+    schema: landing
+    tables:
+      - name: cld_long_term_support
+        description: |
+          CLD quarterly — long-term support, STOCK measure (people receiving
+          support as of each month-end). Tidy/long: one row per LA per month
+          header. `metric` is the raw month header text including a trailing
+          "[p]" provisional marker AND a "Total [p]" row per LA that MUST be
+          excluded before any aggregation. `value` is the raw untyped cell,
+          including "[c]" suppression markers.
+          Never sum a stock measure across months.
+          Source: https://www.gov.uk/government/collections/adult-social-care-client-level-data-england-quarterly-update
+        config:
+          freshness: null  # append-only; LAST_ALTERED reflects the last vintage appended, not source age
+        columns:
+          - name: area
+            description: LA name as published (not standardised to CASSR names here).
+          - name: support_setting
+            description: Pinned to "All" by the checker's row_filter. Column retained as a row attribute.
+          - name: age_group
+            description: Pinned to "All" by the checker's row_filter.
+          - name: la_code
+            description: Published LA code. Join key candidate; not yet validated against REFERENCE lookups.
+          - name: area_code
+            description: Published area (ONS) code.
+          - name: area_unit
+            description: Pinned to "Local Authority" by the checker's row_filter (case-sensitive value).
+          - name: metric
+            description: Raw month header text, e.g. "July 2025 [p]"; also includes "Total [p]".
+          - name: value
+            description: Raw cell value as published, untyped. "[c]" means suppressed.
+          - name: _publication_date
+            description: Vintage identifier (with _source_url). Set by the checker's tagging.py.
+          - name: _source_url
+            description: Resolved download URL for this vintage. Second half of the vintage key.
+
+      - name: cld_assessments
+        description: |
+          CLD quarterly — assessments, FLOW measure (people assessed that month
+          who had NOT had long-term support in the prior 12 months). Summing
+          over a contiguous 12-month window is valid ONLY after the "Total [p]"
+          metric rows are excluded. No `support_setting` column on this file.
+          Same tidy/long shape, "[p]" and "[c]" conventions as
+          cld_long_term_support.
+          Source: https://www.gov.uk/government/collections/adult-social-care-client-level-data-england-quarterly-update
+        config:
+          freshness: null  # append-only; see note on cld_long_term_support
+        columns:
+          - name: area
+            description: LA name as published.
+          - name: age_group
+            description: Pinned to "All" by the checker's row_filter.
+          - name: la_code
+            description: Published LA code.
+          - name: area_code
+            description: Published area (ONS) code.
+          - name: area_unit
+            description: Pinned to "Local Authority" by the checker's row_filter.
+          - name: metric
+            description: Raw month header text; also includes "Total [p]".
+          - name: value
+            description: Raw cell value as published, untyped. "[c]" means suppressed.
+          - name: _publication_date
+            description: Vintage identifier (with _source_url).
+          - name: _source_url
+            description: Resolved download URL for this vintage.
+
   # ── Monday.com boards (ETL/ELT-relevant only) ────────────────────────────────
   # Only boards that feed data pipelines or are consumed by loaders/exports.
   # Board IDs are the authoritative reference here; monday-pipeline/config/boards.json

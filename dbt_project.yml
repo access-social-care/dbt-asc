@@ -47,6 +47,25 @@ models:
         +materialized: table
         +schema: staging_asc_helplines
 
+      external:
+        # Typed/deduped views over the append-only external landing tables in
+        # EXTERNAL_DATA.LANDING (written by loaders/load_external_sources_to_snowflake.R).
+        # These models do real work - Total-row exclusion, month parsing,
+        # suppression handling, latest-vintage-per-period dedupe - so they are
+        # staging models, not source passthroughs.
+        #
+        # +database is required here: without it, dbt silently materializes
+        # into the project's default target database (confirmed live,
+        # 2026-09-16 - these models landed in ANALYTICS instead of
+        # EXTERNAL_DATA, following the same unqualified pattern as
+        # acs_helplines above). RAW is its own schema, not reused from
+        # LANDING - see loaders/sql/create_external_data_database.sql and
+        # signal_processing/README.md "External Data Pipeline" for why the
+        # four schemas (LANDING/RAW/NORMALISED/SIGNALS) stay separate.
+        +database: external_data
+        +materialized: table
+        +schema: raw
+
     intermediate:
       # Aggregation layer between staging and marts
       +materialized: table
