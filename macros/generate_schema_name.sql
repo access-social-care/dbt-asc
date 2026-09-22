@@ -36,10 +36,18 @@
 
   RESOURCE TYPE GUARD
   -------------------
-  Restricted to `resource_type == 'model'` deliberately. Generic tests
-  declared on these models inherit an fqn under the same folder path, so
-  without this guard a test would match the allowlist and have its audit
-  schema resolved to `dbt_test__audit` instead of `PUBLIC_dbt_test__audit`.
+  Models are matched on folder path. Generic tests declared on those models
+  inherit an fqn under the same folder path, so without a resource_type guard
+  a test would match the allowlist and have its audit schema resolved to
+  `dbt_test__audit` instead of `PUBLIC_dbt_test__audit`.
+
+  Seeds are matched by NAME, not path, because a seed's fqn is only
+  ['<project>', '<seed_name>'] - it carries no folder component to match on
+  even when the file sits in a subdirectory. The named seed is a denominator
+  for the NORMALISED models and belongs in the same schema as them; without
+  this it resolved to PUBLIC_normalised while the models resolved to
+  normalised (caught by `dbt ls --target prod` on 2026-09-22, which is
+  exactly what that command is for).
 
   HOW TO VERIFY A CHANGE HERE
   ---------------------------
@@ -73,13 +81,24 @@
         {%- set node_path = [] -%}
     {%- endif -%}
 
+    {%- set verbatim_schema_seeds = [
+        'cld_published_population',
+    ] -%}
+
     {%- set is_model = node is not none
                        and node.resource_type is defined
                        and node.resource_type == 'model' -%}
 
+    {%- set is_verbatim_seed = node is not none
+                               and node.resource_type is defined
+                               and node.resource_type == 'seed'
+                               and node.name in verbatim_schema_seeds -%}
+
     {%- if custom_schema_name is not none
-           and is_model
-           and node_path in verbatim_schema_paths -%}
+           and (
+               (is_model and node_path in verbatim_schema_paths)
+               or is_verbatim_seed
+           ) -%}
 
         {{ custom_schema_name | trim }}
 
