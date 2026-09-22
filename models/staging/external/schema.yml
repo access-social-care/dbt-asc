@@ -34,15 +34,27 @@ models:
       - name: AREA_NAME
         description: LA name as published. NOT standardised to CASSR names - do not join on this.
       - name: AREA_UNIT
-        description: Pinned to "Local Authority" by the checker's row_filter.
+        description: "National / Region / ADASS Region / Local Authority. ADASS regions OVERLAP geographic regions rather than nesting (different LA membership for four regions, per the source Notes sheet), so summing across area_unit counts England three times."
+      - name: SUPPORT_SETTING_LEVEL
+        description: "all / setting. NULL on stg_cld_assessments, which has no support-setting dimension."
       - name: SUPPORT_SETTING
-        description: Currently always "All" (row_filter). Part of the grain so a widened filter does not collapse series.
+        description: "All / Community / Nursing care / Residential care / Prison. 'All' is a SUBTOTAL equal to the sum of the others (verified England 30 Jun 2025: 482,110 + 54,880 + 139,000 + 260 = 676,250), not an extra category."
         tests:
           - not_null
-      - name: AGE_GROUP
-        description: Currently always "All" (row_filter).
+      - name: AREA_UNIT_LEVEL
+        description: "national / region / adass_region / local_authority. Derived, so a query can pin one geography level. ADASS Region overlaps Region rather than nesting - never aggregate the two together."
+      - name: BREAKDOWN_DIMENSION
+        description: "Which demographic dimension this row breaks down by: age_group, gender or ethnicity. Part of the grain - the literal 'All' occurs in all three."
         tests:
           - not_null
+          - accepted_values:
+              values: ['age_group', 'gender', 'ethnicity']
+      - name: BREAKDOWN_VALUE
+        description: "The value within BREAKDOWN_DIMENSION, e.g. '65 and above', 'Female', 'White: Irish'. Includes the 'All' subtotal row."
+        tests:
+          - not_null
+      - name: BREAKDOWN_LEVEL
+        description: "Hierarchy level of BREAKDOWN_VALUE. age_group: all/coarse/fine/unknown. gender: all/category. ethnicity: all/group/subgroup. ALWAYS filter to one level before aggregating - see macros/cld_breakdown_level.sql."
       - name: MEASURE
         description: Constant literal identifying the series.
         tests:
@@ -86,10 +98,18 @@ models:
       # in a uniqueness GROUP BY, so different LAs sharing a blank LA_CODE
       # would falsely collide as duplicates.
       - dbt_utils.unique_combination_of_columns:
+          # Grain widened 2026-09-22 when the checker's row_filter was removed
+          # and Tables 2-3 were stacked in. AREA_UNIT is in the key because
+          # ADASS Region and Region are overlapping geographies that can share
+          # an AREA_CODE. BREAKDOWN_DIMENSION is in the key because the
+          # literal 'All' occurs in all three dimensions and would otherwise
+          # collide.
           combination_of_columns:
             - AREA_CODE
+            - AREA_UNIT
             - SUPPORT_SETTING
-            - AGE_GROUP
+            - BREAKDOWN_DIMENSION
+            - BREAKDOWN_VALUE
             - PERIOD_START
 
   - name: stg_cld_assessments
@@ -122,11 +142,21 @@ models:
       - name: AREA_NAME
         description: LA name as published. NOT standardised to CASSR names.
       - name: AREA_UNIT
-        description: Pinned to "Local Authority" by the checker's row_filter.
-      - name: AGE_GROUP
-        description: Currently always "All" (row_filter).
+        description: "National / Region / ADASS Region / Local Authority. ADASS regions OVERLAP geographic regions rather than nesting (different LA membership for four regions, per the source Notes sheet), so summing across area_unit counts England three times."
+      - name: AREA_UNIT_LEVEL
+        description: "national / region / adass_region / local_authority. Derived, so a query can pin one geography level. ADASS Region overlaps Region rather than nesting - never aggregate the two together."
+      - name: BREAKDOWN_DIMENSION
+        description: "Which demographic dimension this row breaks down by: age_group, gender or ethnicity. Part of the grain - the literal 'All' occurs in all three."
         tests:
           - not_null
+          - accepted_values:
+              values: ['age_group', 'gender', 'ethnicity']
+      - name: BREAKDOWN_VALUE
+        description: "The value within BREAKDOWN_DIMENSION, e.g. '65 and above', 'Female', 'White: Irish'. Includes the 'All' subtotal row."
+        tests:
+          - not_null
+      - name: BREAKDOWN_LEVEL
+        description: "Hierarchy level of BREAKDOWN_VALUE. age_group: all/coarse/fine/unknown. gender: all/category. ethnicity: all/group/subgroup. ALWAYS filter to one level before aggregating - see macros/cld_breakdown_level.sql."
       - name: MEASURE
         description: Constant literal identifying the series.
         tests:
@@ -163,7 +193,14 @@ models:
     tests:
       # AREA_CODE, not LA_CODE - see the same note on stg_cld_long_term_support.
       - dbt_utils.unique_combination_of_columns:
+          # See the note on stg_cld_long_term_support above. SUPPORT_SETTING
+          # is NULL on every row of this model (assessments has no such
+          # dimension) but is kept in the key so both models declare the same
+          # grain.
           combination_of_columns:
             - AREA_CODE
-            - AGE_GROUP
+            - AREA_UNIT
+            - SUPPORT_SETTING
+            - BREAKDOWN_DIMENSION
+            - BREAKDOWN_VALUE
             - PERIOD_START

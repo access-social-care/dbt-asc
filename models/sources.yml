@@ -662,15 +662,15 @@ sources:
           - name: area
             description: LA name as published (not standardised to CASSR names here).
           - name: support_setting
-            description: Pinned to "All" by the checker's row_filter. Column retained as a row attribute.
+            description: "All / Community / Nursing care / Residential care / Prison. 'All' is a SUBTOTAL equal to the sum of the others (verified England 30 Jun 2025: 482,110 + 54,880 + 139,000 + 260 = 676,250), not an extra category."
           - name: age_group
-            description: Pinned to "All" by the checker's row_filter.
+            description: "Nested levels: 'All' (subtotal), coarse ('18 to 64', '65 and above'), fine (six bands from '18 to 24' to '95 and above'), plus 'Unknown' which sits outside coarse and fine but inside All. Never aggregate across levels."
           - name: la_code
             description: Published LA code. Join key candidate; not yet validated against REFERENCE lookups.
           - name: area_code
             description: Published area (ONS) code.
           - name: area_unit
-            description: Pinned to "Local Authority" by the checker's row_filter (case-sensitive value).
+            description: "National / Region / ADASS Region / Local Authority. ADASS regions OVERLAP geographic regions rather than nesting (different LA membership for four regions, per the source Notes sheet), so summing across area_unit counts England three times."
           - name: metric
             description: Raw month header text, e.g. "July 2025 [p]"; also includes "Total [p]".
           - name: value
@@ -695,13 +695,13 @@ sources:
           - name: area
             description: LA name as published.
           - name: age_group
-            description: Pinned to "All" by the checker's row_filter.
+            description: "Nested levels: 'All' (subtotal), coarse ('18 to 64', '65 and above'), fine (six bands from '18 to 24' to '95 and above'), plus 'Unknown' which sits outside coarse and fine but inside All. Never aggregate across levels."
           - name: la_code
             description: Published LA code.
           - name: area_code
             description: Published area (ONS) code.
           - name: area_unit
-            description: Pinned to "Local Authority" by the checker's row_filter.
+            description: "National / Region / ADASS Region / Local Authority. ADASS regions OVERLAP geographic regions rather than nesting (different LA membership for four regions, per the source Notes sheet), so summing across area_unit counts England three times."
           - name: metric
             description: Raw month header text; also includes "Total [p]".
           - name: value
@@ -716,6 +716,128 @@ sources:
   # Board IDs are the authoritative reference here; monday-pipeline/config/boards.json
   # is the ETL pull config. Project-management boards (OKRs, sprints, tasks) are not listed.
   # Loader to Snowflake: pending (REFERENCE.PUBLIC.<snake_case_name>).
+      - name: cld_assessments_gender
+        description: |
+          CLD quarterly - assessments by GENDER (Table_2), FLOW measure.
+          Monthly, tidy/long. gender is HIERARCHICAL: "All" is a subtotal
+          equal to Female + Male + Other + Unknown (verified England Dec
+          2024: 25,835 + 18,960 + 30 + 660 = 45,485 = All).
+          Source: https://www.gov.uk/government/collections/adult-social-care-client-level-data-england-quarterly-update
+        config:
+          freshness: null  # append-only; see note on cld_long_term_support
+        columns:
+          - name: gender
+            description: All / Female / Male / Other / Unknown. "All" is a subtotal row, not a category.
+          - name: area
+            description: Area name as published (not standardised to CASSR names).
+          - name: la_code
+            description: Published LA code. BLANK for England, regions and some 2023 reorganisation unitaries - never use as a join key, use area_code.
+          - name: area_code
+            description: Published ONS area code. Populated on every row; this is the join key.
+          - name: area_unit
+            description: "National / Region / ADASS Region / Local Authority. ADASS regions OVERLAP geographic regions (different LA membership for four regions, per the source Notes sheet) - they do not nest, so summing across area_unit counts England three times."
+          - name: metric
+            description: Raw month header text, e.g. "July 2025 [p]". Includes the trailing "Total [p]" subtotal column as its own row.
+          - name: value
+            description: Raw untyped cell, including "[c]" suppression markers.
+          - name: _publication_date
+            description: Release period of the vintage, e.g. "2026-03". TEXT, not a date - TRY_TO_DATE on it returns NULL.
+          - name: _source_url
+            description: Resolved download URL. SHARED by all three sheets of a file, so it does not identify a sheet on its own.
+
+      - name: cld_assessments_ethnicity
+        description: |
+          CLD quarterly - assessments by ETHNICITY (Table_3), FLOW measure.
+          Monthly, tidy/long. ethnicity nests TWO levels below "All": 6
+          top-level groups, and 21 sub-groups written "Group: Subgroup"
+          (e.g. "White: Irish"). Verified England Dec 2024: All = 45,485 =
+          the 6 top-level groups exactly; the 21 sub-groups sum to 45,500,
+          the difference being publisher rounding to the nearest 5.
+          Source: https://www.gov.uk/government/collections/adult-social-care-client-level-data-england-quarterly-update
+        config:
+          freshness: null  # append-only; see note on cld_long_term_support
+        columns:
+          - name: ethnicity
+            description: "All / one of 6 top-level groups / one of 21 sub-groups written 'Group: Subgroup'. Three levels, two of them summable to All."
+          - name: area
+            description: Area name as published (not standardised to CASSR names).
+          - name: la_code
+            description: Published LA code. BLANK for England, regions and some 2023 reorganisation unitaries - never use as a join key, use area_code.
+          - name: area_code
+            description: Published ONS area code. Populated on every row; this is the join key.
+          - name: area_unit
+            description: "National / Region / ADASS Region / Local Authority. ADASS regions OVERLAP geographic regions (different LA membership for four regions, per the source Notes sheet) - they do not nest, so summing across area_unit counts England three times."
+          - name: metric
+            description: Raw month header text, e.g. "July 2025 [p]". Includes the trailing "Total [p]" subtotal column as its own row.
+          - name: value
+            description: Raw untyped cell, including "[c]" suppression markers.
+          - name: _publication_date
+            description: Release period of the vintage, e.g. "2026-03". TEXT, not a date - TRY_TO_DATE on it returns NULL.
+          - name: _source_url
+            description: Resolved download URL. SHARED by all three sheets of a file, so it does not identify a sheet on its own.
+
+      - name: cld_long_term_support_gender
+        description: |
+          CLD quarterly - long-term support by GENDER (Table_2), STOCK
+          measure. Never sum across months. TWO crossed hierarchies:
+          support_setting (All = Community + Nursing care + Residential care
+          + Prison) and gender (All = Female + Male + Other + Unknown).
+          Source: https://www.gov.uk/government/collections/adult-social-care-client-level-data-england-quarterly-update
+        config:
+          freshness: null  # append-only; see note on cld_long_term_support
+        columns:
+          - name: support_setting
+            description: All / Community / Nursing care / Residential care / Prison. "All" is a subtotal. NOTE "Prison" exists in the monthly sheets and not in the annual ones.
+          - name: gender
+            description: All / Female / Male / Other / Unknown. "All" is a subtotal row.
+          - name: area
+            description: Area name as published (not standardised to CASSR names).
+          - name: la_code
+            description: Published LA code. BLANK for England, regions and some 2023 reorganisation unitaries - never use as a join key, use area_code.
+          - name: area_code
+            description: Published ONS area code. Populated on every row; this is the join key.
+          - name: area_unit
+            description: "National / Region / ADASS Region / Local Authority. ADASS regions OVERLAP geographic regions (different LA membership for four regions, per the source Notes sheet) - they do not nest, so summing across area_unit counts England three times."
+          - name: metric
+            description: Raw month header text, e.g. "July 2025 [p]". Includes the trailing "Total [p]" subtotal column as its own row.
+          - name: value
+            description: Raw untyped cell, including "[c]" suppression markers.
+          - name: _publication_date
+            description: Release period of the vintage, e.g. "2026-03". TEXT, not a date - TRY_TO_DATE on it returns NULL.
+          - name: _source_url
+            description: Resolved download URL. SHARED by all three sheets of a file, so it does not identify a sheet on its own.
+
+      - name: cld_long_term_support_ethnicity
+        description: |
+          CLD quarterly - long-term support by ETHNICITY (Table_3), STOCK
+          measure. Never sum across months. TWO crossed hierarchies:
+          support_setting and ethnicity, the latter nesting two levels below
+          "All".
+          Source: https://www.gov.uk/government/collections/adult-social-care-client-level-data-england-quarterly-update
+        config:
+          freshness: null  # append-only; see note on cld_long_term_support
+        columns:
+          - name: support_setting
+            description: All / Community / Nursing care / Residential care / Prison. "All" is a subtotal.
+          - name: ethnicity
+            description: "All / 6 top-level groups / 21 sub-groups written 'Group: Subgroup'."
+          - name: area
+            description: Area name as published (not standardised to CASSR names).
+          - name: la_code
+            description: Published LA code. BLANK for England, regions and some 2023 reorganisation unitaries - never use as a join key, use area_code.
+          - name: area_code
+            description: Published ONS area code. Populated on every row; this is the join key.
+          - name: area_unit
+            description: "National / Region / ADASS Region / Local Authority. ADASS regions OVERLAP geographic regions (different LA membership for four regions, per the source Notes sheet) - they do not nest, so summing across area_unit counts England three times."
+          - name: metric
+            description: Raw month header text, e.g. "July 2025 [p]". Includes the trailing "Total [p]" subtotal column as its own row.
+          - name: value
+            description: Raw untyped cell, including "[c]" suppression markers.
+          - name: _publication_date
+            description: Release period of the vintage, e.g. "2026-03". TEXT, not a date - TRY_TO_DATE on it returns NULL.
+          - name: _source_url
+            description: Resolved download URL. SHARED by all three sheets of a file, so it does not identify a sheet on its own.
+
   - name: monday
     description: |
       Monday.com boards that feed ASC data pipelines or exports.

@@ -1,0 +1,123 @@
+version: 2
+
+models:
+  - name: norm_cld_assessments
+    description: |
+      CLD assessments as a rate per 100,000 population, monthly, by
+      breakdown. FLOW measure - a rate here is "people newly assessed per
+      100,000 in that month". Do NOT sum monthly rates; sum the counts in
+      stg_cld_assessments over a contiguous window and divide once.
+
+      Rows with no published denominator are absent by design, not NULL -
+      see macros/cld_normalised.sql. The excluded set is pinned by
+      tests/assert_cld_normalised_exclusions.sql.
+    columns:
+      - name: AREA_CODE
+        description: ONS area code. Join key; populated on every row.
+      - name: AREA_UNIT_LEVEL
+        description: national / region / local_authority. No adass_region rows - there is no published ADASS population.
+      - name: BREAKDOWN_DIMENSION
+        description: age_group, gender or ethnicity.
+      - name: BREAKDOWN_VALUE
+        description: Value within the dimension, including the 'All' subtotal.
+      - name: BREAKDOWN_LEVEL
+        description: "Hierarchy level. ALWAYS pin one level before aggregating."
+      - name: COUNT_VALUE
+        description: The numerator, from the RAW model. Never NULL here - suppressed cells are excluded rather than carried.
+      - name: POPULATION
+        description: The denominator, from the cld_published_population seed. Frozen - identical across all published vintages.
+      - name: POPULATION_BASE
+        description: "census_2021 for ethnicity rows, ons_mid_year_estimate for age and gender. The two bases differ (44.7m vs 46.4m for England), so ethnicity rates are NOT comparable with age or gender rates."
+      - name: RATE_PER_100K
+        description: COUNT_VALUE / POPULATION * 100000, rounded to 2dp. Computed here, not lifted from the publisher's annual per-100k column.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - AREA_CODE
+            - AREA_UNIT
+            - BREAKDOWN_DIMENSION
+            - BREAKDOWN_VALUE
+            - PERIOD_START
+
+  - name: norm_cld_long_term_support
+    description: |
+      CLD long-term support as a rate per 100,000 population, monthly, by
+      breakdown. STOCK measure - a rate here is "people receiving long-term
+      support per 100,000 as at that month-end". Never sum across months.
+
+      Two crossed hierarchies (support_setting and the breakdown dimension),
+      both carrying an 'All' subtotal - pin a level on BOTH before
+      aggregating.
+    columns:
+      - name: AREA_CODE
+        description: ONS area code. Join key; populated on every row.
+      - name: SUPPORT_SETTING
+        description: All / Community / Nursing care / Residential care / Prison. 'All' is a subtotal.
+      - name: SUPPORT_SETTING_LEVEL
+        description: all / setting.
+      - name: BREAKDOWN_DIMENSION
+        description: age_group, gender or ethnicity.
+      - name: BREAKDOWN_VALUE
+        description: Value within the dimension, including the 'All' subtotal.
+      - name: BREAKDOWN_LEVEL
+        description: "Hierarchy level. ALWAYS pin one level before aggregating."
+      - name: POPULATION_BASE
+        description: "census_2021 for ethnicity, ons_mid_year_estimate otherwise. Not comparable across bases."
+      - name: RATE_PER_100K
+        description: COUNT_VALUE / POPULATION * 100000, rounded to 2dp.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - AREA_CODE
+            - AREA_UNIT
+            - SUPPORT_SETTING
+            - BREAKDOWN_DIMENSION
+            - BREAKDOWN_VALUE
+            - PERIOD_START
+
+seeds:
+  - name: cld_published_population
+    description: |
+      Frozen denominators for the CLD NORMALISED models, lifted once from
+      Tables 4-6 of the CLD quarterly ODS files.
+
+      This is a seed rather than a landing table because the value does not
+      change: the Population column is byte-identical across the 2025-09,
+      2025-12 and 2026-03 releases (England 46,437,085 in all three,
+      verified 2026-09-22). Re-fetching a constant every quarter would imply
+      a freshness it does not have. Regenerate only if DHSC actually revises
+      the denominator.
+
+      Keyed on (area_code, dimension, dimension_value) - NOT on measure or
+      support setting. The two source files agree on every shared key (zero
+      conflicts across 3,124 rows), and the population is the same whichever
+      support setting a row describes.
+    columns:
+      - name: area_code
+        description: ONS area code.
+        tests:
+          - not_null
+      - name: dimension
+        description: age_group, gender or ethnicity.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['age_group', 'gender', 'ethnicity']
+      - name: dimension_value
+        description: The breakdown value this population is the denominator for.
+        tests:
+          - not_null
+      - name: population
+        description: |
+          Published population. For ethnicity rows this is a Census 2021
+          base (England 44,715,447); for age and gender it is the ONS
+          mid-year estimate (England 46,437,085). The two are not
+          interchangeable.
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - area_code
+            - dimension
+            - dimension_value
