@@ -16,15 +16,16 @@
 SELECT
     n.measure,
     n.period_start,
-    n.population,
+    n.population_published,
     s.population AS seeded_population,
-    n.rate_per_100k
+    n.rate_per_100k_published
 FROM {{ ref('norm_cld_assessments') }} n
 JOIN {{ ref('cld_published_population') }} s
-    ON  s.area_code       = n.area_code
-    AND s.dimension       = n.breakdown_dimension
-    AND s.dimension_value = n.breakdown_value
+    ON  s.area_code        = n.area_code
+    AND s.dimension        = n.breakdown_dimension
+    AND s.dimension_value  = n.breakdown_value
+    AND s.population_base  = 'published'
 WHERE n.area_code = 'E92000001'
   AND n.breakdown_dimension = 'age_group'
   AND n.breakdown_value = 'All'
-  AND n.population <> s.population
+  AND n.population_published <> s.population
