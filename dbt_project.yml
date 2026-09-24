@@ -157,4 +157,5 @@ seeds:
         area_unit: varchar(32)
         dimension: varchar(32)
         dimension_value: varchar(128)
+        population_base: varchar(16)
         population: number(38,0)
