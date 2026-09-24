@@ -30,10 +30,10 @@ models:
         description: "census_2021 for ethnicity rows, ons_mid_year_estimate for age and gender. The two differ (44.7m vs 46.4m for England), so published ethnicity rates are NOT comparable with published age or gender rates."
       - name: RATE_PER_100K_PUBLISHED
         description: Rate per head of the whole population. A utilisation share.
-      - name: POPULATION_ASC_ELIGIBLE
-        description: "ASC-eligible denominator (65+ plus disabled working-age, Census 2021 RM070). NULL where this basis cannot reach the row - all gender rows, fine age bands, ethnicity sub-groups, and all Region rows. NULL means 'not reachable', never zero."
-      - name: RATE_PER_100K_ASC_ELIGIBLE
-        description: "Rate per head of the population that could plausibly need care. An ACCESS rate. Prefer this over the published rate for equity comparisons: the ASC-eligible population is older and whiter than the general population (White is 90.6% of it nationally vs 83.3% of the general population), so a whole-population denominator flatters minority-group rates."
+      - name: POPULATION_ELIGIBLE
+        description: "eligible denominator (65+ plus disabled working-age, Census 2021 RM070). NULL where this basis cannot reach the row - all gender rows, fine age bands, ethnicity sub-groups, and all Region rows. NULL means 'not reachable', never zero."
+      - name: RATE_PER_100K_ELIGIBLE
+        description: "Rate per head of the population that could plausibly need care. An ACCESS rate. Prefer this over the published rate for equity comparisons: the eligible population is older and whiter than the general population (White is 90.6% of it nationally vs 83.3% of the general population), so a whole-population denominator flatters minority-group rates."
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
@@ -73,9 +73,9 @@ models:
         description: "census_2021 for ethnicity rows, ons_mid_year_estimate for age and gender. Published ethnicity rates are NOT comparable with published age or gender rates."
       - name: RATE_PER_100K_PUBLISHED
         description: Rate per head of the whole population. A utilisation share.
-      - name: POPULATION_ASC_ELIGIBLE
-        description: "ASC-eligible denominator (65+ plus disabled working-age, Census 2021 RM070). NULL where this basis cannot reach the row. NULL means 'not reachable', never zero."
-      - name: RATE_PER_100K_ASC_ELIGIBLE
+      - name: POPULATION_ELIGIBLE
+        description: "eligible denominator (65+ plus disabled working-age, Census 2021 RM070). NULL where this basis cannot reach the row. NULL means 'not reachable', never zero."
+      - name: RATE_PER_100K_ELIGIBLE
         description: "Rate per head of the population that could plausibly need care. An ACCESS rate - prefer it over the published rate for equity comparisons."
     tests:
       - dbt_utils.unique_combination_of_columns:
@@ -108,7 +108,7 @@ seeds:
       agree on every shared key (zero conflicts across 3,124 rows), and the
       population is the same whichever support setting a row describes.
 
-      CAVEAT on the asc_eligible basis: RM070's working-age band is 16-64
+      CAVEAT on the eligible_population basis: RM070's working-age band is 16-64
       where CLD's is 18-64, so the "18 to 64" denominator carries a 16-17
       overhang and slightly understates that rate. RM070 offers no finer age
       split, so this cannot be fixed from this source.
@@ -135,19 +135,19 @@ seeds:
           published - whole population of that group, as published by DHSC.
           A rate on this basis is "per head of everyone".
 
-          asc_eligible - people who could plausibly need adult social care:
+          eligible_population - people who could plausibly need adult social care:
           everyone 65+ plus working-age people recorded disabled under the
           Equality Act (ONS Census 2021 RM070 custom cross-tab). A rate on
           this basis is an ACCESS rate.
 
-          asc_eligible is SPARSE by construction - it covers 3 age values, 6
+          eligible_population is SPARSE by construction - it covers 3 age values, 6
           ethnicity values, no gender at all, and LA + National only. Its key
           set is a strict subset of published, enforced by
           tests/assert_cld_population_basis_subset.sql.
         tests:
           - not_null
           - accepted_values:
-              values: ['published', 'asc_eligible']
+              values: ['published', 'eligible_population']
       - name: population
         description: |
           The denominator itself. Read together with population_base.
@@ -155,7 +155,7 @@ seeds:
           On the published basis, ethnicity rows use a Census 2021 base
           (England 44,715,447) while age and gender use the ONS mid-year
           estimate (46,437,085), so published ethnicity rates are not
-          comparable with published age or gender rates. The asc_eligible
+          comparable with published age or gender rates. The eligible_population
           basis is Census 2021 throughout and has no such split.
         tests:
           - not_null

@@ -8,7 +8,7 @@
         Denominator: the whole population of that group, as published by
         DHSC. "Per head of everyone."
 
-    rate_per_100k_asc_eligible
+    rate_per_100k_eligible
         Denominator: people who could plausibly need adult social care -
         everyone 65+, plus working-age people recorded disabled under the
         Equality Act (ONS Census 2021, RM070 custom cross-tab). "Of the
@@ -16,8 +16,8 @@
 
   The second is an ACCESS rate and the first is a utilisation share. They
   diverge most exactly where it matters: nationally, White residents are
-  90.6% of the ASC-eligible population but only 83.3% of the general
-  population, because the ASC-eligible group is older. A whole-population
+  90.6% of the eligible population but only 83.3% of the general
+  population, because the eligible group is older. A whole-population
   denominator therefore flatters minority-group access rates. Carrying both
   makes that visible rather than forcing a choice here.
 
@@ -31,7 +31,8 @@
   rows), and picking a basis is choosing a column, which is hard to do by
   accident.
 
-  asc_eligible IS SPARSE. It is NULL wherever RM070 cannot reach:
+  THE ELIGIBLE-POPULATION BASIS IS SPARSE. It is NULL wherever RM070
+  cannot reach:
     - every gender row            (RM070 has no sex dimension)
     - fine age bands              (RM070's age is 16-64 / 65+ only)
     - ethnicity sub-groups        (RM070 has 6 top-level groups only)
@@ -39,8 +40,8 @@
                                    neither source provides)
   A NULL there means "this basis does not reach this row", never "zero".
 
-  THE PUBLISHED JOIN IS INNER, THE ASC_ELIGIBLE JOIN IS LEFT
-  ----------------------------------------------------------
+  THE PUBLISHED JOIN IS INNER, THE ELIGIBLE-POPULATION JOIN IS LEFT
+  -----------------------------------------------------------------
   Some RAW rows have no published denominator either, and never will:
 
     age_group   '85 to 94', '95 and above'   (monthly bands are finer than
@@ -63,8 +64,8 @@
   Census 2021 base (England 44,715,447) while age and gender use the ONS
   mid-year estimate (46,437,085). Published ethnicity rates are therefore not
   directly comparable with published age or gender rates.
-  published_population_source carries which applies. The asc_eligible basis
-  is Census 2021 throughout, so it has no such split.
+  published_population_source carries which applies. The eligible-population
+  basis is Census 2021 throughout, so it has no such split.
 #}
 
 {% macro cld_normalised(raw_model) %}
@@ -97,7 +98,7 @@ pop_published AS (
 
 ),
 
-pop_asc_eligible AS (
+pop_eligible AS (
 
     SELECT
         area_code,
@@ -105,7 +106,7 @@ pop_asc_eligible AS (
         dimension_value,
         population
     FROM {{ ref('cld_published_population') }}
-    WHERE population_base = 'asc_eligible'
+    WHERE population_base = 'eligible_population'
       AND population > 0
 
 )
@@ -137,17 +138,17 @@ SELECT
         2
     )                                         AS rate_per_100k_published,
 
-    {#- Basis 2: ASC-eligible population (Census 2021 RM070). NULL wherever
+    {#- Basis 2: eligible population (Census 2021 RM070). NULL wherever
         RM070 cannot reach - see the header. NULL means "not reachable on
         this basis", never zero. -#}
-    asc_pop.population                        AS population_asc_eligible,
+    elig.population                           AS population_eligible,
     CASE
-        WHEN asc_pop.population IS NULL THEN NULL
+        WHEN elig.population IS NULL THEN NULL
         ELSE ROUND(
-            (r.value::FLOAT / asc_pop.population::FLOAT) * 100000,
+            (r.value::FLOAT / elig.population::FLOAT) * 100000,
             2
         )
-    END                                       AS rate_per_100k_asc_eligible,
+    END                                       AS rate_per_100k_eligible,
 
     r.is_provisional,
     r.publication_date,
@@ -161,9 +162,9 @@ INNER JOIN pop_published pub
     AND r.breakdown_dimension = pub.dimension
     AND r.breakdown_value     = pub.dimension_value
 
-LEFT JOIN pop_asc_eligible asc_pop
-    ON  r.area_code           = asc_pop.area_code
-    AND r.breakdown_dimension = asc_pop.dimension
-    AND r.breakdown_value     = asc_pop.dimension_value
+LEFT JOIN pop_eligible elig
+    ON  r.area_code           = elig.area_code
+    AND r.breakdown_dimension = elig.dimension
+    AND r.breakdown_value     = elig.dimension_value
 
 {% endmacro %}

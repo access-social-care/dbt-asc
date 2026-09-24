@@ -42,8 +42,8 @@ LEFT JOIN {{ ref('cld_published_population') }} p
     AND r.breakdown_dimension = p.dimension
     AND r.breakdown_value     = p.dimension_value
     -- Pinned to the published basis. The seed now holds two bases, and
-    -- asc_eligible is deliberately sparse - matching against it as well
-    -- would let an asc_eligible row mask a genuine published-basis gap.
+    -- eligible_population is deliberately sparse - matching against it as well
+    -- would let an eligible_population row mask a genuine published-basis gap.
     AND p.population_base     = 'published'
 WHERE r.value IS NOT NULL
   AND p.area_code IS NULL
