@@ -17,7 +17,8 @@ interchangeable:
                  Tables 4-6 of the CLD quarterly ODS files. A rate on this
                  basis is "per head of everyone".
 
-  asc_eligible   People who could plausibly need adult social care: everyone
+  eligible_population
+                 People who could plausibly need adult social care: everyone
                  aged 65+, plus working-age people recorded as disabled under
                  the Equality Act. From the ONS Census 2021 RM070 custom
                  cross-tab. A rate on this basis is an ACCESS rate - "of the
@@ -33,17 +34,17 @@ it does not have.
 
 COVERAGE IS DELIBERATELY ASYMMETRIC
 -----------------------------------
-The asc_eligible basis covers far less than the published one, because RM070
-is a coarser cross-tab:
+The eligible_population basis covers far less than the published one,
+because RM070 is a coarser cross-tab:
 
-                   published            asc_eligible
+                   published             eligible_population
   age_group        9 values             3 ("All", "18 to 64", "65 and above")
   gender           3 values             none (RM070 has no sex dimension)
   ethnicity        25 values            6 (the top-level groups + "All")
   area_unit        LA, Region, National LA + National only
 
-asc_eligible coverage is a strict SUBSET of published coverage on every key,
-which is what lets the NORMALISED models inner-join the published basis and
+eligible_population coverage is a strict SUBSET of published coverage on
+every key, which is what lets the NORMALISED models inner-join the published basis and
 left-join this one on top. tests/assert_cld_population_basis_subset.sql
 enforces that, so if a future regeneration breaks the subset property it
 fails loudly instead of silently dropping rows from NORMALISED.
@@ -52,8 +53,8 @@ KNOWN IMPRECISION, STATED RATHER THAN HIDDEN
 --------------------------------------------
 1. RM070's working-age band is 16-64. CLD's is 18-64, and the CLD Notes sheet
    confirms under-18s are excluded from the published statistics. So the
-   asc_eligible denominator for "18 to 64" carries a 16-17 overhang and
-   slightly UNDERSTATES the rate. RM070 has no finer age split available, so
+   eligible_population denominator for "18 to 64" carries a 16-17 overhang
+   and slightly UNDERSTATES the rate. RM070 has no finer age split available, so
    this cannot be fixed from this source. (The same approximation already
    exists, unflagged, in signal_processing/external/03_segments.R line 19.)
 
@@ -63,7 +64,7 @@ KNOWN IMPRECISION, STATED RATHER THAN HIDDEN
 
 3. DISCREPANCY WITH signal_processing/external/03_segments.R - decide before
    relying on cross-comparisons. That script uses TWO different definitions
-   of "ASC eligible" in the same file:
+   of "eligible" in the same file:
      - overall (line 18):   ALL 65+  +  disabled 16-64
      - per ethnicity (code): disabled 65+  +  disabled 16-64
    so its ethnicity denominators are systematically smaller than its overall
@@ -81,7 +82,7 @@ published:
     assessments and long-term-support files.
     https://www.gov.uk/government/collections/adult-social-care-client-level-data-england-quarterly-update
 
-asc_eligible:
+eligible_population:
     _ASC/signal_processing/lann/census2021-rm070-custom/
         RM070-disability-age-ethnicity-utla-2021.xlsx
     ONS Census 2021 RM070, custom cross-tab (disability x age x ethnicity x
@@ -242,9 +243,9 @@ def build_published() -> dict[tuple[str, str, str], tuple[str, str, str]]:
 
 
 # --------------------------------------------------------------------------
-# asc_eligible basis - from Census 2021 RM070
+# eligible_population basis - from Census 2021 RM070
 # --------------------------------------------------------------------------
-def build_asc_eligible(
+def build_eligible_population(
     la_codes: set[str], la_names: dict[str, str]
 ) -> dict[tuple[str, str, str], tuple[str, str, str]]:
     df = pd.read_excel(RM070_XLSX, sheet_name="Dataset")
@@ -268,7 +269,7 @@ def build_asc_eligible(
 
     disabled = df[col_dis].str.startswith(DISABLED_PREFIX, na=False)
 
-    # ASC-eligible = everyone 65+, PLUS working-age people recorded disabled.
+    # eligible = everyone 65+, PLUS working-age people recorded disabled.
     # Age alone is the qualifying criterion for the older band - that is the
     # definition used for the overall denominator in 03_segments.R line 18,
     # and it is applied here to EVERY dimension so the bases stay comparable
@@ -315,7 +316,7 @@ def build_asc_eligible(
     # --- England, by summing its constituent LAs ---------------------------
     # Regions are NOT produced: this needs a region-to-LA membership list,
     # which neither RM070 nor the CLD files provide. Those rows simply have
-    # no asc_eligible basis, which the subset test tolerates.
+    # no eligible_population basis, which the subset test tolerates.
     eng_eth = eth_total.groupby(level=1).sum()
     for eth, pop in eng_eth.items():
         if pd.isna(eth):
@@ -349,22 +350,22 @@ def main() -> None:
     }
     print(f"published: {len(published)} rows, {len(la_codes)} LAs")
 
-    asc = build_asc_eligible(la_codes, la_names)
-    print(f"asc_eligible: {len(asc)} rows")
+    asc = build_eligible_population(la_codes, la_names)
+    print(f"eligible_population: {len(asc)} rows")
 
-    # Subset property, asserted here as well as in dbt: every asc_eligible key
+    # Subset property, asserted here as well as in dbt: every eligible_population key
     # must also exist on the published basis. The NORMALISED models rely on
-    # this - they inner-join published and left-join asc_eligible, so an
-    # asc_eligible-only key would simply never appear.
+    # this - they inner-join published and left-join eligible_population, so an
+    # eligible_population-only key would simply never appear.
     orphans = sorted(set(asc) - set(published))
     if orphans:
         raise SystemExit(
-            f"{len(orphans)} asc_eligible keys have no published "
+            f"{len(orphans)} eligible_population keys have no published "
             f"counterpart, e.g. {orphans[:5]}"
         )
 
     rows = []
-    for basis, data in (("published", published), ("asc_eligible", asc)):
+    for basis, data in (("published", published), ("eligible_population", asc)):
         for (code, dim, value), (name, unit, pop) in data.items():
             rows.append([code, name, unit, dim, value, basis, pop])
     rows.sort(key=lambda r: (r[0], r[3], r[4], r[5]))
