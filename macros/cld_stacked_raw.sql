@@ -113,10 +113,16 @@ typed AS (
         {#- MON takes a 3-letter abbreviation; published headers are full
             month names, hence LEFT(...,3). TRY_ so a bad header lands NULL
             and is caught by tests/assert_cld_metric_parses.sql rather than
-            aborting the build. -#}
+            aborting the build.
+            Two header shapes: flow measures publish "October 2024", stock
+            measures publish the month-END date "31 October 2024". The
+            leading day is stripped so both land on the first of the month
+            and the two models share one period key. Without the strip every
+            long-term support row parsed NULL and was held back (2026-09-25).
+            Keep in sync with tests/assert_cld_metric_parses.sql. -#}
         TRY_TO_DATE(
-            LEFT(SPLIT_PART(metric_label, ' ', 1), 3)
-            || ' ' || SPLIT_PART(metric_label, ' ', 2)
+            LEFT(SPLIT_PART(REGEXP_REPLACE(metric_label, '^[0-9]{1,2} ', ''), ' ', 1), 3)
+            || ' ' || SPLIT_PART(REGEXP_REPLACE(metric_label, '^[0-9]{1,2} ', ''), ' ', 2)
             || ' 01',
             'MON YYYY DD'
         )                                             AS period_start,

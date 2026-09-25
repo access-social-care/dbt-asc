@@ -13,7 +13,12 @@
   detect a header shape the models cannot handle, so it must apply the same
   cast the models apply.
 
-  !! UNVERIFIED (2026-09-16) - never executed; no Snowflake connection. !!
+  First real run (2026-09-25) failed on 24 rows: long-term support headers
+  are month-END dates ("31 October 2024"), which the day-less parse could
+  not read, so the models were dropping every long-term support row. Fixed
+  by stripping a leading day number, here and in macros/cld_stacked_raw.sql.
+  Covers all six landing tables (age, gender, ethnicity per measure) - the
+  models stack all three, so testing only the age tables left a gap.
 */
 
 WITH all_landing AS (
@@ -23,8 +28,28 @@ WITH all_landing AS (
 
     UNION ALL
 
+    SELECT 'cld_long_term_support_gender' AS dataset_id, metric
+    FROM {{ source('data_portal_landing', 'cld_long_term_support_gender') }}
+
+    UNION ALL
+
+    SELECT 'cld_long_term_support_ethnicity' AS dataset_id, metric
+    FROM {{ source('data_portal_landing', 'cld_long_term_support_ethnicity') }}
+
+    UNION ALL
+
     SELECT 'cld_assessments' AS dataset_id, metric
     FROM {{ source('data_portal_landing', 'cld_assessments') }}
+
+    UNION ALL
+
+    SELECT 'cld_assessments_gender' AS dataset_id, metric
+    FROM {{ source('data_portal_landing', 'cld_assessments_gender') }}
+
+    UNION ALL
+
+    SELECT 'cld_assessments_ethnicity' AS dataset_id, metric
+    FROM {{ source('data_portal_landing', 'cld_assessments_ethnicity') }}
 
 ),
 
@@ -47,8 +72,8 @@ SELECT DISTINCT
 FROM labelled
 WHERE UPPER(metric_label) NOT LIKE 'TOTAL%'
   AND TRY_TO_DATE(
-        LEFT(SPLIT_PART(metric_label, ' ', 1), 3)
-        || ' ' || SPLIT_PART(metric_label, ' ', 2)
+        LEFT(SPLIT_PART(REGEXP_REPLACE(metric_label, '^[0-9]{1,2} ', ''), ' ', 1), 3)
+        || ' ' || SPLIT_PART(REGEXP_REPLACE(metric_label, '^[0-9]{1,2} ', ''), ' ', 2)
         || ' 01',
         'MON YYYY DD'
       ) IS NULL
