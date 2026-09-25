@@ -69,7 +69,7 @@
     {#- Folder paths whose models take their configured schema VERBATIM.
         Matched on node.fqn (deterministic at parse time), not on
         node.config.database - database resolution is a separate macro and
-        config-inheritance order is not something to bet a grant boundary on. -#}
+        config-inheritance order is not something to bet a grant boundary on.  #}
     {%- set verbatim_schema_paths = [
         ['staging', 'external'],
         ['normalised', 'external'],

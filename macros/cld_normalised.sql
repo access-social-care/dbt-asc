@@ -76,7 +76,7 @@ WITH raw_counts AS (
     FROM {{ ref(raw_model) }}
     {#- Suppressed cells are NULL, and a rate from an unknown numerator is
         meaningless rather than zero. Excluded rather than carried as NULL,
-        for the same reason the published join is inner. -#}
+        for the same reason the published join is inner.  #}
     WHERE value IS NOT NULL
 
 ),
@@ -128,19 +128,19 @@ SELECT
 
     r.value                                   AS count_value,
 
-    {#- Basis 1: whole population, as published by DHSC. -#}
+    {#- Basis 1: whole population, as published by DHSC.  #}
     pub.population                            AS population_published,
     pub.population_source                     AS published_population_source,
     ROUND(
         {#- Cast before dividing: both operands are integers and Snowflake
-            would otherwise do integer division on the intermediate. -#}
+            would otherwise do integer division on the intermediate.  #}
         (r.value::FLOAT / pub.population::FLOAT) * 100000,
         2
     )                                         AS rate_per_100k_published,
 
     {#- Basis 2: eligible population (Census 2021 RM070). NULL wherever
         RM070 cannot reach - see the header. NULL means "not reachable on
-        this basis", never zero. -#}
+        this basis", never zero.  #}
     elig.population                           AS population_eligible,
     CASE
         WHEN elig.population IS NULL THEN NULL

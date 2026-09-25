@@ -34,7 +34,7 @@
         {#- "Unknown" is inside All but outside BOTH coarse and fine, so it
             is its own level rather than being folded into 'fine'. Summing
             fine + unknown does NOT reproduce All exactly either, because
-            every published count is rounded to the nearest 5. -#}
+            every published count is rounded to the nearest 5.  #}
         WHEN {{ col }} = 'Unknown' THEN 'unknown'
         ELSE 'unrecognised'
     END
@@ -45,7 +45,7 @@
     CASE
         WHEN {{ col }} = 'All' THEN 'all'
         {#- Verified exact, England Dec 2024:
-            25,835 + 18,960 + 30 + 660 = 45,485 = the All row. -#}
+            25,835 + 18,960 + 30 + 660 = 45,485 = the All row.  #}
         WHEN {{ col }} IN ('Female', 'Male', 'Other', 'Unknown') THEN 'category'
         ELSE 'unrecognised'
     END
@@ -58,7 +58,7 @@
         {#- Sub-groups are written "Group: Subgroup" (e.g. "White: Irish").
             The colon is the only structural marker the publisher gives, so
             it is what distinguishes the two levels. Six top-level groups sum
-            to All exactly; the 21 sub-groups sum to All +/- rounding. -#}
+            to All exactly; the 21 sub-groups sum to All +/- rounding.  #}
         WHEN CONTAINS({{ col }}, ': ') THEN 'subgroup'
         WHEN {{ col }} IN (
             'White',
@@ -78,12 +78,12 @@
         {#- NULL, not 'unrecognised': the assessments file has no support
             setting dimension at all, so its rows carry a NULL here by
             design. Levelling that as 'unrecognised' would make the
-            known-levels test fail on every assessments row. -#}
+            known-levels test fail on every assessments row.  #}
         WHEN {{ col }} IS NULL THEN NULL
         WHEN {{ col }} = 'All' THEN 'all'
         {#- Verified exact, England 30 Jun 2025:
             482,110 + 54,880 + 139,000 + 260 = 676,250 = the All row.
-            "Prison" does NOT appear in the annual Tables 4-6. -#}
+            "Prison" does NOT appear in the annual Tables 4-6.  #}
         WHEN {{ col }} IN (
             'Community', 'Nursing care', 'Residential care', 'Prison'
         ) THEN 'setting'
@@ -101,7 +101,7 @@
             that North East, North West, East of England and South East have
             different LA membership between the two. Levelled distinctly so
             nothing can sum 'region' and 'adass_region' together and count
-            England twice. -#}
+            England twice.  #}
         WHEN {{ col }} = 'ADASS Region' THEN 'adass_region'
         WHEN {{ col }} = 'Local Authority' THEN 'local_authority'
         ELSE 'unrecognised'
