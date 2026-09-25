@@ -87,7 +87,7 @@ parsed AS (
         (metric ILIKE '%[p]')                         AS is_provisional,
         {#- COALESCE, not a bare comparison: TRIM(NULL) = '[c]' evaluates to
             NULL under SQL three-valued logic, not FALSE, so a bare
-            comparison silently NULLs the flag on every null-valued row. -#}
+            comparison silently NULLs the flag on every null-valued row.  #}
         COALESCE(TRIM(value) = '[c]', FALSE)          AS is_suppressed,
         value                                         AS value_raw,
         {#- NOT a real date. The checker tags this dataset with its release
@@ -95,7 +95,7 @@ parsed AS (
             returns NULL silently and the vintage ranking below would fall
             back entirely to run_at - i.e. to load order, which is an
             execution artifact, not data freshness. Kept as text; "YYYY-MM"
-            sorts correctly lexicographically, which is all ranking needs. -#}
+            sorts correctly lexicographically, which is all ranking needs.  #}
         _publication_date                             AS publication_date,
         _source_url                                   AS source_url,
         TRY_TO_TIMESTAMP_NTZ(_run_at)                 AS run_at
@@ -119,7 +119,7 @@ typed AS (
             leading day is stripped so both land on the first of the month
             and the two models share one period key. Without the strip every
             long-term support row parsed NULL and was held back (2026-09-25).
-            Keep in sync with tests/assert_cld_metric_parses.sql. -#}
+            Keep in sync with tests/assert_cld_metric_parses.sql.  #}
         TRY_TO_DATE(
             LEFT(SPLIT_PART(REGEXP_REPLACE(metric_label, '^[0-9]{1,2} ', ''), ' ', 1), 3)
             || ' ' || SPLIT_PART(REGEXP_REPLACE(metric_label, '^[0-9]{1,2} ', ''), ' ', 2)
@@ -129,7 +129,7 @@ typed AS (
 
         {#- Suppressed cells stay NULL, never 0. A suppressed count means
             "fewer than 5", and zeroing it understates every aggregate that
-            touches it. -#}
+            touches it.  #}
         IFF(
             TRIM(value_raw) = '[c]',
             NULL,
