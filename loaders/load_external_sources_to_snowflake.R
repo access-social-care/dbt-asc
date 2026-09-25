@@ -106,7 +106,21 @@ LANDING_SCHEMA <- "LANDING"
 ## dataset_id. Adding a dataset to this vector is the ONLY way to get
 ## append/landing behaviour - every other dataset keeps its existing
 ## overwrite-to-REFERENCE.PUBLIC behaviour untouched.
-LANDING_DATASETS <- c("cld_long_term_support", "cld_assessments")
+## Six, not two, since 2026-09-22: each CLD ODS file has its monthly
+## breakdown sheets landed as separate datasets (Table_1 age / Table_2 gender
+## / Table_3 ethnicity). One dataset_id per sheet is REQUIRED, not stylistic -
+## table_name is derived from the id below, and landing_vintage_loaded() is
+## scoped to one table while _SOURCE_URL is shared by all three sheets of a
+## file. Collapsing them onto one table would make sheets 2 and 3 look
+## already-loaded and skip, exiting 0.
+LANDING_DATASETS <- c(
+  "cld_long_term_support",
+  "cld_long_term_support_gender",
+  "cld_long_term_support_ethnicity",
+  "cld_assessments",
+  "cld_assessments_gender",
+  "cld_assessments_ethnicity"
+)
 
 cli::cli_h1("Loading data-portal CSVs to Snowflake")
 cli::cli_alert_info("Source: {SOURCE_DIR}")

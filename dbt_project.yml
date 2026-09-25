@@ -62,9 +62,33 @@ models:
         # LANDING - see loaders/sql/create_external_data_database.sql and
         # signal_processing/README.md "External Data Pipeline" for why the
         # four schemas (LANDING/RAW/NORMALISED/SIGNALS) stay separate.
-        +database: external_data
+        # Dev/prod isolation. This was a bare `+database: external_data` with
+        # no target branch, so `dbt run --select staging.external` under the
+        # DEV target wrote to the PRODUCTION EXTERNAL_DATA database -
+        # confirmed 2026-09-22 by comparing `dbt ls --target dev` against
+        # `--target prod`, which resolved identically. Every other area of
+        # this project isolates dev via a separate database (ANALYTICS_DEV),
+        # so this follows that convention rather than inventing one.
+        # EXTERNAL_DATA_DEV must exist first - see
+        # loaders/sql/create_external_data_database.sql.
+        +database: "{{ 'EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV' }}"
         +materialized: table
+        # Resolves to EXTERNAL_DATA.RAW verbatim rather than PUBLIC_RAW, via
+        # the allowlist in macros/generate_schema_name.sql. Do not change
+        # this value without reading that macro's header comment first.
         +schema: raw
+
+    normalised:
+      external:
+        # Rates per head of population: RAW counts divided by the frozen
+        # published denominators in the cld_published_population seed. A
+        # separate schema from RAW because a rate and a count are different
+        # kinds of number and should not both be reachable by one careless
+        # SELECT *, per the four-stage architecture documented in
+        # loaders/sql/create_external_data_database.sql.
+        +database: "{{ 'EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV' }}"
+        +materialized: table
+        +schema: normalised
 
     intermediate:
       # Aggregation layer between staging and marts
@@ -109,3 +133,29 @@ quoting:
   database: false
   schema: false
   identifier: false
+
+# Seeds
+seeds:
+  asc:
+    cld_published_population:
+      # Denominators for EXTERNAL_DATA.NORMALISED. Lives in the same database
+      # and schema as the models that join it, so the whole external pipeline
+      # is self-contained rather than reaching across into REFERENCE.
+      #
+      # This is a SEED, not a landing table, deliberately. It is lifted from
+      # Tables 4-6 of the CLD quarterly ODS files, whose Population column is
+      # byte-identical across the 2025-09, 2025-12 and 2026-03 releases
+      # (verified 2026-09-22 - England 46,437,085 in all three). A value that
+      # never changes is a constant; re-fetching it every quarter forever
+      # would be pointless work and would imply a freshness it does not have.
+      # Regenerate it only if DHSC actually revises the denominator.
+      +database: "{{ 'EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV' }}"
+      +schema: normalised
+      +column_types:
+        area_code: varchar(9)
+        area_name: varchar(128)
+        area_unit: varchar(32)
+        dimension: varchar(32)
+        dimension_value: varchar(128)
+        population_base: varchar(16)
+        population: number(38,0)

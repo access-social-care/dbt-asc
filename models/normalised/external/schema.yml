@@ -1,0 +1,168 @@
+version: 2
+
+models:
+  - name: norm_cld_assessments
+    description: |
+      CLD assessments as a rate per 100,000 population, monthly, by
+      breakdown. FLOW measure - a rate here is "people newly assessed per
+      100,000 in that month". Do NOT sum monthly rates; sum the counts in
+      stg_cld_assessments over a contiguous window and divide once.
+
+      Rows with no published denominator are absent by design, not NULL -
+      see macros/cld_normalised.sql. The excluded set is pinned by
+      tests/assert_cld_normalised_exclusions.sql.
+    columns:
+      - name: AREA_CODE
+        description: ONS area code. Join key; populated on every row.
+      - name: AREA_UNIT_LEVEL
+        description: national / region / local_authority. No adass_region rows - there is no published ADASS population.
+      - name: BREAKDOWN_DIMENSION
+        description: age_group, gender or ethnicity.
+      - name: BREAKDOWN_VALUE
+        description: Value within the dimension, including the 'All' subtotal.
+      - name: BREAKDOWN_LEVEL
+        description: "Hierarchy level. ALWAYS pin one level before aggregating."
+      - name: COUNT_VALUE
+        description: The numerator, from the RAW model. Never NULL here - suppressed cells are excluded rather than carried.
+      - name: POPULATION_PUBLISHED
+        description: Whole-population denominator as published by DHSC. Frozen - identical across all published vintages.
+      - name: PUBLISHED_POPULATION_SOURCE
+        description: "census_2021 for ethnicity rows, ons_mid_year_estimate for age and gender. The two differ (44.7m vs 46.4m for England), so published ethnicity rates are NOT comparable with published age or gender rates."
+      - name: RATE_PER_100K_PUBLISHED
+        description: Rate per head of the whole population. A utilisation share.
+      - name: POPULATION_ELIGIBLE
+        description: "eligible denominator (65+ plus disabled working-age, Census 2021 RM070). NULL where this basis cannot reach the row - all gender rows, fine age bands, ethnicity sub-groups, and all Region rows. NULL means 'not reachable', never zero."
+      - name: RATE_PER_100K_ELIGIBLE
+        description: "Rate per head of the population that could plausibly need care. An ACCESS rate. Prefer this over the published rate for equity comparisons: the eligible population is older and whiter than the general population (White is 90.6% of it nationally vs 83.3% of the general population), so a whole-population denominator flatters minority-group rates."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - AREA_CODE
+            - AREA_UNIT
+            - BREAKDOWN_DIMENSION
+            - BREAKDOWN_VALUE
+            - PERIOD_START
+
+  - name: norm_cld_long_term_support
+    description: |
+      CLD long-term support as a rate per 100,000 population, monthly, by
+      breakdown. STOCK measure - a rate here is "people receiving long-term
+      support per 100,000 as at that month-end". Never sum across months.
+
+      Two crossed hierarchies (support_setting and the breakdown dimension),
+      both carrying an 'All' subtotal - pin a level on BOTH before
+      aggregating.
+    columns:
+      - name: AREA_CODE
+        description: ONS area code. Join key; populated on every row.
+      - name: SUPPORT_SETTING
+        description: All / Community / Nursing care / Residential care / Prison. 'All' is a subtotal.
+      - name: SUPPORT_SETTING_LEVEL
+        description: all / setting.
+      - name: BREAKDOWN_DIMENSION
+        description: age_group, gender or ethnicity.
+      - name: BREAKDOWN_VALUE
+        description: Value within the dimension, including the 'All' subtotal.
+      - name: BREAKDOWN_LEVEL
+        description: "Hierarchy level. ALWAYS pin one level before aggregating."
+      - name: COUNT_VALUE
+        description: The numerator, from the RAW model. Never NULL - suppressed cells are excluded rather than carried.
+      - name: POPULATION_PUBLISHED
+        description: Whole-population denominator as published by DHSC.
+      - name: PUBLISHED_POPULATION_SOURCE
+        description: "census_2021 for ethnicity rows, ons_mid_year_estimate for age and gender. Published ethnicity rates are NOT comparable with published age or gender rates."
+      - name: RATE_PER_100K_PUBLISHED
+        description: Rate per head of the whole population. A utilisation share.
+      - name: POPULATION_ELIGIBLE
+        description: "eligible denominator (65+ plus disabled working-age, Census 2021 RM070). NULL where this basis cannot reach the row. NULL means 'not reachable', never zero."
+      - name: RATE_PER_100K_ELIGIBLE
+        description: "Rate per head of the population that could plausibly need care. An ACCESS rate - prefer it over the published rate for equity comparisons."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - AREA_CODE
+            - AREA_UNIT
+            - SUPPORT_SETTING
+            - BREAKDOWN_DIMENSION
+            - BREAKDOWN_VALUE
+            - PERIOD_START
+
+seeds:
+  - name: cld_published_population
+    description: |
+      Frozen denominators for the CLD NORMALISED models, on two bases. See
+      population_base below - they are not interchangeable.
+
+      Regenerated by seeds/generate_cld_population_seed.py, a documented
+      one-off. Both sources are static by construction, so this is a seed
+      rather than a landing table:
+
+      - The DHSC published Population column is byte-identical across the
+        2025-09, 2025-12 and 2026-03 releases (England 46,437,085 in all
+        three, verified 2026-09-22). Re-fetching a constant every quarter
+        would imply a freshness it does not have.
+      - Census 2021 is a fixed historical snapshot.
+
+      Keyed on (area_code, dimension, dimension_value, population_base) -
+      NOT on measure or support setting. The two published source files
+      agree on every shared key (zero conflicts across 3,124 rows), and the
+      population is the same whichever support setting a row describes.
+
+      CAVEAT on the eligible_population basis: RM070's working-age band is 16-64
+      where CLD's is 18-64, so the "18 to 64" denominator carries a 16-17
+      overhang and slightly understates that rate. RM070 offers no finer age
+      split, so this cannot be fixed from this source.
+    columns:
+      - name: area_code
+        description: ONS area code.
+        tests:
+          - not_null
+      - name: dimension
+        description: age_group, gender or ethnicity.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['age_group', 'gender', 'ethnicity']
+      - name: dimension_value
+        description: The breakdown value this population is the denominator for.
+        tests:
+          - not_null
+      - name: population_base
+        description: |
+          Which denominator this row is. The two are NOT interchangeable and
+          answer different questions:
+
+          published - whole population of that group, as published by DHSC.
+          A rate on this basis is "per head of everyone".
+
+          eligible_population - people who could plausibly need adult social care:
+          everyone 65+ plus working-age people recorded disabled under the
+          Equality Act (ONS Census 2021 RM070 custom cross-tab). A rate on
+          this basis is an ACCESS rate.
+
+          eligible_population is SPARSE by construction - it covers 3 age values, 6
+          ethnicity values, no gender at all, and LA + National only. Its key
+          set is a strict subset of published, enforced by
+          tests/assert_cld_population_basis_subset.sql.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['published', 'eligible_population']
+      - name: population
+        description: |
+          The denominator itself. Read together with population_base.
+
+          On the published basis, ethnicity rows use a Census 2021 base
+          (England 44,715,447) while age and gender use the ONS mid-year
+          estimate (46,437,085), so published ethnicity rates are not
+          comparable with published age or gender rates. The eligible_population
+          basis is Census 2021 throughout and has no such split.
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - area_code
+            - dimension
+            - dimension_value
+            - population_base
