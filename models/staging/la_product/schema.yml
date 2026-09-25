@@ -61,8 +61,10 @@ models:
       Production model — consumed by stg_la_topic_mentions.
     columns:
       - name: LA_NAME
-        description: Standardised CASSR local authority name
-        tests: [not_null]
+        description: |
+          Standardised CASSR local authority name. NULL for cases with no
+          local authority recorded (~15% of cases) - kept since 2026-09-25,
+          previously dropped. Deliberately no not_null test.
       - name: QUERY_DATE
         description: First day of the case open month (parsed from case_open_month MM/YYYY)
         tests: [not_null]
@@ -125,16 +127,16 @@ models:
       QUERY_COUNT = 1 per row (except helplines which are pre-aggregated).
       Production model — base for stg_la_topic_mentions_glos, mart_la_query_summary,
       and helplines_advicepro_accessava.
-      LA_NAME may be NULL for AccessAva-origin rows (row-level filter removed
-      2026-09-17 from stg_accessava — see that model's header comment).
-      AdvicePro and Helplines rows still always carry a non-NULL LA_NAME.
+      LA_NAME may be NULL for AccessAva and AdvicePro rows (row-level filters
+      removed 2026-09-17 from stg_accessava and 2026-09-25 from stg_advicepro).
+      Helplines rows always carry a non-NULL LA_NAME.
     columns:
       - name: LA_NAME
         description: |
           Standardised CASSR local authority name. NULL for a large and
           growing share of AccessAva rows (expected, not a bug — see
-          stg_accessava's header comment); always populated for AdvicePro and
-          Helplines. Deliberately no not_null test at this grain.
+          stg_accessava's header comment) and ~15% of AdvicePro rows; always
+          populated for Helplines. Deliberately no not_null test at this grain.
       - name: QUERY_DATE
         description: Date of query/call/case open
         tests: [not_null]

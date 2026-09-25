@@ -23,6 +23,13 @@
   QUERY_COUNT = 1 per row (sum gives topic mention counts, not case counts).
   HAS_LETTER = 0 — AdvicePro does not produce letters.
 
+  CORRECTION (2026-09-25): the "Multi-Matter never explodes" diagnosis below
+  is wrong. Multi-Matter is now used for ~96% of cases and the bridge DOES
+  explode it (every case with CASE_SPECIFIC_ISSUES_GROUP filled is in the
+  bridge, and ~99.7% of bridge rows map to a UT1). The ~1,100 cases with no
+  bridge row have no topic fields in the AdvicePro report at all - see
+  case_data/ADVICEPRO_MULTIMATTER.md. The LEFT JOIN is still right.
+
   LEFT JOIN, not INNER JOIN (2026-09-17 fix, confirmed via live investigation):
   case_topic_bridge (built by a separate repo, advicePro_queries — not this
   one) never explodes cases whose SUPER_CATEGORY = 'Multi-Matter' into topic
@@ -73,4 +80,7 @@ LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
 LEFT JOIN {{ source('casework', 'casework_locality') }} loc
     ON c.case_reference = loc.case_reference
 
-WHERE c.la_name IS NOT NULL
+-- No filter on la_name (removed 2026-09-25, same as stg_accessava on
+-- 2026-09-17): 413 of 2,819 cases have no local authority and were being
+-- dropped from every downstream count, including the helplines_data SotN
+-- table via helplines_advicepro_accessava.
