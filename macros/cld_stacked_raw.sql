@@ -142,7 +142,7 @@ typed AS (
     {#- Total exclusion. A "Total" row is the sum of that LA's own months,
         not an extra category: verified end-to-end 2026-09-14 (a real LA's
         12 monthly values summed to exactly its Total row). Leaving it in
-        doubles every 12-month sum. -#}
+        doubles every 12-month sum. #}
     WHERE UPPER(metric_label) NOT LIKE 'TOTAL%'
 
 ),
@@ -162,7 +162,7 @@ ranked AS (
         for one LA-month would collide and two of the three would be dropped.
 
         area_unit is in the key because ADASS Region and Region are
-        overlapping geographies that can share an area_code. -#}
+        overlapping geographies that can share an area_code. #}
     SELECT
         *,
         ROW_NUMBER() OVER (
