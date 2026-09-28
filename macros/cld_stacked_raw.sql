@@ -153,8 +153,16 @@ ranked AS (
         for regions, and for the 2023 reorganisation unitaries; NULLs group as
         equal in a window PARTITION BY, so partitioning on it would merge every
         blank-LA_CODE area into one partition and drop all but one of them at
-        the vintage_rank = 1 filter - silently, with no error. AREA_CODE is
-        populated on every row.
+        the vintage_rank = 1 filter - silently, with no error.
+
+        AREA_CODE is NOT populated on every row either: DHSC publishes no
+        area_code for the 9 ADASS Region rows (every blank area_code is an
+        ADASS Region row). Partitioning on bare area_code collapsed all 9
+        regions into one partition and kept one arbitrary survivor (confirmed
+        2026-09-28: 3,960 null-area rows in long-term support, 792 in
+        assessments - exactly one region's worth). Hence
+        COALESCE(area_code, area_name): the name keeps the regions apart, and
+        every row that has a code still partitions on the code alone.
 
         breakdown_dimension AND breakdown_value are both in the key. The
         dimension is not redundant: the literal 'All' occurs in all three
@@ -166,7 +174,7 @@ ranked AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY area_code, area_unit, support_setting,
+            PARTITION BY COALESCE(area_code, area_name), area_unit, support_setting,
                          breakdown_dimension, breakdown_value, period_start
             ORDER BY publication_date DESC NULLS LAST,
                      run_at DESC NULLS LAST
