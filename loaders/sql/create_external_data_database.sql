@@ -50,14 +50,19 @@ GRANT USAGE ON SCHEMA EXTERNAL_DATA.LANDING TO ROLE ROLE_DBT_TRANSFORM;
 GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA.RAW TO ROLE ROLE_DBT_TRANSFORM;
 GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA.NORMALISED TO ROLE ROLE_DBT_TRANSFORM;
 
--- signal_processing will need read on RAW/NORMALISED and write on SIGNALS
--- once it moves off local files - not needed yet, included so this script
--- doesn't need a second pass when that lands. Uncomment and confirm the
--- correct role for signal_processing's own Snowflake connection first (it
--- doesn't have one today - see README "Status").
--- GRANT USAGE ON SCHEMA EXTERNAL_DATA.RAW TO ROLE <signal_processing_role>;
--- GRANT USAGE ON SCHEMA EXTERNAL_DATA.NORMALISED TO ROLE <signal_processing_role>;
--- GRANT USAGE, CREATE TABLE ON SCHEMA EXTERNAL_DATA.SIGNALS TO ROLE <signal_processing_role>;
+-- signal_processing reads RAW/NORMALISED and writes SIGNALS as ROLE_ETL
+-- (decided 2026-09-28). Schema USAGE alone is not enough to read: it also
+-- needs database USAGE and SELECT on the tables, including tables dbt
+-- rebuilds later (FUTURE). If the FUTURE grants fail on privileges, run them
+-- as SECURITYADMIN.
+GRANT USAGE ON DATABASE EXTERNAL_DATA TO ROLE ROLE_ETL;
+GRANT USAGE ON SCHEMA EXTERNAL_DATA.RAW TO ROLE ROLE_ETL;
+GRANT USAGE ON SCHEMA EXTERNAL_DATA.NORMALISED TO ROLE ROLE_ETL;
+GRANT SELECT ON ALL TABLES IN SCHEMA EXTERNAL_DATA.RAW TO ROLE ROLE_ETL;
+GRANT SELECT ON ALL TABLES IN SCHEMA EXTERNAL_DATA.NORMALISED TO ROLE ROLE_ETL;
+GRANT SELECT ON FUTURE TABLES IN SCHEMA EXTERNAL_DATA.RAW TO ROLE ROLE_ETL;
+GRANT SELECT ON FUTURE TABLES IN SCHEMA EXTERNAL_DATA.NORMALISED TO ROLE ROLE_ETL;
+GRANT USAGE, CREATE TABLE ON SCHEMA EXTERNAL_DATA.SIGNALS TO ROLE ROLE_ETL;
 
 -- Verify after running:
 -- SHOW SCHEMAS IN DATABASE EXTERNAL_DATA;
@@ -93,10 +98,15 @@ CREATE SCHEMA IF NOT EXISTS EXTERNAL_DATA_DEV.RAW;
 CREATE SCHEMA IF NOT EXISTS EXTERNAL_DATA_DEV.NORMALISED;
 CREATE SCHEMA IF NOT EXISTS EXTERNAL_DATA_DEV.SIGNALS;
 
-GRANT USAGE, CREATE SCHEMA ON DATABASE EXTERNAL_DATA_DEV TO ROLE ROLE_DBT_TRANSFORM;
-GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA_DEV.RAW        TO ROLE ROLE_DBT_TRANSFORM;
-GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA_DEV.NORMALISED TO ROLE ROLE_DBT_TRANSFORM;
-GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA_DEV.LANDING    TO ROLE ROLE_DBT_TRANSFORM;
+-- Granted to ROLE_DEV, not ROLE_DBT_TRANSFORM: admin#5 keeps
+-- ROLE_DBT_TRANSFORM out of _DEV databases, and ROLE_DEV is the role that
+-- actually writes here (ascFuncs routes every ROLE_DEV write to the _DEV
+-- counterpart). Corollary: a laptop session can never load prod
+-- EXTERNAL_DATA - prod loads run on the VM (see loaders/reload_cld_landing.sh).
+GRANT USAGE, CREATE SCHEMA ON DATABASE EXTERNAL_DATA_DEV TO ROLE ROLE_DEV;
+GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA_DEV.RAW        TO ROLE ROLE_DEV;
+GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA_DEV.NORMALISED TO ROLE ROLE_DEV;
+GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA_DEV.LANDING    TO ROLE ROLE_DEV;
 
 
 -- 2. NORMALISED is now a real stage ----------------------------------------
@@ -135,10 +145,11 @@ GRANT USAGE, CREATE TABLE, CREATE VIEW ON SCHEMA EXTERNAL_DATA_DEV.LANDING    TO
 --     (TRUNCATE, not a row-by-row delete: these are append-only tables being
 --     fully rebuilt, and every row is reproducible from the source files.)
 --
--- 3c. Re-run scripts/backfill_cld_history.py in
---     external_source_freshness_checker for the 2025-09 and 2025-12
---     vintages, then the live checker for 2026-03. Its USAGE docstring has
---     the exact loop. It must report 6 CSVs per vintage, not 2.
+-- 3c. On the VM (prod role), run loaders/reload_cld_landing.sh with the
+--     backfill output folder from scripts/backfill_cld_history.py in
+--     external_source_freshness_checker. It loads 2025-09 and 2025-12, then
+--     a forced live checker run for 2026-03, then dbt seed + build. Each
+--     vintage must have 6 CSVs, not 2.
 --
 --     Expected after: 3 vintages each, and roughly 60x the rows
 --     (cld_long_term_support measured 1,836 -> 113,520 rows per vintage in
