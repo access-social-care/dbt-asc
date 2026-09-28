@@ -28,9 +28,13 @@ models:
           North Northamptonshire both blank here). Not yet validated against
           a REFERENCE lookup. Use AREA_CODE to join, not this column.
       - name: AREA_CODE
-        description: Published area (ONS) code. Populated for every row, including the LAs where LA_CODE is blank - this is the reliable join key.
+        description: Published area (ONS) code. Populated for every row EXCEPT the 9 ADASS Region rows, for which DHSC publishes no code (use AREA_NAME to tell those apart). Populated for the LAs where LA_CODE is blank - this is the reliable join key.
         tests:
-          - not_null
+          # ADASS Region rows are excluded: DHSC publishes no area_code for
+          # them. IS DISTINCT FROM so a NULL AREA_UNIT is still tested.
+          - not_null:
+              config:
+                where: "area_unit IS DISTINCT FROM 'ADASS Region'"
       - name: AREA_NAME
         description: LA name as published. NOT standardised to CASSR names - do not join on this.
       - name: AREA_UNIT
@@ -103,9 +107,12 @@ models:
           # ADASS Region and Region are overlapping geographies that can share
           # an AREA_CODE. BREAKDOWN_DIMENSION is in the key because the
           # literal 'All' occurs in all three dimensions and would otherwise
-          # collide.
+          # collide. AREA_NAME is in the key because AREA_CODE is NULL for all
+          # 9 ADASS Region rows, which would otherwise collide in the GROUP BY
+          # (mirrors COALESCE(area_code, area_name) in the macro's dedupe).
           combination_of_columns:
             - AREA_CODE
+            - AREA_NAME
             - AREA_UNIT
             - SUPPORT_SETTING
             - BREAKDOWN_DIMENSION
@@ -136,9 +143,12 @@ models:
           (2023 local-government-reorganisation unitaries). Use AREA_CODE to
           join, not this column.
       - name: AREA_CODE
-        description: Published area (ONS) code. Populated for every row - this is the reliable join key.
+        description: Published area (ONS) code. Populated for every row EXCEPT the 9 ADASS Region rows, for which DHSC publishes no code (use AREA_NAME to tell those apart) - this is the reliable join key.
         tests:
-          - not_null
+          # See the same test on stg_cld_long_term_support.
+          - not_null:
+              config:
+                where: "area_unit IS DISTINCT FROM 'ADASS Region'"
       - name: AREA_NAME
         description: LA name as published. NOT standardised to CASSR names.
       - name: AREA_UNIT
@@ -196,9 +206,10 @@ models:
           # See the note on stg_cld_long_term_support above. SUPPORT_SETTING
           # is NULL on every row of this model (assessments has no such
           # dimension) but is kept in the key so both models declare the same
-          # grain.
+          # grain. AREA_NAME: see the ADASS Region note above.
           combination_of_columns:
             - AREA_CODE
+            - AREA_NAME
             - AREA_UNIT
             - SUPPORT_SETTING
             - BREAKDOWN_DIMENSION
