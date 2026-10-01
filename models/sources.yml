@@ -446,6 +446,10 @@ sources:
         description: |
           CQC ratings — adult social care locations, rolled up to LA level.
           Monthly release (~1st of the month).
+          LONG shape (from 2026-10): one row per LA x rating (location_local_authority,
+          latest_rating, count). Previously one column per rating, which broke the
+          load whenever CQC added a category (2026-09: "Evidence requirements
+          partially/not yet scored"). Pivot in the consuming model if a wide view is needed.
           Source: https://www.cqc.org.uk/about-us/transparency/using-cqc-data
         config:
           freshness:
@@ -582,6 +586,9 @@ sources:
           states "Next release: To be announced". Only two editions exist
           (2021-22, 2022-23) at onboarding (2026-08-18) — not enough points to
           infer a schedule, so freshness is null rather than a guessed threshold.
+          No longer refreshed by the source checker (removed from its registry
+          2026-10-01: irregular series, ONS download 429s). Table holds the 2022-23
+          edition loaded 2026-09-15.
           Source: https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/socialcare/datasets/estimatingthesizeoftheselffundingpopulationinthecommunityengland
         config:
           freshness: null  # irregular/experimental series, no researched cadence
