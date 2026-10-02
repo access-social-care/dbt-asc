@@ -1,0 +1,35 @@
+feature,ilta_label,sort_order,is_reported
+GENDER,Male,1,true
+GENDER,Female,2,true
+GENDER,Other,3,true
+GENDER,Prefer not to say,4,true
+AGE,16-24,1,true
+AGE,25-34,2,true
+AGE,35-44,3,true
+AGE,45-54,4,true
+AGE,55-64,5,true
+AGE,65-74,6,true
+AGE,75 Plus,7,true
+AGE,Prefer not to say,8,true
+DISABILITY,No disability,1,true
+DISABILITY,Mental health,2,true
+DISABILITY,Physical disability,3,true
+DISABILITY,Cognitive disability,4,true
+DISABILITY,Sensory disability,5,true
+DISABILITY,Other,6,true
+DISABILITY,Prefer not to say,7,true
+ETHNICITY,Asian,1,true
+ETHNICITY,Black,2,true
+ETHNICITY,White,3,true
+ETHNICITY,Mixed race,4,true
+ETHNICITY,Other,5,true
+ETHNICITY,Prefer not to say,6,true
+DISABILITY_TYPE,No disability,1,false
+DISABILITY_TYPE,Mental health,2,false
+DISABILITY_TYPE,Physical disability,3,false
+DISABILITY_TYPE,Cognitive disability,4,false
+DISABILITY_TYPE,Sensory disability,5,false
+DISABILITY_TYPE,Other,6,false
+DISABILITY_TYPE,Prefer not to say,7,false
+DISABILITY_YN,Yes,1,false
+DISABILITY_YN,No,2,false

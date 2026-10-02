@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: mart_ilta_demographics
+    description: |
+      ILTA return demographics (gender, age, disability, ethnicity) as record
+      counts by source x month x LA x org x feature x ILTA category, long
+      format, for self-serve Power BI. Records are AccessAva conversations and
+      AdvicePro cases, not unique clients. Not small-number suppressed.
+      Demographic fields are sparsely populated at source - use the 'Not
+      recorded' rows to report completeness.
+    columns:
+      - name: SOURCE_SYSTEM
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['AccessAva', 'AdvicePro']
+      - name: MONTH_DATE
+        description: First day of month. NULL only if a source month is unparseable.
+      - name: LA_NAME
+        description: Often NULL (see model header). Deliberately no not_null test.
+      - name: FEATURE
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['GENDER', 'AGE', 'DISABILITY', 'ETHNICITY']
+      - name: ILTA_CATEGORY
+        tests:
+          - not_null
+      - name: ILTA_KEY
+        description: FEATURE|ILTA_CATEGORY - joins to dim_ilta_category.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_ilta_category')
+              field: ILTA_KEY
+      - name: RECORD_COUNT
+        tests:
+          - not_null
+
+  - name: dim_ilta_category
+    description: ILTA category dimension incl. status categories and sort order.
+    columns:
+      - name: ILTA_KEY
+        tests:
+          - unique
+          - not_null

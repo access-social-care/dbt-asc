@@ -1,0 +1,8 @@
+source_system,feature,raw_value,ilta_label
+AdvicePro,AGE,25 - 34,25-34
+AdvicePro,ETHNICITY,White Irish,White
+AdvicePro,ETHNICITY,"Any other Black, Black British or Caribbean backg",Black
+AccessAva,ETHNICITY,"Any other Black, Black British or Caribbean background",Black
+AdvicePro,AGE,65+,65-74
+AccessAva,DISABILITY_TYPE,"A specific learning difficulty, e.g. dyslexia",Cognitive disability
+AccessAva,DISABILITY_TYPE,"A specific learning difficulty, for example dyslexia",Cognitive disability
