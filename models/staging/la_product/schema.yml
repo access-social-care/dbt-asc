@@ -51,12 +51,12 @@ models:
       A case with no case_topic_bridge row (e.g. SUPER_CATEGORY = 'Multi-Matter'
       cases, which the bridge-building ETL in advicePro_queries never explodes -
       39.4% of all AdvicePro cases as of 2026-09-17) now contributes exactly
-      one row with SEGMENT = 'Unmapped' and UT2 = NULL, instead of being
+      one row with SEGMENT = 'Unmatched' and UT2 = NULL, instead of being
       silently dropped. This makes those cases visible/countable but does NOT
       give them real per-topic UT1/UT2 classification - that needs a fix in
       advicePro_queries' case_topic_bridge build, tracked separately.
       Mapping chain: case_topic_bridge -> s_c_csi_map -> universal_themes_map -> UT1/UT2.
-      SEGMENT = UT1 ('Unmapped' if no match in taxonomy, or no bridge row at all).
+      SEGMENT = UT1 ('Unmapped' if a bridge row has no match in taxonomy; 'Unmatched' if no bridge row at all).
       LOCALITY_NAME = county from casework_locality postcode lookup (NULL where unresolved).
       Production model — consumed by stg_la_topic_mentions.
     columns:
@@ -74,7 +74,7 @@ models:
       - name: QUERY_COUNT
         description: Always 1 — sum gives topic mention counts, not case counts
       - name: SEGMENT
-        description: UT1 from universal_themes_map. 'Unmapped' if no match.
+        description: UT1 from universal_themes_map. 'Unmapped' if a bridge row has no match; 'Unmatched' if the case has no bridge row (no topic recorded).
       - name: UT2
         description: UT2 from universal_themes_map (sparse; NULL where not applicable)
       - name: AGE_BAND

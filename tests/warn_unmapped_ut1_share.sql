@@ -9,18 +9,13 @@
     - AccessAva: Topic entry point map.xlsx
   then reloading via helplines_data/one_time/load_reference_maps.R.
 
-  AdvicePro 'Unmapped' now has a SECOND, larger cause as of 2026-09-17:
-  stg_advicepro.sql's join to case_topic_bridge changed from INNER to LEFT
-  (see that model's header comment) so a case with no case_topic_bridge row
-  at all - overwhelmingly SUPER_CATEGORY='Multi-Matter' cases, which the
-  bridge-building ETL in advicePro_queries never explodes - now lands here as
-  'Unmapped' too, instead of being silently dropped. Expect AdvicePro's
-  Unmapped share to sit well above the 2% threshold below until that's fixed
-  at the source (tracked as a follow-up in advicePro_queries, not this repo).
-  Extending REFERENCE.S_C_CSI_MAP will NOT fix that portion - there is no
-  taxonomy row missing, there is no bridge row to map in the first place.
-  If this test fires for AdvicePro, check the Multi-Matter share of the
-  Unmapped rows before assuming it's ordinary taxonomy drift.
+  AdvicePro cases with no case_topic_bridge row (no topic recorded at all) are
+  labelled 'Unmatched', not 'Unmapped' (changed 2026-10-07; they used to make
+  this test fire on every run - 233 of 239 AdvicePro Unmapped rows). They are
+  deliberately outside this test: there is no taxonomy row missing, so
+  extending the maps would not help. A firing now means real drift: a bridge
+  row whose s_c_csi_id has no REFERENCE.S_C_CSI_MAP row, or whose map row has
+  no match in UNIVERSAL_THEMES_MAP.
 
   Surfaced by cc's Warnings section (cc PR #32) - warnings do not fail the
   pipeline but do raise a deduplicated GitHub issue.

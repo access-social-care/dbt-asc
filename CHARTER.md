@@ -81,6 +81,23 @@ Do not add a postcode lookup step for chatbot records.
 
 ---
 
+## Every AdvicePro S/C/CSI must map to a UT1
+
+Every (supercategory, category, case-specific-issue) combination in
+`REFERENCE.PUBLIC.S_C_CSI_MAP` must resolve to a UT1 in
+`REFERENCE.PUBLIC.UNIVERSAL_THEMES_MAP` (org = `advicepro`). An explicit
+`UNMATCHED` UT1 counts as a decision; a missing row does not. A case that lands
+in `stg_advicepro` as `Unmapped` is therefore a map gap to fix, never
+acceptable steady state: add the row to `helplines_data/intermediate/Universal
+codes.csv` (synced to Snowflake every pipeline run), or the CSI to
+`S_C_CSI_MAP`. `tests/warn_unmapped_ut1_share.sql` is the tripwire.
+
+A case with no `case_topic_bridge` row (no topic recorded at source) is
+`Unmatched`, not `Unmapped`: that is missing source data, not a missing map row,
+and no mapping change recovers it.
+
+---
+
 ## `stg_la_queries` is the integration point
 
 `stg_la_queries.sql` is the single UNION ALL that combines AdvicePro cases and
