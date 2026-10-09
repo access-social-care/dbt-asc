@@ -14,8 +14,12 @@
   all others key on (supercategory, category).
 
   SEGMENT = UT1 from UNIVERSAL_THEMES_MAP.
-    'Unmapped' — topic exists in bridge but has no UT1 match (taxonomy drift),
-    OR (2026-09-17) the case has no row in case_topic_bridge at all (see below).
+    'Unmapped' — topic exists in bridge but has no UT1 match (taxonomy drift).
+    'Unmatched' — (2026-10-07) the case has no row in case_topic_bridge at all,
+    i.e. no topic recorded. Same meaning as AccessAva's 'Unmatched'. Before
+    2026-10-07 these were labelled 'Unmapped', which put AdvicePro at 6.21%
+    Unmapped (233 of 239 were no-topic cases, 6 real drift) and made
+    tests/warn_unmapped_ut1_share.sql fire on every run.
   UT2 = second-level theme from the same map (sparse; NULL where not applicable).
 
   Grain: one row per case x topic — except a case with zero case_topic_bridge
@@ -38,8 +42,8 @@
   were Multi-Matter, confirmed live 2026-09-17. Amit's direction: "the map
   DEFINITELY needs to account for the SUPERCATEGORY=MULTI-MATTER!" This
   LEFT JOIN is a MITIGATION, not the real fix — a case with no bridge match
-  now lands as one row with SEGMENT = 'Unmapped' (via the existing
-  COALESCE(u.ut1, 'Unmapped') below) instead of vanishing silently, so it is
+  now lands as one row with SEGMENT = 'Unmatched' (was 'Unmapped' until
+  2026-10-07) instead of vanishing silently, so it is
   at least visible and countable. It does NOT give these cases real per-topic
   UT1/UT2 classification — that requires case_topic_bridge itself to actually
   explode Multi-Matter cases, which is out of scope for this repo (needs
@@ -55,7 +59,14 @@ SELECT
     TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD')              AS QUERY_DATE,
     'AdvicePro'                                                                       AS SOURCE_SYSTEM,
     1                                                                                 AS QUERY_COUNT,
-    COALESCE(u.ut1, 'Unmapped')                                                       AS SEGMENT,
+    CASE
+        -- Test record in ADVICEPRO_CASEWORK (case_reference = 'Test', 2026-10-08):
+        -- not a real case, sent to the dropped UT1. Its CSI is shared with real
+        -- cases, so this cannot be done in the UT1 map.
+        WHEN c.case_reference = 'Test' THEN 'UNMATCHED'
+        WHEN b.case_reference IS NULL THEN 'Unmatched'
+        ELSE COALESCE(u.ut1, 'Unmapped')
+    END                                                                               AS SEGMENT,
     NULLIF(u.ut2, 'NA')                                                               AS UT2,
     d.age_range                                                                       AS AGE_BAND,
     0                                                                                 AS HAS_LETTER,
