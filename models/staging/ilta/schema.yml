@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: stg_ilta_accessava
+    description: |
+      One row per AccessAva conversation with ILTA-mapped GENDER/AGE/DISABILITY/
+      ETHNICITY (or a status: Not recorded / Unmapped / Not collected) plus the
+      raw values for data-quality inspection. See model header.
+    columns:
+      - name: RECORD_ID
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_ilta_advicepro
+    description: |
+      One row per AdvicePro case with ILTA-mapped GENDER/AGE/DISABILITY/
+      ETHNICITY (or a status) plus raw values. Demographics cover a small share
+      of cases. See model header.
+    columns:
+      - name: RECORD_ID
+        tests:
+          - unique
+          - not_null

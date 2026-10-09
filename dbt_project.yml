@@ -36,6 +36,11 @@ models:
         +materialized: table
         +schema: la_product_staging
 
+      ilta:
+        # Per-record ILTA-mapped demographics (AccessAva + AdvicePro).
+        +materialized: table
+        +schema: ilta_staging
+
       acs_helplines:
         # Cross-source UT1/UT2-aggregated staging (Helplines + AdvicePro + AccessAva)
         # Schema fixed 2026-09-14: "acs_helplines" was a typo for "asc_helplines"
@@ -119,6 +124,13 @@ models:
         +materialized: table
         +schema: la_product
 
+      ilta:
+        # ILTA funder-reporting marts consumed by Power BI. Own schema so the
+        # BI reader role can be granted this and nothing else. Unsuppressed
+        # (counts by LA x month x category) - see docs/ilta_powerbi_spec.md.
+        +materialized: table
+        +schema: ilta
+
       analytics:
         # Unsuppressed / ad-hoc cross-LA analysis marts. Deliberately a separate schema
         # from la_product so RBAC roles scoped to the suppressed la_product schema (e.g.
@@ -137,6 +149,13 @@ quoting:
 # Seeds
 seeds:
   asc:
+    ilta_categories:
+      # ILTA category list + label order. Same schema as stg_ilta_* (the only
+      # models that read it); PUBLIC is not writable by ROLE_DEV.
+      +schema: ilta_staging
+    ilta_map_supplement:
+      # Gap-fills for REFERENCE.PUBLIC.ILTA_MAP_* (see ilta_lookup macro).
+      +schema: ilta_staging
     cld_published_population:
       # Denominators for EXTERNAL_DATA.NORMALISED. Lives in the same database
       # and schema as the models that join it, so the whole external pipeline

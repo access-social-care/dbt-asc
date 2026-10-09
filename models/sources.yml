@@ -353,6 +353,27 @@ sources:
               - unique
               - not_null
 
+      - name: ilta_map_ava
+        description: |
+          Raw AccessAva demographic value -> ILTA reporting label.
+          Columns FEATURE (age_range / ethnicity / disability_text /
+          disability_n_y), ACCESSAVA (raw value), ILTA (label).
+          Known gaps/defects (2026-10-01, REFERENCE_DEV copy): the two
+          dyslexia disability_text rows are column-shifted (ILTA holds 'e.g.
+          dyslexia'); no 'Any other Black, Black British or Caribbean
+          background'; '65+' maps to 65-74 although it spans 75 Plus.
+          Consumed by the ilta_lookup macro, which rejects labels outside the
+          ilta_categories seed.
+
+      - name: ilta_map_casework
+        description: |
+          Raw AdvicePro demographic value -> ILTA reporting label.
+          Columns FEATURE (age_range / ethnicity / disability / gender /
+          'Do you have a disability'), CASEWORK (raw value), ILTA (label).
+          Partial: only a subset of raw values is listed (e.g. no '25 - 34',
+          '65+', 'White Irish', 'Dementia'). Lossy age rows: '35 - 49' -> 35-44
+          and '50 - 64' -> 55-64 do not align with ILTA bands.
+
       # ── External reference data — lann / Census (admin#13) ────────────────
       # Loaded one-time from signal_processing/lann/ via
       # signal_processing/one_time/load_lann_to_snowflake.R.
