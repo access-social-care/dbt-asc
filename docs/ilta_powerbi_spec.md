@@ -47,6 +47,19 @@ Consistently Collected? =
 IF ( [Completeness %] >= 0.9, "Yes", "No" )
 ```
 
+```dax
+-- Prefer not to say as the ILTA return reports it: everything not in an answered line.
+-- Answered lines = reported categories except 'Prefer not to say'. Use as a card or total row with one FEATURE in context, not split by category (use ALL on the category column inside the measure if a matrix needs it).
+ILTA Prefer not to say (return basis) =
+VAR answered =
+    CALCULATE (
+        [Records],
+        dim_ilta_category[IS_REPORTED] = TRUE (),
+        dim_ilta_category[ILTA_CATEGORY] <> "Prefer not to say"
+    )
+RETURN [Records] - answered
+```
+
 `Records` ignores the `IS_REPORTED` filter on purpose; each FEATURE sums to the same total, so put only one FEATURE in context (page per feature) or the total is counted four times.
 
 ## Pages
@@ -58,7 +71,9 @@ IF ( [Completeness %] >= 0.9, "Yes", "No" )
 ## Rules baked into the data (tell users)
 
 - **AccessAva has no gender.** Rows are `Not collected`; they are excluded from gender completeness. Gender is AdvicePro only.
-- **Disability** is derived: 'No' -> No disability; a stated type -> its ILTA label; 'Yes' with no type -> **Other**. ILTA has no "unspecified" bucket; confirm this is acceptable.
+- **Disability** is derived (rules agreed 2026-10-12): a stated type -> its ILTA label; 'No' -> No disability; 'Yes' with no type -> **Disability, type not stated** (a data category, not a line on the ILTA form, so it falls into Prefer not to say on the return).
+- **AdvicePro default 'No'.** AdvicePro records 'No' to "Do you have a disability" as a default (155 of 161 'No' answers in Apr-Sep 2025 had age, gender and ethnicity all blank). A 'No' with none of those answered is **Not recorded**, not No disability. AccessAva 'No' is always taken at face value.
+- **Prefer not to say on the return = total - answered lines.** Last year's return was built this way (every record that is not in one of the answered categories counts as Prefer not to say, including blanks). Use `ILTA Prefer not to say (return basis)` below, not the `Prefer not to say` category row, which only counts explicit answers.
 - **Age is lossy.** Source bands do not match ILTA bands: AccessAva `26-45` -> 25-34, `46-64` -> 45-54; AdvicePro `35 - 49` -> 35-44, `50 - 64` -> 55-64. AccessAva `65+` -> 65-74 (cannot give 75 Plus). Treat age counts as indicative.
 - AccessAva coarse `AGE` (Under 18 / 18-64 / 65+, ~15% populated) is ignored; only `AGE_RANGE` (<1% populated) is used.
 - `Unmapped` rows are shown, never dropped.

@@ -17,8 +17,9 @@
 
   DISABILITY combines two raw fields: disability_n_y (Yes/No) and
   disability_text (type). 'No' -> 'No disability'; a stated type -> its mapped
-  label; 'Yes' with no type -> 'Other' (disability confirmed, type not given -
-  a modelling choice, ILTA has no unspecified bucket).
+  label; 'Yes' with no type -> 'Disability, type not stated' (agreed
+  2026-10-12). That is a data category, not a line on the ILTA form, so on the
+  return it falls into 'Prefer not to say' (= total - answered lines).
 
   Demographics are <5% populated in AccessAva; most rows are 'Not recorded'.
   The coarse AGE column (Under 18 / 18-64 / 65+) is NOT used: it cannot be
@@ -44,7 +45,7 @@ SELECT
     CASE
         WHEN l_yn.ilta = 'No'                               THEN 'No disability'
         WHEN NULLIF(TRIM(a.disability_text), '') IS NOT NULL THEN COALESCE(l_dt.ilta, 'Unmapped')
-        WHEN l_yn.ilta = 'Yes'                              THEN 'Other'
+        WHEN l_yn.ilta = 'Yes'                              THEN 'Disability, type not stated'
         WHEN NULLIF(TRIM(a.disability_n_y), '') IS NOT NULL THEN 'Unmapped'
         ELSE 'Not recorded'
     END                                                     AS DISABILITY,
