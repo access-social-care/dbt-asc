@@ -47,7 +47,7 @@ SELECT
                                                             THEN 'No disability'
         WHEN NULLIF(TRIM(d.what_type_of_disability_do_you_consider_you_have), '') IS NOT NULL
                                                             THEN COALESCE(l_dt.ilta, 'Unmapped')
-        WHEN l_yn.ilta = 'Yes'                              THEN 'Disability, type not stated'
+        WHEN l_yn.ilta = 'Yes'                              THEN 'Other'
         -- default 'No': nothing else about the client was answered
         WHEN l_yn.ilta = 'No'                               THEN 'Not recorded'
         WHEN NULLIF(TRIM(d.do_you_have_a_disability), '') IS NOT NULL THEN 'Unmapped'

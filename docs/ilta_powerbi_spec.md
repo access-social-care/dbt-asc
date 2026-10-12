@@ -71,7 +71,7 @@ RETURN [Records] - answered
 ## Rules baked into the data (tell users)
 
 - **AccessAva has no gender.** Rows are `Not collected`; they are excluded from gender completeness. Gender is AdvicePro only.
-- **Disability** is derived (rules agreed 2026-10-12): a stated type -> its ILTA label; 'No' -> No disability; 'Yes' with no type -> **Disability, type not stated** (a data category, not a line on the ILTA form, so it falls into Prefer not to say on the return).
+- **Disability** is derived (rules agreed 2026-10-12): a stated type -> its ILTA label; 'No' -> No disability; 'Yes' with no type -> **Other** (ILTA has no unspecified line; confirmed 2026-10-12).
 - **AdvicePro default 'No'.** AdvicePro records 'No' to "Do you have a disability" as a default (155 of 161 'No' answers in Apr-Sep 2025 had age, gender and ethnicity all blank). A 'No' with none of those answered is **Not recorded**, not No disability. AccessAva 'No' is always taken at face value.
 - **Prefer not to say on the return = total - answered lines.** Last year's return was built this way (every record that is not in one of the answered categories counts as Prefer not to say, including blanks). Use `ILTA Prefer not to say (return basis)` below, not the `Prefer not to say` category row, which only counts explicit answers.
 - **Age is lossy.** Source bands do not match ILTA bands: AccessAva `26-45` -> 25-34, `46-64` -> 45-54; AdvicePro `35 - 49` -> 35-44, `50 - 64` -> 55-64. AccessAva `65+` -> 65-74 (cannot give 75 Plus). Treat age counts as indicative.

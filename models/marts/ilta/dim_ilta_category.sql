@@ -35,7 +35,3 @@ CROSS JOIN (
     UNION ALL SELECT 'Not collected', 92
 ) s
 
-UNION ALL
-
--- Disability only: 'Yes' answered but no type given. Not an ILTA form line.
-SELECT 'DISABILITY', 'Disability, type not stated', 'DISABILITY|Disability, type not stated', 93, FALSE
