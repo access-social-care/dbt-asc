@@ -1,27 +1,36 @@
 {{
   config(
     materialized='table',
-    description='AdvicePro cases with ILTA-mapped demographics. One row per case.'
+    description='AdvicePro persons-with-care-needs demographics for the ILTA return. One row per report row, weighted by persons.'
   )
 }}
 
 /*
-  One row per AdvicePro case (case_reference) with the four ILTA reporting
-  dimensions resolved to ILTA labels. Status values work as in
-  stg_ilta_accessava.
+  AdvicePro side of the ILTA return, from report HS6T5CH9 (loaded to
+  CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS_PERSONS by
+  loaders/load_advicepro_persons_to_snowflake.R). Chosen 2026-10-12 over
+  FD7DXGL4 (ADVICEPRO_DEMOGRAPHICS): HS6T5CH9 is roughly one row per case
+  (88% of cases opened Oct 2025-Sep 2026) and carries the number of people with
+  care needs, which is what ILTA counts; FD7DXGL4 covers only the cases that
+  have an equalities form (about a quarter) and has no persons count.
 
-  DISABILITY differs from AccessAva in one rule (agreed 2026-10-12): AdvicePro
-  records 'No' to "Do you have a disability" as a default - in Apr-Sep 2025,
-  155 of 161 'No' answers had age, gender and ethnicity all blank. A 'No' only
-  counts as 'No disability' when at least one of age/gender/ethnicity was
-  answered; otherwise it is 'Not recorded'. (In AccessAva the user answers
-  the question, so 'No' is always taken at face value.)
+  Grain: one row per report row (about one per case). RECORD_WEIGHT = persons
+  with care needs on that case, so SUM(RECORD_WEIGHT) counts people, not
+  cases. The row's demographics describe one client and are applied to all
+  persons on the case (same as the original ILTA mapping.R prototype).
 
-  Demographics come from CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS (AdvicePro
-  report FD7DXGL4), which covers only a small share of cases. A case with no
-  row there is 'Not recorded' on all four dimensions (LEFT JOIN).
+  LIMITS (report has no case reference): LA_NAME is NULL and ORG_NAME is a
+  fixed label, so AdvicePro rows cannot be sliced by local authority or member
+  organisation, and cannot be joined to ADVICEPRO_CASEWORK. Report rows only
+  start in January 2025.
 
-  Counts are cases, not unique clients.
+  Status values and the DISABILITY derivation work as in stg_ilta_accessava,
+  with one AdvicePro-specific rule (agreed 2026-10-12): AdvicePro forces a
+  Yes/No answer to the disability question, so 'No' is often just the default
+  (in Apr-Sep 2025, 155 of 161 'No' answers had age, gender and ethnicity all
+  blank). A 'No' only counts as 'No disability' when at least one of
+  age/gender/ethnicity was answered; otherwise it is 'Not recorded'.
+  'Yes' with no type is 'Other'. The loader turns '[Not Specified]' into NULL.
 */
 
 WITH lk AS (
@@ -29,11 +38,12 @@ WITH lk AS (
 )
 
 SELECT
-    c.case_reference                                        AS RECORD_ID,
+    TO_VARCHAR(d.record_id)                                 AS RECORD_ID,
     'AdvicePro'                                             AS SOURCE_SYSTEM,
-    TRY_TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD') AS MONTH_DATE,
-    c.la_name                                               AS LA_NAME,
-    c.member_canonical_name                                 AS ORG_NAME,
+    DATE_TRUNC('month', d.case_open_date)::DATE             AS MONTH_DATE,
+    NULL::VARCHAR                                           AS LA_NAME,
+    'AdvicePro (no member in report)'                       AS ORG_NAME,
+    d.persons                                               AS RECORD_WEIGHT,
 
     CASE WHEN NULLIF(TRIM(d.gender), '') IS NULL THEN 'Not recorded'
          ELSE COALESCE(l_gen.ilta, 'Unmapped') END          AS GENDER,
@@ -41,9 +51,9 @@ SELECT
          ELSE COALESCE(l_age.ilta, 'Unmapped') END          AS AGE,
     CASE
         WHEN l_yn.ilta = 'No' AND (
-                 COALESCE(TRIM(d.age_range), '')    NOT IN ('', '[Not Specified]', 'Not Stated')
-              OR COALESCE(TRIM(d.gender), '')       NOT IN ('', '[Not Specified]', 'Not Stated')
-              OR COALESCE(TRIM(d.ethnic_origin), '') NOT IN ('', '[Not Specified]', 'Not Stated'))
+                 COALESCE(TRIM(d.age_range), '')    NOT IN ('', 'Not Stated')
+              OR COALESCE(TRIM(d.gender), '')       NOT IN ('', 'Not Stated')
+              OR COALESCE(TRIM(d.ethnic_origin), '') NOT IN ('', 'Not Stated'))
                                                             THEN 'No disability'
         WHEN NULLIF(TRIM(d.what_type_of_disability_do_you_consider_you_have), '') IS NOT NULL
                                                             THEN COALESCE(l_dt.ilta, 'Unmapped')
@@ -62,9 +72,7 @@ SELECT
     NULLIF(TRIM(d.what_type_of_disability_do_you_consider_you_have), '') AS DISABILITY_TYPE_RAW,
     NULLIF(TRIM(d.ethnic_origin), '')                       AS ETHNICITY_RAW
 
-FROM {{ source('casework', 'advicepro_casework') }} c
-LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
-    ON c.case_reference = d.case_reference
+FROM {{ source('casework', 'advicepro_demographics_persons') }} d
 LEFT JOIN lk l_gen ON l_gen.feature = 'GENDER'          AND l_gen.key = LOWER(TRIM(d.gender))
 LEFT JOIN lk l_age ON l_age.feature = 'AGE'             AND l_age.key = LOWER(TRIM(d.age_range))
 LEFT JOIN lk l_eth ON l_eth.feature = 'ETHNICITY'       AND l_eth.key = LOWER(TRIM(d.ethnic_origin))

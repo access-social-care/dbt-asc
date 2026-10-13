@@ -73,6 +73,7 @@ run_loader() {
 # Source system loads
 run_loader load_member_orgs_to_snowflake             # Monday.com -> REFERENCE.MEMBER_ORGANISATIONS
 run_loader load_advicepro_demographics_to_snowflake  # AdvicePro FD7DXGL4 -> CASEWORK.ADVICEPRO_DEMOGRAPHICS
+run_loader load_advicepro_persons_to_snowflake       # AdvicePro HS6T5CH9 -> CASEWORK.ADVICEPRO_DEMOGRAPHICS_PERSONS (ILTA)
 
 # load_external_sources_to_snowflake.R's own default assumes it's run from
 # dbt-asc/'s root with the extractor checked out as a sibling folder named

@@ -8,7 +8,9 @@ Source models (dbt-asc, schema `PUBLIC_ILTA` in `ANALYTICS`; dbt prefixes the ta
 | `dim_ilta_category` | feature x ILTA category (incl. status rows) | Dimension |
 | (build in Power BI) `DimDate` | one row per month | Date table |
 
-`record_count` = AccessAva conversations + AdvicePro cases. **Not unique clients.** Say so on every page footer.
+`record_count` = AccessAva conversations + AdvicePro **people with care needs** (persons on each case). **Not unique clients.** Say so on every page footer.
+
+**AdvicePro source = report HS6T5CH9** (chosen 2026-10-12; loaded by `loaders/load_advicepro_persons_to_snowflake.R` to `CASEWORK.ADVICEPRO_DEMOGRAPHICS_PERSONS`). It is about one row per case with a persons count, but has **no case reference**: AdvicePro rows have **no LA and no member** (`LA_NAME` NULL, `ORG_NAME` = `AdvicePro (no member in report)`), rows only start Jan 2025, and one demographic profile is applied to every person on a case. LA and member slicers therefore only work for AccessAva.
 
 ## Model
 
@@ -80,7 +82,7 @@ RETURN [Records] - answered
 
 ## Data volumes (dev, 2026-10-01)
 
-AccessAva 26,992 conversations, under 2% with any demographic; AdvicePro 2,822 cases, about 5% with demographics. Expect "Consistently collected = No" for all four sections, and small numbers per category. Do not publish LA x month cuts externally: the mart is **not small-number suppressed** (counts of 1-2 occur). Grant the `PUBLIC_ILTA` schema only to the BI reader role, or add suppression (`la_suppress` pattern) before widening access.
+AccessAva about 27,000 conversations, under 2% with any demographic; AdvicePro 694 people across 606 report rows (Jan 2025 on), about 13-20% with age or gender and under 8% with ethnicity. Expect "Consistently collected = No" for all four sections, and small numbers per category. Do not publish LA x month cuts externally: the mart is **not small-number suppressed** (counts of 1-2 occur). Grant the `PUBLIC_ILTA` schema only to the BI reader role, or add suppression (`la_suppress` pattern) before widening access.
 
 ## Known map defects (REFERENCE.PUBLIC, fix at source; not changed here)
 

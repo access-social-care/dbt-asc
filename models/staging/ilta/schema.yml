@@ -11,14 +11,21 @@ models:
         tests:
           - unique
           - not_null
+      - name: RECORD_WEIGHT
+        description: Always 1 (one conversation)
 
   - name: stg_ilta_advicepro
     description: |
-      One row per AdvicePro case with ILTA-mapped GENDER/AGE/DISABILITY/
-      ETHNICITY (or a status) plus raw values. Demographics cover a small share
-      of cases. See model header.
+      One row per AdvicePro report row (HS6T5CH9, about one per case), weighted
+      by people with care needs, with ILTA-mapped GENDER/AGE/DISABILITY/
+      ETHNICITY (or a status) plus raw values. No LA or member (report has no
+      case reference). See model header.
     columns:
       - name: RECORD_ID
         tests:
           - unique
+          - not_null
+      - name: RECORD_WEIGHT
+        description: People with care needs on the case (>= 1)
+        tests:
           - not_null
