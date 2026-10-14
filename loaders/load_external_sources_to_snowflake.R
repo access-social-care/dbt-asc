@@ -113,7 +113,16 @@ LANDING_SCHEMA <- "LANDING"
 ## scoped to one table while _SOURCE_URL is shared by all three sheets of a
 ## file. Collapsing them onto one table would make sheets 2 and 3 look
 ## already-loaded and skip, exiting 0.
+##
+## asc_workforce added 2026-10-14: annual, and each year is a different period,
+## not a refresh (unlike cqc_ratings, a monthly "latest" snapshot). It lands
+## LONG (id columns + metric/value; see its registry entry) because Skills for
+## Care renames ~120 of ~430 columns between years, which a wide table cannot
+## absorb. Land 2024-25 first (scripts/backfill_asc_workforce_history.py in the
+## checker repo), then let the live run append 2025-26. The old wide table
+## REFERENCE.PUBLIC.ASC_WORKFORCE is no longer written and has no consumers.
 LANDING_DATASETS <- c(
+  "asc_workforce",
   "cld_long_term_support",
   "cld_long_term_support_gender",
   "cld_long_term_support_ethnicity",

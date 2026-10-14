@@ -477,16 +477,6 @@ sources:
             warn_after: {count: 45, period: day}
             error_after: {count: 75, period: day}
 
-      - name: asc_workforce
-        description: |
-          Adult social care workforce by LA (Skills for Care).
-          Annual, typically released Oct/Nov.
-          Source: https://www.skillsforcare.org.uk
-        config:
-          freshness:
-            warn_after: {count: 400, period: day}
-            error_after: {count: 550, period: day}
-
       - name: people_receiving_care
         description: |
           People receiving adult social care — STS001 (new clients) + LTS001
@@ -736,6 +726,42 @@ sources:
             description: Raw cell value as published, untyped. "[c]" means suppressed.
           - name: _publication_date
             description: Vintage identifier (with _source_url).
+          - name: _source_url
+            description: Resolved download URL for this vintage.
+
+      - name: asc_workforce
+        description: |
+          Adult social care workforce by local authority (Skills for Care),
+          annual (October). Moved here from REFERENCE.PUBLIC 2026-10-14: each
+          year is a different period, and the publisher renames ~120 of ~430
+          columns between years, so it lands LONG (id columns + metric/value),
+          one vintage per (_publication_date, _source_url). Filtered to the
+          headline grain: Area level = local authority, Sector = "Local
+          Authority", all services, all job roles.
+          `metric` is the column header AS PUBLISHED that year, so the same
+          measure can carry different names across vintages (e.g. 2024-25
+          "Turnover rate (LA + IND only)" vs 2025-26 "Leavers (LA + IND only)").
+          Reconcile vintages in staging, not here.
+          OPEN QUESTION (queried with Skills for Care): in 2025-26 the
+          "Turnover rate" and "Leavers" headers may be swapped (Leavers holds a
+          rate, Turnover rate a count). Do not build on either metric until
+          confirmed.
+          Source: https://www.skillsforcare.org.uk/Adult-Social-Care-Workforce-Data/workforceintelligence/About-our-data/Data-downloads.aspx
+        config:
+          freshness: null  # append-only; LAST_ALTERED reflects the last vintage appended, not source age
+        columns:
+          - name: area
+            description: LA name as published (not standardised to CASSR names here).
+          - name: area_code
+            description: Published area (ONS) code.
+          - name: fiscal_year
+            description: Reporting year as published, e.g. "2025/26".
+          - name: metric
+            description: Column header as published that year (normalised only by the checker's tidy melt). Names differ between vintages.
+          - name: value
+            description: Raw cell value as published, untyped. "*" means suppressed.
+          - name: _publication_date
+            description: Vintage identifier (with _source_url), e.g. "2025-26".
           - name: _source_url
             description: Resolved download URL for this vintage.
 
