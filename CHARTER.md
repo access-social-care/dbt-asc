@@ -98,6 +98,29 @@ and no mapping change recovers it.
 
 ---
 
+## One AdvicePro case = one person
+
+Every AdvicePro case is **one person**. No case has several people with care needs.
+The column "Number of Person with Care Needs" in AdvicePro report `HS6T5CH9`
+(`CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS_PERSONS.persons`) is **not** people per case.
+Since Feb 2026 that report collapses identical blank rows (no age, gender and ethnicity
+`[Not Specified]`, disability `No`) into one row and puts the number collapsed in that
+column. Checked 2026-10-13: Jul 2026 has 42 cases in `ADVICEPRO_CASEWORK`, 19 report rows
+and 44 in the count column; all 50 rows with a count above 1 are fully blank and none
+predates Feb 2026.
+
+- Never describe the column as "people per case", and never spread one demographic
+  profile across "several people on a case". Say "identical cases collapsed".
+- Always sum the column (`RECORD_WEIGHT` in `stg_ilta_advicepro`); counting report rows
+  understates cases from Feb 2026 on.
+- Report rows have no case reference, so they cannot be joined to `ADVICEPRO_CASEWORK`
+  and carry no LA or member.
+- AdvicePro forces a Yes/No on "Do you have a disability", so a `No` with nothing else
+  answered is a default, not a response (155 of 161 `No` in Apr-Sep 2025). ILTA models treat
+  it as `Not recorded`.
+
+---
+
 ## `stg_la_queries` is the integration point
 
 `stg_la_queries.sql` is the single UNION ALL that combines AdvicePro cases and
@@ -130,3 +153,4 @@ Re-read and update this charter when:
 - `la_suppress` threshold changes (currently 5)
 - A new mart model is added
 - The pipeline cron schedule changes
+- AdvicePro report `HS6T5CH9` or `FD7DXGL4` changes layout, or the count column stops collapsing rows
