@@ -100,21 +100,29 @@ and no mapping change recovers it.
 
 ## One AdvicePro case = one person
 
-Every AdvicePro case is **one person**. No case has several people with care needs.
-The column "Number of Person with Care Needs" in AdvicePro report `HS6T5CH9`
-(`CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS_PERSONS.persons`) is **not** people per case.
-Since Feb 2026 that report collapses identical blank rows (no age, gender and ethnicity
-`[Not Specified]`, disability `No`) into one row and puts the number collapsed in that
-column. Checked 2026-10-13: Jul 2026 has 42 cases in `ADVICEPRO_CASEWORK`, 19 report rows
-and 44 in the count column; all 50 rows with a count above 1 are fully blank and none
-predates Feb 2026.
+Every AdvicePro case is **one person**. No case has more than one human attached.
 
-- Never describe the column as "people per case", and never spread one demographic
-  profile across "several people on a case". Say "identical cases collapsed".
-- Always sum the column (`RECORD_WEIGHT` in `stg_ilta_advicepro`); counting report rows
-  understates cases from Feb 2026 on.
-- Report rows have no case reference, so they cannot be joined to `ADVICEPRO_CASEWORK`
-  and carry no LA or member.
+AdvicePro report `HS6T5CH9` (`CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS_PERSONS`) has a column
+called "Number of Person with Care Needs". **Despite its name it is not a headcount of the
+people on a case.** It is how many identical cases were merged into that one row. Since
+Feb 2026 the report merges cases that look exactly the same (no age, gender and ethnicity
+`[Not Specified]`, disability `No`) into a single row and writes the number merged in that
+column. A row with 5 means five separate cases, each one person.
+
+Checked 2026-10-13: Jul 2026 has 42 cases in `ADVICEPRO_CASEWORK`, 19 rows in the report and
+44 in the column. All 50 rows with a value above 1 are fully blank, and none is dated before
+Feb 2026.
+
+What this means for the models:
+- To count cases from this report, **add up the column** (`RECORD_WEIGHT` in
+  `stg_ilta_advicepro`). Counting rows undercounts from Feb 2026 on (Apr-Sep 2026: 139 rows,
+  214 cases).
+- Do not describe the column as "people per case" or spread one demographic profile over
+  several people. Say "identical cases merged".
+- Repeated rows for one case in report `FD7DXGL4` are also one person: the rows differ only
+  by which disability types were ticked (several can be), e.g. case ASC001042.
+- Report rows have no case reference, so they cannot be joined to `ADVICEPRO_CASEWORK` and
+  carry no LA or member.
 - AdvicePro forces a Yes/No on "Do you have a disability", so a `No` with nothing else
   answered is a default, not a response (155 of 161 `No` in Apr-Sep 2025). ILTA models treat
   it as `Not recorded`.
