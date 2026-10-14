@@ -17,7 +17,7 @@ models:
   - name: stg_ilta_advicepro
     description: |
       One row per AdvicePro report row (HS6T5CH9, about one per case), weighted
-      by people with care needs, with ILTA-mapped GENDER/AGE/DISABILITY/
+      by the count of cases collapsed into the row (each case is one person), with ILTA-mapped GENDER/AGE/DISABILITY/
       ETHNICITY (or a status) plus raw values. No LA or member (report has no
       case reference). See model header.
     columns:
@@ -26,6 +26,6 @@ models:
           - unique
           - not_null
       - name: RECORD_WEIGHT
-        description: People with care needs on the case (>= 1)
+        description: Identical cases collapsed into the row (>= 1; each case is one person)
         tests:
           - not_null

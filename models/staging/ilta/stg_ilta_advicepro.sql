@@ -10,14 +10,19 @@
   CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS_PERSONS by
   loaders/load_advicepro_persons_to_snowflake.R). Chosen 2026-10-12 over
   FD7DXGL4 (ADVICEPRO_DEMOGRAPHICS): HS6T5CH9 is roughly one row per case
-  (88% of cases opened Oct 2025-Sep 2026) and carries the number of people with
-  care needs, which is what ILTA counts; FD7DXGL4 covers only the cases that
-  have an equalities form (about a quarter) and has no persons count.
+  and covers almost every case; FD7DXGL4 covers only the cases that have an
+  equalities form (about a quarter).
 
-  Grain: one row per report row (about one per case). RECORD_WEIGHT = persons
-  with care needs on that case, so SUM(RECORD_WEIGHT) counts people, not
-  cases. The row's demographics describe one client and are applied to all
-  persons on the case (same as the original ILTA mapping.R prototype).
+  Grain: one row per report row. Since Feb 2026 the report COLLAPSES identical
+  rows into one row with a count in "Number of Person with Care Needs" (50 rows,
+  all fully blank: no age, gender/ethnicity '[Not Specified]', disability 'No';
+  none before Feb 2026). Each case is one person, so the count is the number
+  of identical cases collapsed together, not people per case (checked
+  2026-10-13: Jul 2026 has 42 cases in ADVICEPRO_CASEWORK, 19 report rows and
+  44 in the count). RECORD_WEIGHT = that count, which restores the collapsed
+  rows: SUM(RECORD_WEIGHT) counts people (= cases). Without it recent months
+  would be undercounted. No demographic profile is spread over several people:
+  every collapsed row is blank.
 
   LIMITS (report has no case reference): LA_NAME is NULL and ORG_NAME is a
   fixed label, so AdvicePro rows cannot be sliced by local authority or member

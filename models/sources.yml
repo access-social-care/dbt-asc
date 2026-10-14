@@ -227,9 +227,11 @@ sources:
 
       - name: advicepro_demographics_persons
         description: |
-          Client demographics with people-with-care-needs count, from AdvicePro
-          report HS6T5CH9. Roughly one row per case, rolling extract (rows from
-          2025-01), full replace on each load by
+          Client demographics with a count column, from AdvicePro report
+          HS6T5CH9. Roughly one row per case, rolling extract (rows from
+          2025-01). Since Feb 2026 identical blank rows are collapsed into one
+          row whose count is the number of cases collapsed (each case is one
+          person), full replace on each load by
           loaders/load_advicepro_persons_to_snowflake.R. NO case reference: it
           cannot be joined to advicepro_casework and has no LA or member.
           '[Not Specified]' placeholders are loaded as NULL. Used by
@@ -240,7 +242,7 @@ sources:
           - name: case_open_date
             description: Case opened (DATE)
           - name: persons
-            description: Number of people with care needs on the case (>= 1)
+            description: Number of identical cases collapsed into this row (>= 1; each case is one person)
           - name: age_range
             description: Client age band
           - name: gender

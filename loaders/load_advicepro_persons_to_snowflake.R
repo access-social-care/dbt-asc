@@ -5,9 +5,10 @@
 ##
 ## Why a second demographics table: report FD7DXGL4 (ADVICEPRO_DEMOGRAPHICS)
 ## only covers cases that have an equalities form (about a quarter of cases) and
-## has no persons count. HS6T5CH9 is roughly one row per case and carries
-## "Number of Person with Care Needs", which the ILTA return counts (people, not
-## cases). It has NO case reference, so it cannot be joined to ADVICEPRO_CASEWORK
+## has no count column. HS6T5CH9 is roughly one row per case. Since Feb 2026 it
+## collapses identical blank rows into one row and puts the number collapsed in
+## "Number of Person with Care Needs" (each case is one person), so the count must
+## be kept to avoid undercounting recent months. It has NO case reference, so it cannot be joined to ADVICEPRO_CASEWORK
 ## and carries no local authority or member. Used by stg_ilta_advicepro only.
 ##
 ## Strategy: full replace on every run (the report is a rolling extract).

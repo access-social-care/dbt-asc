@@ -8,9 +8,9 @@ Source models (dbt-asc, schema `PUBLIC_ILTA` in `ANALYTICS`; dbt prefixes the ta
 | `dim_ilta_category` | feature x ILTA category (incl. status rows) | Dimension |
 | (build in Power BI) `DimDate` | one row per month | Date table |
 
-`record_count` = AccessAva conversations + AdvicePro **people with care needs** (persons on each case). **Not unique clients.** Say so on every page footer.
+`record_count` = AccessAva conversations + AdvicePro people (one per case). **Not unique clients.** Say so on every page footer.
 
-**AdvicePro source = report HS6T5CH9** (chosen 2026-10-12; loaded by `loaders/load_advicepro_persons_to_snowflake.R` to `CASEWORK.ADVICEPRO_DEMOGRAPHICS_PERSONS`). It is about one row per case with a persons count, but has **no case reference**: AdvicePro rows have **no LA and no member** (`LA_NAME` NULL, `ORG_NAME` = `AdvicePro (no member in report)`), rows only start Jan 2025, and one demographic profile is applied to every person on a case. LA and member slicers therefore only work for AccessAva.
+**AdvicePro source = report HS6T5CH9** (chosen 2026-10-12; loaded by `loaders/load_advicepro_persons_to_snowflake.R` to `CASEWORK.ADVICEPRO_DEMOGRAPHICS_PERSONS`). It is about one row per case, but since Feb 2026 identical blank rows are collapsed into one row with a count (`RECORD_WEIGHT` restores them, so the total counts people = cases), and it has **no case reference**: AdvicePro rows have **no LA and no member** (`LA_NAME` NULL, `ORG_NAME` = `AdvicePro (no member in report)`), and rows only start Jan 2025. LA and member slicers therefore only work for AccessAva.
 
 ## Model
 
