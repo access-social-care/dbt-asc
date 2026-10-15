@@ -207,7 +207,11 @@ sources:
       - name: advicepro_demographics
         description: |
           Client demographic fields per case.
-          One row per case_reference (full replace on each load).
+          One row per case_reference (full replace on each load). The report returns
+          one row per case x disability type (multi-select); the loader collapses
+          them to one row per case, with all ticked types joined by ';' in
+          what_type_of_disability_do_you_consider_you_have (a ';' = more than one type).
+          Only cases with something filled in have a row; every answered value is here.
           Loaded by loaders/load_advicepro_demographics_to_snowflake.R from AdvicePro report FD7DXGL4.
           Joined to advicepro_casework on case_reference in stg_advicepro.
           117 rows as of first load (May 2026). Column names confirmed from live run.
@@ -224,35 +228,6 @@ sources:
             description: Disability type description
           - name: ethnic_origin
             description: Client ethnicity
-
-      - name: advicepro_demographics_persons
-        description: |
-          Client demographics with a count column, from AdvicePro report
-          HS6T5CH9. Roughly one row per case, rolling extract (rows from
-          2025-01). Since Feb 2026 identical blank rows are collapsed into one
-          row whose count is the number of cases collapsed (each case is one
-          person), full replace on each load by
-          loaders/load_advicepro_persons_to_snowflake.R. NO case reference: it
-          cannot be joined to advicepro_casework and has no LA or member.
-          '[Not Specified]' placeholders are loaded as NULL. Used by
-          stg_ilta_advicepro only (ILTA return counts people, not cases).
-        columns:
-          - name: record_id
-            description: Row number within the load (not stable across loads)
-          - name: case_open_date
-            description: Case opened (DATE)
-          - name: persons
-            description: Number of identical cases collapsed into this row (>= 1; each case is one person)
-          - name: age_range
-            description: Client age band
-          - name: gender
-            description: Client gender
-          - name: ethnic_origin
-            description: Client ethnicity
-          - name: do_you_have_a_disability
-            description: Yes/No. Forced in AdvicePro, so 'No' is often a default.
-          - name: what_type_of_disability_do_you_consider_you_have
-            description: Disability type (optional, often blank even when 'Yes')
 
       - name: advicepro_casework
         # loaded_at_field removed: opened_on is DATE not TIMESTAMP; dbt source freshness
@@ -506,46 +481,6 @@ sources:
             warn_after: {count: 45, period: day}
             error_after: {count: 75, period: day}
 
-      - name: asc_workforce
-        description: |
-          Adult social care workforce by LA (Skills for Care).
-          Annual, typically released Oct/Nov.
-          Source: https://www.skillsforcare.org.uk
-        config:
-          freshness:
-            warn_after: {count: 400, period: day}
-            error_after: {count: 550, period: day}
-
-      - name: people_receiving_care
-        description: |
-          People receiving adult social care — STS001 (new clients) + LTS001
-          (long-term), tidy format, merged into one source-tagged frame. The
-          ``metric`` column distinguishes the two (new_clients / long_term_clients).
-          Annual DHSC activity report, typically ~June.
-          Source: https://www.gov.uk/government/statistics/adult-social-care-activity-report-england
-        config:
-          freshness:
-            warn_after: {count: 400, period: day}
-            error_after: {count: 550, period: day}
-        columns:
-          - name: metric
-            description: Which source file this row came from — new_clients (STS001) or long_term_clients (LTS001).
-            tests:
-              - accepted_values:
-                  values: ["new_clients", "long_term_clients"]
-                  config:
-                    severity: warn
-
-      - name: dols
-        description: |
-          Deprivation of Liberty Safeguards — applications received and granted by LA.
-          Annual DHSC publication, typically ~March.
-          Source: https://www.gov.uk/government/statistics/deprivation-of-liberty-safeguards-england
-        config:
-          freshness:
-            warn_after: {count: 400, period: day}
-            error_after: {count: 550, period: day}
-
       - name: population
         description: |
           Mid-year population estimates by LA (NOMIS NM_31_1), total all ages.
@@ -576,16 +511,6 @@ sources:
         config:
           freshness: null  # multi-year cadence, no researched next-release date yet
 
-      - name: ombudsman
-        description: |
-          LGSCO adult social care complaint reviews — complaints decided by LA.
-          Annual LGSCO publication, typically ~December.
-          Source: https://www.lgo.org.uk/information-centre/reports/annual-review-reports/adult-social-care-reviews
-        config:
-          freshness:
-            warn_after: {count: 400, period: day}
-            error_after: {count: 550, period: day}
-
       - name: discharge_delays
         description: |
           LIMITATION — metric discontinued. Delays attributable to ASC was a DTOC metric
@@ -601,33 +526,6 @@ sources:
       # ascof/safeguarding_adults below, not separate sources — not onboarded
       # separately. signal_processing (a third repo, separate ingest) was
       # deliberately left out of this pass per user instruction.
-      - name: ascof
-        description: |
-          Measures from the Adult Social Care Outcomes Framework (ASCOF), by LA.
-          DHSC took over publishing from NHS Digital starting FY2024/25.
-          No stated next-release date found at onboarding (2026-08-18) — freshness
-          thresholds below are a provisional wide-margin backstop, not evidence-based.
-          Source: https://www.gov.uk/government/statistics/measures-from-the-adult-social-care-outcomes-framework-england-2024-to-2025
-        config:
-          freshness:
-            warn_after: {count: 400, period: day}
-            error_after: {count: 550, period: day}
-
-      - name: safeguarding_adults
-        description: |
-          Safeguarding Adults Collection (SAC) — S42 enquiries and safeguarding
-          concerns by LA. NHS Digital, annual (Apr-Mar reporting year).
-          Latest full report at onboarding (2026-08-18) is 2023-24; the 2024-25
-          collection was still mid-submission (SDCS). No stated next-release
-          date found — freshness thresholds below are a provisional backstop.
-          Known data-quality flag on the source: Derby City Council demographics
-          in Tables 4-6.
-          Source: https://digital.nhs.uk/data-and-information/publications/statistical/safeguarding-adults
-        config:
-          freshness:
-            warn_after: {count: 400, period: day}
-            error_after: {count: 550, period: day}
-
       - name: self_funders
         description: |
           Self-funded vs state-funded community care service users, by REGION
@@ -767,6 +665,114 @@ sources:
             description: Vintage identifier (with _source_url).
           - name: _source_url
             description: Resolved download URL for this vintage.
+
+      - name: asc_workforce
+        description: |
+          Adult social care workforce by local authority (Skills for Care),
+          annual (October). Moved here from REFERENCE.PUBLIC 2026-10-14: each
+          year is a different period, and the publisher renames ~120 of ~430
+          columns between years, so it lands LONG (id columns + metric/value),
+          one vintage per (_publication_date, _source_url). Filtered to the
+          headline grain: Area level = local authority, Sector = "Local
+          Authority", all services, all job roles.
+          `metric` is the column header AS PUBLISHED that year, so the same
+          measure can carry different names across vintages (e.g. 2024-25
+          "Turnover rate (LA + IND only)" vs 2025-26 "Leavers (LA + IND only)").
+          Reconcile vintages in staging, not here.
+          OPEN QUESTION (queried with Skills for Care): in 2025-26 the
+          "Turnover rate" and "Leavers" headers may be swapped (Leavers holds a
+          rate, Turnover rate a count). Do not build on either metric until
+          confirmed.
+          Source: https://www.skillsforcare.org.uk/Adult-Social-Care-Workforce-Data/workforceintelligence/About-our-data/Data-downloads.aspx
+        config:
+          freshness: null  # append-only; LAST_ALTERED reflects the last vintage appended, not source age
+        columns:
+          - name: area
+            description: LA name as published (not standardised to CASSR names here).
+          - name: area_code
+            description: Published area (ONS) code.
+          - name: fiscal_year
+            description: Reporting year as published, e.g. "2025/26".
+          - name: metric
+            description: Column header as published that year (normalised only by the checker's tidy melt). Names differ between vintages.
+          - name: value
+            description: Raw cell value as published, untyped. "*" means suppressed.
+          - name: _publication_date
+            description: Vintage identifier (with _source_url), e.g. "2025-26".
+          - name: _source_url
+            description: Resolved download URL for this vintage.
+
+      - name: people_receiving_care
+        description: |
+          Landed append-only (EXTERNAL_DATA.LANDING) since 2026-10-14: each
+          annual release is a different period, kept as its own vintage
+          (_publication_date + _source_url). All columns are untyped text.
+          People receiving adult social care — STS001 (new clients) + LTS001
+          (long-term), tidy format, merged into one source-tagged frame. The
+          ``metric`` column distinguishes the two (new_clients / long_term_clients).
+          Annual DHSC activity report, typically ~June.
+          Source: https://www.gov.uk/government/statistics/adult-social-care-activity-report-england
+        config:
+          freshness: null  # append-only; LAST_ALTERED reflects the last vintage appended, not source age
+        columns:
+          - name: metric
+            description: Which source file this row came from — new_clients (STS001) or long_term_clients (LTS001).
+            tests:
+              - accepted_values:
+                  values: ["new_clients", "long_term_clients"]
+                  config:
+                    severity: warn
+
+      - name: dols
+        description: |
+          Landed append-only (EXTERNAL_DATA.LANDING) since 2026-10-14: each
+          annual release is a different period, kept as its own vintage
+          (_publication_date + _source_url). All columns are untyped text.
+          Deprivation of Liberty Safeguards — applications received and granted by LA.
+          Annual DHSC publication, typically ~March.
+          Source: https://www.gov.uk/government/statistics/deprivation-of-liberty-safeguards-england
+        config:
+          freshness: null  # append-only; LAST_ALTERED reflects the last vintage appended, not source age
+
+      - name: ombudsman
+        description: |
+          Landed append-only (EXTERNAL_DATA.LANDING) since 2026-10-14: each
+          annual release is a different period, kept as its own vintage
+          (_publication_date + _source_url). All columns are untyped text.
+          LGSCO adult social care complaint reviews — complaints decided by LA.
+          Annual LGSCO publication, typically ~December.
+          Source: https://www.lgo.org.uk/information-centre/reports/annual-review-reports/adult-social-care-reviews
+        config:
+          freshness: null  # append-only; LAST_ALTERED reflects the last vintage appended, not source age
+
+      - name: ascof
+        description: |
+          Landed append-only (EXTERNAL_DATA.LANDING) since 2026-10-14: each
+          annual release is a different period, kept as its own vintage
+          (_publication_date + _source_url). All columns are untyped text.
+          Measures from the Adult Social Care Outcomes Framework (ASCOF), by LA.
+          DHSC took over publishing from NHS Digital starting FY2024/25.
+          No stated next-release date found at onboarding (2026-08-18) — freshness
+          thresholds below are a provisional wide-margin backstop, not evidence-based.
+          Source: https://www.gov.uk/government/statistics/measures-from-the-adult-social-care-outcomes-framework-england-2024-to-2025
+        config:
+          freshness: null  # append-only; LAST_ALTERED reflects the last vintage appended, not source age
+
+      - name: safeguarding_adults
+        description: |
+          Landed append-only (EXTERNAL_DATA.LANDING) since 2026-10-14: each
+          annual release is a different period, kept as its own vintage
+          (_publication_date + _source_url). All columns are untyped text.
+          Safeguarding Adults Collection (SAC) — S42 enquiries and safeguarding
+          concerns by LA. NHS Digital, annual (Apr-Mar reporting year).
+          Latest full report at onboarding (2026-08-18) is 2023-24; the 2024-25
+          collection was still mid-submission (SDCS). No stated next-release
+          date found — freshness thresholds below are a provisional backstop.
+          Known data-quality flag on the source: Derby City Council demographics
+          in Tables 4-6.
+          Source: https://digital.nhs.uk/data-and-information/publications/statistical/safeguarding-adults
+        config:
+          freshness: null  # append-only; LAST_ALTERED reflects the last vintage appended, not source age
 
   # ── Monday.com boards (ETL/ELT-relevant only) ────────────────────────────────
   # Only boards that feed data pipelines or are consumed by loaders/exports.

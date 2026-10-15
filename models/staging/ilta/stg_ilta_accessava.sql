@@ -17,8 +17,8 @@
 
   DISABILITY combines two raw fields: disability_n_y (Yes/No) and
   disability_text (type). 'No' -> 'No disability'; a stated type -> its mapped
-  label; 'Yes' with no type -> 'Other' (disability confirmed, type not given;
-  ILTA has no unspecified line - rule confirmed 2026-10-12).
+  label; 'Yes' with no type -> 'Other' (disability confirmed, type not given -
+  a modelling choice, ILTA has no unspecified bucket).
 
   Demographics are <5% populated in AccessAva; most rows are 'Not recorded'.
   The coarse AGE column (Under 18 / 18-64 / 65+) is NOT used: it cannot be
@@ -37,7 +37,6 @@ SELECT
     DATE_TRUNC('month', a.created_at)::DATE                 AS MONTH_DATE,
     a.la_name                                               AS LA_NAME,
     a.tenant_name                                           AS ORG_NAME,
-    1                                                       AS RECORD_WEIGHT,
 
     'Not collected'                                         AS GENDER,
     CASE WHEN NULLIF(TRIM(a.age_range), '') IS NULL THEN 'Not recorded'

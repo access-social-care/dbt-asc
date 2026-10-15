@@ -100,32 +100,31 @@ and no mapping change recovers it.
 
 ## One AdvicePro case = one person
 
-Every AdvicePro case is **one person**. No case has more than one human attached.
+Every AdvicePro case is **one person**. No case has more than one human attached. Counting
+cases is counting people.
 
-AdvicePro report `HS6T5CH9` (`CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS_PERSONS`) has a column
-called "Number of Person with Care Needs". **Despite its name it is not a headcount of the
-people on a case.** It is how many identical cases were merged into that one row. Since
-Feb 2026 the report merges cases that look exactly the same (no age, gender and ethnicity
-`[Not Specified]`, disability `No`) into a single row and writes the number merged in that
-column. A row with 5 means five separate cases, each one person.
-
-Checked 2026-10-13: Jul 2026 has 42 cases in `ADVICEPRO_CASEWORK`, 19 rows in the report and
-44 in the column. All 50 rows with a value above 1 are fully blank, and none is dated before
-Feb 2026.
+**Why a report can show more rows than cases.** AdvicePro's "What type of disability" question
+is multi-select, so equalities reports list a case once per type ticked. Checked 2026-10-13
+for Apr-Sep 2026: the per-case report has 214 rows but only 187 distinct cases (186 once the
+test case `Test4` is removed); the 27 extra rows are 9 cases with two types, 6 with three and
+2 with four. The casework table and the annual AdvicePro report agree on the 187.
 
 What this means for the models:
-- To count cases from this report, **add up the column** (`RECORD_WEIGHT` in
-  `stg_ilta_advicepro`). Counting rows undercounts from Feb 2026 on (Apr-Sep 2026: 139 rows,
-  214 cases).
-- Do not describe the column as "people per case" or spread one demographic profile over
-  several people. Say "identical cases merged".
-- Repeated rows for one case in report `FD7DXGL4` are also one person: the rows differ only
-  by which disability types were ticked (several can be), e.g. case ASC001042.
-- Report rows have no case reference, so they cannot be joined to `ADVICEPRO_CASEWORK` and
-  carry no LA or member.
+- Count **distinct case references**, never report rows. A person with several types ticked
+  is one person: `stg_ilta_advicepro` puts them under `Other` for disability.
+- The loader for report `FD7DXGL4` collapses the repeated rows to one row per case and joins
+  the types with `;`. FD7DXGL4 only has cases where something was filled in, but it holds every
+  answered value (it reproduces the full per-case report line for line); casework is the
+  denominator.
+- A version of the equalities report **without a Case Reference column** (the API run of
+  `HS6T5CH9`) cannot be de-duplicated: it merges identical blank rows into one row with a
+  "Number of Person with Care Needs" count (not a headcount) and still repeats multi-type
+  cases. Do not use it for counts.
 - AdvicePro forces a Yes/No on "Do you have a disability", so a `No` with nothing else
   answered is a default, not a response (155 of 161 `No` in Apr-Sep 2025). ILTA models treat
   it as `Not recorded`.
+- AdvicePro test cases (`Test1`, `Test3`, `Test4`...) exist in `ADVICEPRO_CASEWORK`; exclude
+  them from any count.
 
 ---
 

@@ -34,4 +34,3 @@ CROSS JOIN (
     UNION ALL SELECT 'Unmapped', 91
     UNION ALL SELECT 'Not collected', 92
 ) s
-

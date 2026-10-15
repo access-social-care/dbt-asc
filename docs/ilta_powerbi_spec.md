@@ -10,7 +10,7 @@ Source models (dbt-asc, schema `PUBLIC_ILTA` in `ANALYTICS`; dbt prefixes the ta
 
 `record_count` = AccessAva conversations + AdvicePro people (one per case). **Not unique clients.** Say so on every page footer.
 
-**AdvicePro source = report HS6T5CH9** (chosen 2026-10-12; loaded by `loaders/load_advicepro_persons_to_snowflake.R` to `CASEWORK.ADVICEPRO_DEMOGRAPHICS_PERSONS`). It is about one row per case, but since Feb 2026 identical blank rows are collapsed into one row with a count (`RECORD_WEIGHT` restores them, so the total counts people = cases), and it has **no case reference**: AdvicePro rows have **no LA and no member** (`LA_NAME` NULL, `ORG_NAME` = `AdvicePro (no member in report)`), and rows only start Jan 2025. LA and member slicers therefore only work for AccessAva.
+**AdvicePro source = report FD7DXGL4** (`CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS`), joined to the casework table, which is the denominator (every case, test cases excluded). Every AdvicePro case is one person, so cases = people. FD7DXGL4 only has rows for cases where something was filled in, but it holds every answered value: for Apr-Sep 2026 it reproduces the full per-case report line for line. The loader keeps one row per case with all ticked disability types joined by `;`.
 
 ## Model
 
@@ -73,7 +73,7 @@ RETURN [Records] - answered
 ## Rules baked into the data (tell users)
 
 - **AccessAva has no gender.** Rows are `Not collected`; they are excluded from gender completeness. Gender is AdvicePro only.
-- **Disability** is derived (rules agreed 2026-10-12): a stated type -> its ILTA label; 'No' -> No disability; 'Yes' with no type -> **Other** (ILTA has no unspecified line; confirmed 2026-10-12).
+- **Disability** is derived (rules agreed 2026-10-12/13), in this order: 'No' with at least one of age/gender/ethnicity answered -> No disability; two or more types ticked -> **Other** (same as the maps' 'Multiple Impairments'); one type -> its ILTA label; 'Yes' with no type -> **Other** (ILTA has no unspecified line); a 'No' with nothing else answered -> Not recorded.
 - **AdvicePro default 'No'.** AdvicePro records 'No' to "Do you have a disability" as a default (155 of 161 'No' answers in Apr-Sep 2025 had age, gender and ethnicity all blank). A 'No' with none of those answered is **Not recorded**, not No disability. AccessAva 'No' is always taken at face value.
 - **Prefer not to say on the return = total - answered lines.** Last year's return was built this way (every record that is not in one of the answered categories counts as Prefer not to say, including blanks). Use `ILTA Prefer not to say (return basis)` below, not the `Prefer not to say` category row, which only counts explicit answers.
 - **Age is lossy.** Source bands do not match ILTA bands: AccessAva `26-45` -> 25-34, `46-64` -> 45-54; AdvicePro `35 - 49` -> 35-44, `50 - 64` -> 55-64. AccessAva `65+` -> 65-74 (cannot give 75 Plus). Treat age counts as indicative.
@@ -82,7 +82,7 @@ RETURN [Records] - answered
 
 ## Data volumes (dev, 2026-10-01)
 
-AccessAva about 27,000 conversations, under 2% with any demographic; AdvicePro 694 people across 606 report rows (Jan 2025 on), about 13-20% with age or gender and under 8% with ethnicity. Expect "Consistently collected = No" for all four sections, and small numbers per category. Do not publish LA x month cuts externally: the mart is **not small-number suppressed** (counts of 1-2 occur). Grant the `PUBLIC_ILTA` schema only to the BI reader role, or add suppression (`la_suppress` pattern) before widening access.
+AccessAva about 27,000 conversations, under 2% with any demographic; AdvicePro about 190 cases per six months, roughly a quarter with any demographic answered. Expect "Consistently collected = No" for all four sections, and small numbers per category. Do not publish LA x month cuts externally: the mart is **not small-number suppressed** (counts of 1-2 occur). Grant the `PUBLIC_ILTA` schema only to the BI reader role, or add suppression (`la_suppress` pattern) before widening access.
 
 ## Known map defects (REFERENCE.PUBLIC, fix at source; not changed here)
 

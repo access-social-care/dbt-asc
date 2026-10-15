@@ -108,7 +108,6 @@ dbt-asc/
 │
 ├── loaders/                  # R scripts: extract from APIs, load to Snowflake RAW, and export marts out
 │   ├── load_advicepro_demographics_to_snowflake.R  # AdvicePro FD7DXGL4 → CASEWORK.ADVICEPRO_DEMOGRAPHICS
-│   ├── load_advicepro_persons_to_snowflake.R       # AdvicePro HS6T5CH9 → CASEWORK.ADVICEPRO_DEMOGRAPHICS_PERSONS (ILTA; count of collapsed identical cases)
 │   ├── load_casework_locality_to_snowflake.R       # AdvicePro PWVDK69X → CASEWORK.CASEWORK_LOCALITY (county, ward)
 │   ├── load_member_orgs_to_snowflake.R             # Monday.com → REFERENCE.MEMBER_ORGANISATIONS
 │   ├── export_la_queries_to_s3.R                   # Stage 3: all la_product mart tables → S3 + Redis
@@ -217,7 +216,6 @@ R scripts in `loaders/` extract from upstream APIs and write raw tables to Snowf
 **Stage 1 - source and derived loads** (in dependency order):
 - `load_member_orgs_to_snowflake.R` - Monday.com board → `REFERENCE.MEMBER_ORGANISATIONS`
 - `load_advicepro_demographics_to_snowflake.R` - AdvicePro API → `CASEWORK.ADVICEPRO_DEMOGRAPHICS` (full replace)
-- `load_advicepro_persons_to_snowflake.R` - AdvicePro report HS6T5CH9 (count column collapses identical blank cases; no case reference) → `CASEWORK.ADVICEPRO_DEMOGRAPHICS_PERSONS` (full replace); feeds `stg_ilta_advicepro` only
 - `load_casework_locality_to_snowflake.R` - reads case postcodes written by the demographics loader, looks each one up via [findthatpostcode.uk](https://findthatpostcode.uk), stores county/ward/etc. as `CASEWORK.CASEWORK_LOCALITY`. Must run after the demographics loader.
 
 **Why is the postcode lookup needed?** AdvicePro stores cases with the client's postcode, not their local authority or county. There is no geography field in the raw AdvicePro data. The locality loader bridges this gap. AccessAva (the chatbot) is different - it already knows which LA a user belongs to (set at login) and resolves its own locality via `chatbot_data`'s own loader, so this repo's loaders don't touch AccessAva at all.
