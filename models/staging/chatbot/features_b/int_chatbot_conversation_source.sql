@@ -8,12 +8,15 @@
   Read from the source table, not stg_chatbot_transcript, for the same
   reason: transcripts the base drops (test users, no tenant) still get a row,
   as in R. Empty strings become NULL, as in ACCESSAVA after the R pipeline's
-  data.csv round trip. One row per transcript with a referring page.
+  data.csv round trip. Soft-deleted Fivetran rows are dropped before the
+  latest-row pick: some live transcripts also have a newer deleted twin.
+  One row per transcript with a referring page.
 */
 
 with src as (
-    select id, referring_page, _fivetran_deleted
+    select id, referring_page
     from {{ source('chatbot_postgres', 'actions_transcript') }}
+    where not coalesce(_fivetran_deleted, false)
     qualify row_number() over (partition by id order by _fivetran_synced desc nulls last) = 1
 )
 
@@ -25,4 +28,4 @@ select
     nullif(case when instr(referring_page, '?') > 0
                 then substr(referring_page, instr(referring_page, '?') + 1) end, '') as referring_page_parameters
 from src
-where referring_page is not null and not coalesce(_fivetran_deleted, false)
+where referring_page is not null
