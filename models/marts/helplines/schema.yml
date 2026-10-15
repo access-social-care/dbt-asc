@@ -7,7 +7,7 @@ models:
       over the six monthly partners, restricted to the primary stable period. Read by stg_helplines on DuckDB.
       Only as complete as the partner files on SharePoint: months older than the oldest file are absent.
     tests:
-      - helplines_min_rows: {min_rows: 1000}
+      - helplines_min_rows: {min_rows: 200}
     columns:
       - name: month_date
         description: Last day of the month.

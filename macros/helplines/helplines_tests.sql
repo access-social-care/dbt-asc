@@ -35,11 +35,12 @@
     having count(*) < {{ min_rows }}
 {% endtest %}
 
-{# Every non-null value of `column_name` is an ONS-style code: one letter and eight digits. #}
+{# Every non-null value is an ONS-style code (one letter, eight digits). The literal NA is allowed: the Mencap/RNIB seed stores it and Snowflake holds it too. #}
 {% test helplines_gss_code(model, column_name) %}
     select {{ column_name }}
     from {{ model }}
     where {{ column_name }} is not null
+      and {{ column_name }} <> 'NA'
       and not regexp_matches({{ column_name }}, '^[A-Z][0-9]{8}$')
 {% endtest %}
 
