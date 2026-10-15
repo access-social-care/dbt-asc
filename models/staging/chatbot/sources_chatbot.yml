@@ -1,0 +1,56 @@
+version: 2
+
+# DuckDB/MotherDuck-only sources for the chatbot base layer. Snowflake keeps
+# reading AVA.PUBLIC via the `accessava` source in models/sources.yml; these
+# sources are disabled there.
+
+sources:
+  - name: chatbot_postgres
+    description: |
+      Fivetran copy of the AccessAva Postgres database (asc-saas-db-prod) in
+      MotherDuck. Replaces the direct RPostgres pulls in ascFuncs
+      (chatbot_get_transcript / chatbot_get_transcript_event /
+      chatbot_get_secondary_tables) and their rds caches and last_id_*.txt
+      position files.
+
+      Fivetran adds _fivetran_deleted (soft delete), _fivetran_synced and
+      ctid_fivetran_id. JSON columns arrive as VARCHAR. Always filter
+      _fivetran_deleted; the base models do this.
+    database: "{{ 'raw' if target.type == 'duckdb' else 'ava' }}"
+    schema: "{{ 'aa_postgres_public' if target.type == 'duckdb' else 'public' }}"
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+    tables:
+      - name: actions_transcript
+        description: One row per widget session. conversation_record and raw_tracker_record are JSON as VARCHAR.
+      - name: actions_transcriptevent
+        description: One row per bot or user message within a transcript. raw_record is JSON as VARCHAR.
+      - name: tenants_tenant
+        description: Tenant (partner organisation) dimension. organisation_name is the reporting tenant name.
+      - name: actions_locality
+      - name: actions_localauthority
+      - name: tenants_partnerprofile
+      - name: tenants_group
+      - name: tenants_subgroup
+      - name: tenants_membership
+      - name: actions_intentmapping
+      - name: nlu_conversationsession
+      - name: nlu_nluconversationlog
+
+  - name: chatbot_landing
+    description: |
+      Inputs seeded into analytics_dev.landing because the producer does not
+      write MotherDuck yet. STOPGAP: Contentful must eventually land in
+      MotherDuck natively; until then scripts/seed/seed_contentful.py copies
+      AVA.PUBLIC.CONTENTFUL_DATA (Snowflake, read-only) and Snowflake cannot be
+      retired.
+    database: "{{ target.database if target.type == 'duckdb' else 'ava' }}"
+    schema: landing
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+    tables:
+      - name: contentful_data
+        description: |
+          Contentful content metadata, lower-case column names (as
+          .load_contentful_data() returns them). Key columns used by the base
+          layer: id (Contentful entry id) and lettercode.
