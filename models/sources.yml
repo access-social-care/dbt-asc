@@ -207,7 +207,11 @@ sources:
       - name: advicepro_demographics
         description: |
           Client demographic fields per case.
-          One row per case_reference (full replace on each load).
+          One row per case_reference (full replace on each load). The report returns
+          one row per case x disability type (multi-select); the loader collapses
+          them to one row per case, with all ticked types joined by ';' in
+          what_type_of_disability_do_you_consider_you_have (a ';' = more than one type).
+          Only cases with something filled in have a row; every answered value is here.
           Loaded by loaders/load_advicepro_demographics_to_snowflake.R from AdvicePro report FD7DXGL4.
           Joined to advicepro_casework on case_reference in stg_advicepro.
           117 rows as of first load (May 2026). Column names confirmed from live run.
