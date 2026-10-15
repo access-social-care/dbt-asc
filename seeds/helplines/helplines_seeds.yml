@@ -1,0 +1,26 @@
+version: 2
+
+# Reference data lifted from the ascFuncs package (data/*.rda), which the R readers
+# use inside local_authority_fixer() and cassr_converter(). Interim: the proper home
+# is REFERENCE in MotherDuck (read-only to dbt); until then they are seeds so the
+# dbt layer can reproduce the R local authority resolution exactly.
+# Regenerate from ascFuncs when its la_25 / all_geo_to_la_map / la_to_cassr change.
+seeds:
+  - name: helplines_ons_lad_2025
+    description: ascFuncs::la_25 reduced to distinct (LAD25CD, LAD25NM). Stage 1 of local_authority_fixer().
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+      tags: ['helplines']
+      column_types: {lad_code: varchar, lad_name: varchar}
+  - name: helplines_geo_to_la
+    description: ascFuncs::all_geo_to_la_map (la_code, original_name, lower-cased name). Stage 2 and 3 of local_authority_fixer().
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+      tags: ['helplines']
+      column_types: {la_code: varchar, geo_name: varchar, name: varchar}
+  - name: helplines_la_to_cassr
+    description: ascFuncs::la_to_cassr (lower-case LA name to CASSR name). Used by cassr_converter().
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+      tags: ['helplines']
+      column_types: {la_name: varchar, cassr_name: varchar}

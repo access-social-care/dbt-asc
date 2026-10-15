@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  # Same database and schema as the `reference` source in models/sources.yml; a second
+  # name only because that file is shared. DuckDB-only: Snowflake keeps the R readers.
+  - name: reference_la
+    database: reference
+    schema: main
+    tables:
+      - name: la_name_map
+        description: ascFuncs::la_map (lower-case raw LA text to a name in all_geo_to_la_map, or 999). Stage 3 of local_authority_fixer().
