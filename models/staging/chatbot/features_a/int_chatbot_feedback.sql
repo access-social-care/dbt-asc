@@ -12,11 +12,18 @@
   docs/parity/chatbot_features_a.md.
 */
 
-with ev as (
+with base as (
     select
-        transcript_id, id, text, raw_record,
-        lag(text, 1) over (partition by transcript_id order by id) as prev_text
+        transcript_id, id, text,
+        contains(raw_record, 'user_feedback') as has_user_feedback
     from {{ ref('stg_chatbot_transcript_event') }}
+),
+
+ev as (
+    select
+        *,
+        lag(text, 1) over (partition by transcript_id order by id) as prev_text
+    from base
 ),
 
 picked as (
@@ -25,7 +32,7 @@ picked as (
         lag(lower(text), 1) over (order by id) as prev_lower
     from ev
     where coalesce(contains(prev_text, 'Please type in your feedback below'), false)
-       or coalesce(contains(raw_record, 'user_feedback'), false)
+       or coalesce(has_user_feedback, false)
 )
 
 select

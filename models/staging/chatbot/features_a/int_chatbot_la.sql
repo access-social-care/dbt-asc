@@ -21,11 +21,18 @@
   Output la_name is the CASSR name.
 */
 
-with ev as (
+with base as (
     select
-        transcript_id, id, text, raw_record, tenant_name,
-        lead(text, 1) over (partition by transcript_id order by id) as next_text
+        transcript_id, id, text, tenant_name,
+        contains(raw_record, 'local_authority_name') as has_la_name
     from {{ ref('stg_chatbot_transcript_event') }}
+),
+
+ev as (
+    select
+        *,
+        lead(text, 1) over (partition by transcript_id order by id) as next_text
+    from base
 ),
 
 a as (
@@ -39,7 +46,7 @@ a as (
 b as (
     select transcript_id, text as la_text, min(id) as pos
     from ev
-    where contains(raw_record, 'local_authority_name')
+    where has_la_name
     group by transcript_id, text
 ),
 
