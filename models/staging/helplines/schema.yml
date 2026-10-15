@@ -1,0 +1,188 @@
+version: 2
+
+# Tests here replace the R promote scripts' checks (shape check, row-count guard) and the
+# KNOWN_GOOD_UT1 guard in partner_readers.R. Floors are set just under the row counts at build time:
+# they catch a source table vanishing or a filter breaking, not normal growth.
+
+models:
+  - name: helplines_la_lookup
+    description: ascFuncs::local_authority_fixer() as a lookup (lower-cased raw LA text to LA code and name).
+    columns:
+      - name: original_lower
+        tests: [not_null]
+      - name: la_code
+        tests: [not_null, helplines_gss_code]
+
+  - name: helplines_partner_history
+    description: All eight partners in the nine canonical history columns.
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 600000}
+    columns:
+      - name: org
+        tests:
+          - not_null
+          - accepted_values: {values: [ia, cab, ealing, age_uk, carers_uk, scope, mencap, rnib]}
+      - name: la_code
+        tests: [helplines_gss_code]
+
+  - name: helplines_stable_period
+    description: Stable periods of the six monthly partners; the first row is the primary period.
+    tests:
+      - helplines_min_rows: {min_rows: 1, config: {severity: warn}}
+
+  - name: partner_history_ia
+    description: Independent Age. Rolling 12-month workbooks, unique() over topic/county/day as in parse_ia().
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 5000}
+    columns:
+      - name: org
+        tests:
+          - accepted_values: {values: ['ia']}
+          - not_null
+      - name: date
+        description: Rows without a date are removed by this reader.
+        tests: [not_null]
+      - name: ut1
+        description: NULL = unmapped (T1, T2) pair; kept so the mapping triage can see it.
+        tests:
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Cuts', 'Funding disputes', 'Unmapped', 'Unmatched', 'UNMATCHED', 'unmatched', 'Assessment', 'Information seeking', 'Advocacy/Appropriate Person']
+      - name: la_code
+        tests: [helplines_gss_code]
+
+  - name: partner_history_cab
+    description: Citizens Advice. Tableau exports, Health & community care, nine English regions, one row per client.
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 450000}
+    columns:
+      - name: org
+        tests:
+          - accepted_values: {values: ['cab']}
+          - not_null
+      - name: ut1
+        description: NULL = unmapped (T1, T2) pair; kept so the mapping triage can see it.
+        tests:
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Cuts', 'Funding disputes', 'Unmapped', 'Unmatched', 'UNMATCHED', 'unmatched', 'Assessment', 'Information seeking', 'Advocacy/Appropriate Person']
+      - name: la_code
+        tests: [helplines_gss_code]
+
+  - name: partner_history_ealing
+    description: Ealing Advice Consortium. Old and new export layouts, CASSR name only (no LA code).
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 1400}
+    columns:
+      - name: org
+        tests:
+          - accepted_values: {values: ['ealing']}
+          - not_null
+      - name: ut1
+        description: NULL = unmapped (T1, T2) pair; kept so the mapping triage can see it.
+        tests:
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Cuts', 'Funding disputes', 'Unmapped', 'Unmatched', 'UNMATCHED', 'unmatched', 'Assessment', 'Information seeking', 'Advocacy/Appropriate Person']
+      - name: la_code
+        tests: [helplines_gss_code]
+
+  - name: partner_history_age_uk
+    description: Age UK. T1 and T3 workbooks paired by date key and joined on case number.
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 75000}
+    columns:
+      - name: org
+        tests:
+          - accepted_values: {values: ['age_uk']}
+          - not_null
+      - name: date
+        description: Rows without a date are removed by this reader.
+        tests: [not_null]
+      - name: ut1
+        description: NULL = unmapped (T1, T2) pair; kept so the mapping triage can see it.
+        tests:
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Cuts', 'Funding disputes', 'Unmapped', 'Unmatched', 'UNMATCHED', 'unmatched', 'Assessment', 'Information seeking', 'Advocacy/Appropriate Person']
+      - name: la_code
+        tests: [helplines_gss_code]
+
+  - name: partner_history_carers_uk
+    description: Carers UK. Monthly, Civi and cumulative annual reports; England rows only; no LA.
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 2000}
+    columns:
+      - name: org
+        tests:
+          - accepted_values: {values: ['carers_uk']}
+          - not_null
+      - name: ut1
+        description: NULL = unmapped (T1, T2) pair; kept so the mapping triage can see it.
+        tests:
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Cuts', 'Funding disputes', 'Unmapped', 'Unmatched', 'UNMATCHED', 'unmatched', 'Assessment', 'Information seeking', 'Advocacy/Appropriate Person']
+      - name: la_code
+        tests: [helplines_gss_code]
+
+  - name: partner_history_scope
+    description: Scope. Every data sheet of every monthly drop; Wales removed.
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 5500}
+    columns:
+      - name: org
+        tests:
+          - accepted_values: {values: ['scope']}
+          - not_null
+      - name: ut1
+        description: NULL = unmapped (T1, T2) pair; kept so the mapping triage can see it.
+        tests:
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Cuts', 'Funding disputes', 'Unmapped', 'Unmatched', 'UNMATCHED', 'unmatched', 'Assessment', 'Information seeking', 'Advocacy/Appropriate Person']
+      - name: la_code
+        tests: [helplines_gss_code]
+
+  - name: partner_history_mencap
+    description: Mencap (annual grain). Seeded history plus annual submissions; fuller month wins.
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 8000}
+    columns:
+      - name: org
+        tests:
+          - accepted_values: {values: ['mencap']}
+          - not_null
+      - name: date
+        description: Rows without a date are removed by this reader.
+        tests: [not_null]
+      - name: ut1
+        description: NULL = unmapped (T1, T2) pair; kept so the mapping triage can see it.
+        tests:
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Cuts', 'Funding disputes', 'Unmapped', 'Unmatched', 'UNMATCHED', 'unmatched', 'Assessment', 'Information seeking', 'Advocacy/Appropriate Person']
+      - name: la_code
+        tests: [helplines_gss_code]
+
+  - name: partner_history_rnib
+    description: RNIB (annual grain). Seeded history plus annual Data sheet submissions; fuller month wins.
+    tests:
+      - helplines_canonical_shape
+      - helplines_min_rows: {min_rows: 4000}
+    columns:
+      - name: org
+        tests:
+          - accepted_values: {values: ['rnib']}
+          - not_null
+      - name: date
+        description: Rows without a date are removed by this reader.
+        tests: [not_null]
+      - name: ut1
+        description: NULL = unmapped (T1, T2) pair; kept so the mapping triage can see it.
+        tests:
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Cuts', 'Funding disputes', 'Unmapped', 'Unmatched', 'UNMATCHED', 'unmatched', 'Assessment', 'Information seeking', 'Advocacy/Appropriate Person']
+      - name: la_code
+        tests: [helplines_gss_code]

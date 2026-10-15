@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: helplines_aggregated_full
+    description: |
+      HELPLINES_AGGREGATED_FULL rebuilt from the Fivetran partner files: one row per LA x month x UT1
+      over the six monthly partners, restricted to the primary stable period. Read by stg_helplines on DuckDB.
+      Only as complete as the partner files on SharePoint: months older than the oldest file are absent.
+    tests:
+      - helplines_min_rows: {min_rows: 1000}
+    columns:
+      - name: month_date
+        description: Last day of the month.
+        tests: [not_null]
+      - name: ut1
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Assessments', 'Care plan', 'Carers', 'Charging', 'Direct payments', 'Information Seeking', 'Legal issues and complaints', 'Mental capacity', 'Safeguarding', 'Advocacy', 'COVID-19', 'Unmapped']
+      - name: n
+        description: Record count (FLOAT in Snowflake).
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true: {expression: "> 0"}
+      - name: la_name
+        description: CASSR name; NULL for region-level partners (CAB, Carers UK, Ealing) and unresolved LAs.
