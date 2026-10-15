@@ -54,19 +54,10 @@ SELECT
     l.county                                                                AS LOCALITY_NAME
 
 FROM (
-    SELECT
-        la_name,
-        created_at,
-        age,
-        lettercode,
-        transcript_id,
-        topic_entry_point,
-        TRIM(f.value::VARCHAR)                                              AS topic_value
-    FROM {{ source('accessava', 'accessava') }},
-    LATERAL FLATTEN(
-        INPUT  => SPLIT(topic_entry_point, '; '),
-        OUTER  => TRUE
-    ) f
+    {{ split_to_rows(
+        source('accessava', 'accessava'), 'topic_entry_point', '; ',
+        ['la_name', 'created_at', 'age', 'lettercode', 'transcript_id', 'topic_entry_point'],
+        'topic_value', outer=true) }}
     -- No la_name filter here (removed 2026-09-17) — see header comment.
     -- NULL la_name rows are kept, not dropped.
 ) a

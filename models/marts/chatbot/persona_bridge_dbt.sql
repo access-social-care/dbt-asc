@@ -19,8 +19,10 @@
 
 SELECT
     transcript_id                    AS TRANSCRIPT_ID,
-    TRIM(f.value::STRING)            AS PERSONA
-FROM {{ source('accessava', 'accessava') }},
-LATERAL FLATTEN(INPUT => SPLIT(persona, ';')) f
+    persona_value                    AS PERSONA
+FROM (
+    {{ split_to_rows(source('accessava', 'accessava'), 'persona', ';',
+                     ['transcript_id', 'persona'], 'persona_value') }}
+) s
 WHERE persona IS NOT NULL
-  AND TRIM(f.value::STRING) != ''
+  AND persona_value != ''

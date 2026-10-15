@@ -123,6 +123,57 @@ with a missing package error if this step is skipped.
 
 ---
 
+## DuckDB / MotherDuck target (experiment; Snowflake stays live as fallback)
+
+Decisions only. Setup and commands: [profiles/profiles.yml](profiles/profiles.yml).
+
+- One dbt project, two targets. Runs are selected by tag (`external`, `chatbot`, `casework`,
+  `helplines`, `wisetime`, `cross_source`), never by forking models.
+- Every command carries `--profiles-dir profiles --target duckdb`. The default target in
+  `~/.dbt` is Snowflake prod, so a bare run would write to prod.
+- One MotherDuck database, `analytics_dev`, with two schemas: `staging` (staging, intermediate,
+  seeds) and `marts` (marts, normalised). Snowflake layers, roles and envs are not recreated.
+  `raw`, `raw_external`, `reference` are inputs and are never written by dbt.
+- `generate_schema_name` has a `target.type == 'duckdb'` branch ahead of the Snowflake logic. The
+  Snowflake branch is a grant boundary and stays byte-identical; verify any edit with
+  `dbt ls --target prod --output json --output-keys name schema database resource_type`
+  before and after (diff must be empty).
+- Sources are target-conditional: accessava -> `raw.aa_postgres_public`, helplines ->
+  `raw.share_point` (one table per partner file), reference -> `reference.main`, external ->
+  `raw_external.main`.
+- Not on MotherDuck yet, so disabled on duckdb (`enabled: target.type != 'duckdb'`) rather than
+  half-ported: AdvicePro casework, WiseTime, and every model that depends on them
+  (`casework`, `cross_source` tags: la_product, ilta marts, `helplines_advicepro_accessava`).
+  `stg_cld_*` are disabled too: the landing tables are absent.
+- `raw_external.main.cld_*` already holds the typed, deduped `stg_cld_*` output (parity-checked
+  against `EXTERNAL_DATA.RAW`), so on duckdb `norm_cld_*` read it directly via `cld_raw_relation`.
+- `accessava` and `accessava_locality` do not exist in `raw.aa_postgres_public` (Snowflake builds
+  them in the R chatbot loader from the Postgres tables). The chatbot models need them built
+  in SQL before they can run on duckdb.
+- Snowflake-only SQL goes through cross-adapter macros (`split_to_rows`) so the Snowflake
+  compiled path is unchanged. `::FLOAT` became `::DOUBLE` (identical type on Snowflake, but
+  32-bit on DuckDB, which broke rate parity).
+- Parity rule: DuckDB values equal Snowflake unless a bug is found. Document the bug; fix it on
+  the DuckDB side only if it is clearly a bug. Checked with `scripts/parity/parity.py`
+  (Snowflake read-only); summaries in `docs/parity/`. Tolerances: float rel 1e-9, timestamps to
+  the second in UTC, column names case-insensitive, `''` vs NULL reported separately.
+
+### Rules carried in model code (stated so a port keeps them)
+
+- AccessAva `topic_entry_point` is a `'; '`-delimited tag list; one row per topic, a NULL list
+  keeps one row. NULL topic -> `Unmatched`; topic missing from `topic_entry_point_map` ->
+  `Unmapped`. Map join is case-insensitive on trimmed text; UT2 `'NA'` means NULL.
+- Rows with NULL `la_name` are kept in `stg_accessava` (deliberate, 2026-09-17).
+- Persona is a `';'`-delimited tag list: one bridge row per transcript and trimmed non-empty
+  value; `persona_dim_dbt` ids are alphabetical `ROW_NUMBER`.
+- CLD: publisher "Total" metric rows are excluded; suppressed `[c]` cells stay NULL, never 0;
+  duplicate vintages resolve to the latest `publication_date` (text, `YYYY-MM`), then `run_at`;
+  the dedupe key uses `COALESCE(area_code, area_name)` because ADASS Region rows have no code.
+- CLD rates are monthly counts over frozen published denominators (inner join, so areas with no
+  denominator are dropped), rounded to 2 dp.
+
+---
+
 ## Audit triggers
 
 Re-read and update this charter when:
@@ -130,3 +181,4 @@ Re-read and update this charter when:
 - `la_suppress` threshold changes (currently 5)
 - A new mart model is added
 - The pipeline cron schedule changes
+- A source moves onto or off MotherDuck (update the disabled-on-duckdb list above)

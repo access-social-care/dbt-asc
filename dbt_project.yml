@@ -35,11 +35,31 @@ models:
         # Combined cross-source staging for LA Data Product
         +materialized: table
         +schema: la_product_staging
+        # DuckDB: tags select runs (`--select tag:chatbot`); casework and
+        # cross_source are disabled because their inputs are not on MotherDuck.
+        stg_accessava:
+          +tags: ['chatbot']
+        stg_helplines:
+          +tags: ['helplines']
+        stg_advicepro:
+          +tags: ['casework']
+          +enabled: "{{ target.type != 'duckdb' }}"
+        stg_la_topic_mentions:
+          +tags: ['cross_source']
+          +enabled: "{{ target.type != 'duckdb' }}"
+        stg_la_topic_mentions_glos:
+          +tags: ['cross_source']
+          +enabled: "{{ target.type != 'duckdb' }}"
 
       ilta:
         # Per-record ILTA-mapped demographics (AccessAva + AdvicePro).
         +materialized: table
         +schema: ilta_staging
+        stg_ilta_accessava:
+          +tags: ['chatbot']
+        stg_ilta_advicepro:
+          +tags: ['casework']
+          +enabled: "{{ target.type != 'duckdb' }}"
 
       acs_helplines:
         # Cross-source UT1/UT2-aggregated staging (Helplines + AdvicePro + AccessAva)
@@ -51,6 +71,8 @@ models:
         # the next `dbt run` recreates the old typo'd schema.
         +materialized: table
         +schema: staging_asc_helplines
+        +tags: ['cross_source']
+        +enabled: "{{ target.type != 'duckdb' }}"
 
       external:
         # Typed/deduped views over the append-only external landing tables in
@@ -76,8 +98,13 @@ models:
         # so this follows that convention rather than inventing one.
         # EXTERNAL_DATA_DEV must exist first - see
         # loaders/sql/create_external_data_database.sql.
-        +database: "{{ 'EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV' }}"
+        +database: "{{ target.database if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
         +materialized: table
+        +tags: ['external']
+        # DuckDB: raw_external.main.cld_* already holds this layer's output
+        # (typed, deduped), and the landing tables it is built from are not on
+        # MotherDuck. norm_cld_* reads raw_external directly; see CHARTER.md.
+        +enabled: "{{ target.type != 'duckdb' }}"
         # Resolves to EXTERNAL_DATA.RAW verbatim rather than PUBLIC_RAW, via
         # the allowlist in macros/generate_schema_name.sql. Do not change
         # this value without reading that macro's header comment first.
@@ -91,8 +118,9 @@ models:
         # kinds of number and should not both be reachable by one careless
         # SELECT *, per the four-stage architecture documented in
         # loaders/sql/create_external_data_database.sql.
-        +database: "{{ 'EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV' }}"
+        +database: "{{ target.database if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
         +materialized: table
+        +tags: ['external']
         +schema: normalised
 
     intermediate:
@@ -105,6 +133,8 @@ models:
         # split (staging vs intermediate folders), not a schema/location change.
         +materialized: table
         +schema: la_product_staging
+        +tags: ['cross_source']
+        +enabled: "{{ target.type != 'duckdb' }}"
 
     marts:
       # Business logic and aggregations
@@ -113,6 +143,7 @@ models:
       chatbot:
         # Chatbot-specific marts
         +materialized: table
+        +tags: ['chatbot']
 
       la_product:
         # Pre-materialized views for LA Data Product PoC (35 models = 7 views x 5 windows)
@@ -123,6 +154,8 @@ models:
         # admin#5).
         +materialized: table
         +schema: la_product
+        +tags: ['cross_source']
+        +enabled: "{{ target.type != 'duckdb' }}"
 
       ilta:
         # ILTA funder-reporting marts consumed by Power BI. Own schema so the
@@ -130,6 +163,8 @@ models:
         # (counts by LA x month x category) - see docs/ilta_powerbi_spec.md.
         +materialized: table
         +schema: ilta
+        +tags: ['cross_source']
+        +enabled: "{{ target.type != 'duckdb' }}"
 
       analytics:
         # Unsuppressed / ad-hoc cross-LA analysis marts. Deliberately a separate schema
@@ -137,6 +172,8 @@ models:
         # the DPIA-scoped S3 export role) do not also grant access to unsuppressed data.
         +materialized: table
         +schema: analytics
+        +tags: ['cross_source']
+        +enabled: "{{ target.type != 'duckdb' }}"
 
 # Quoting behavior
 # Use Snowflake defaults (unquoted = UPPERCASE)
@@ -150,10 +187,12 @@ quoting:
 seeds:
   asc:
     ilta_categories:
+      +tags: ['cross_source']
       # ILTA category list + label order. Same schema as stg_ilta_* (the only
       # models that read it); PUBLIC is not writable by ROLE_DEV.
       +schema: ilta_staging
     ilta_map_supplement:
+      +tags: ['cross_source']
       # Gap-fills for REFERENCE.PUBLIC.ILTA_MAP_* (see ilta_lookup macro).
       +schema: ilta_staging
     cld_published_population:
@@ -168,8 +207,9 @@ seeds:
       # never changes is a constant; re-fetching it every quarter forever
       # would be pointless work and would imply a freshness it does not have.
       # Regenerate it only if DHSC actually revises the denominator.
-      +database: "{{ 'EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV' }}"
+      +database: "{{ target.database if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
       +schema: normalised
+      +tags: ['external']
       +column_types:
         area_code: varchar(9)
         area_name: varchar(128)
@@ -177,4 +217,17 @@ seeds:
         dimension: varchar(32)
         dimension_value: varchar(128)
         population_base: varchar(32)
-        population: number(38,0)
+        population: "{{ 'bigint' if target.type == 'duckdb' else 'number(38,0)' }}"
+
+# Singular tests whose inputs are disabled on the DuckDB target (landing tables,
+# stg_cld_*, cross-source marts are not on MotherDuck).
+tests:
+  asc:
+    assert_cld_metric_parses:
+      +enabled: "{{ target.type != 'duckdb' }}"
+    assert_no_total_metric_in_cld:
+      +enabled: "{{ target.type != 'duckdb' }}"
+    warn_cld_incomplete_vintage_window:
+      +enabled: "{{ target.type != 'duckdb' }}"
+    warn_unmapped_ut1_share:
+      +enabled: "{{ target.type != 'duckdb' }}"
