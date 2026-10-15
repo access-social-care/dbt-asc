@@ -30,6 +30,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import parity as p  # noqa: E402
 
+if not os.environ.get("MOTHERDUCK_TOKEN"):
+    raise SystemExit("MOTHERDUCK_TOKEN not set")  # never fall back to a browser login
+
+
 COLS = ["t1", "t2", "ut1", "ut2", "la_name", "la_code"]
 
 

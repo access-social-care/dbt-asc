@@ -18,6 +18,10 @@ import duckdb
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import parity as p  # noqa: E402
 
+if not os.environ.get("MOTHERDUCK_TOKEN"):
+    raise SystemExit("MOTHERDUCK_TOKEN not set")  # never fall back to a browser login
+
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PARTNERS = ["IA", "CAB", "EALING", "AGEUK", "CARERSUK", "SCOPE", "MENCAP", "RNIB"]
 
@@ -57,7 +61,10 @@ def main():
         g = srun(f'SELECT "DATE", "MONTH", "UT1", "LA_NAME", "LA_CODE", "ORG", COUNT(*) FROM HELPLINES.PUBLIC.PARTNER_HISTORY_{part} GROUP BY ALL')
         tmp = f"grouped_{part.lower()}"
         loc.execute(f"CREATE TEMP TABLE {tmp} (d DATE, m VARCHAR, ut1 VARCHAR, la_name VARCHAR, la_code VARCHAR, org VARCHAR, n BIGINT)")
-        loc.executemany(f"INSERT INTO {tmp} VALUES (?,?,?,?,?,?,?)", g)
+        for i in range(0, len(g), 400):  # multi-row inserts: executemany is far too slow here
+            chunk = g[i:i + 400]
+            loc.execute(f"INSERT INTO {tmp} VALUES " + ",".join(["(?,?,?,?,?,?,?)"] * len(chunk)),
+                        [v for row in chunk for v in row])
         loc.execute("INSERT INTO analytics_dev.staging.helplines_partner_history "
                     f"SELECT d, m, NULL, NULL, ut1, NULL, la_name, la_code, org FROM {tmp}, range({tmp}.n)")
     loc.execute("CREATE TABLE analytics_dev.staging.helplines_stable_period AS " + compiled("staging/helplines/helplines_stable_period.sql"))
