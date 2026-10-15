@@ -7,7 +7,9 @@
   Distinct (supercategory, category, csi) combinations per transcript in
   first-seen (event id) order; the three columns are aligned lists joined
   with '; ' (R: paste(collapse = "; ")). Unmapped values become the text
-  'NA', as paste() renders NA in R.
+  'NA', as paste() renders NA in R; a column that is only 'NA' is NULL, as it
+  is in ACCESSAVA after the R pipeline's data.csv round trip (read.csv parses
+  the text NA as missing). Mixed lists such as 'x; NA' are kept.
 */
 
 with contentful as (
@@ -47,8 +49,8 @@ mapped as (
 
 select
     transcript_id,
-    string_agg(coalesce(supercategory, 'NA'), '; ' order by first_id, supercategory, category, csi) as supercategories,
-    string_agg(coalesce(category, 'NA'), '; ' order by first_id, supercategory, category, csi) as categories,
-    string_agg(coalesce(csi, 'NA'), '; ' order by first_id, supercategory, category, csi) as csis
+    nullif(string_agg(coalesce(supercategory, 'NA'), '; ' order by first_id, supercategory, category, csi), 'NA') as supercategories,
+    nullif(string_agg(coalesce(category, 'NA'), '; ' order by first_id, supercategory, category, csi), 'NA') as categories,
+    nullif(string_agg(coalesce(csi, 'NA'), '; ' order by first_id, supercategory, category, csi), 'NA') as csis
 from mapped
 group by 1
