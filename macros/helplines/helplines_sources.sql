@@ -9,7 +9,9 @@
     columns           dict  alias -> list of candidate raw column names (first one a
                       table has is used; none => NULL). Layouts drift between drops.
     exclude_contains  list of substrings; matching tables are skipped (e.g. data dictionaries)
-    include_contains  optional list; if set a table must contain at least one
+    include_contains  optional list; if set a table name must contain at least one
+    require_columns   raw column names a table must have to count as a data sheet (skips
+                      pivots, dictionaries and other sheets that share the file prefix)
 
   Every column comes out as VARCHAR (Fivetran types vary per table: the same field is
   VARCHAR in one drop and TIMESTAMPTZ in the next). TIMESTAMPTZ values are rendered as
@@ -17,7 +19,7 @@
   Excel datetimes as UTC). Empty strings become NULL, as readxl reads blank cells.
   Also returned: source_table (file/sheet identity) and source_line (Fivetran _line).
 #}
-{% macro helplines_sources(prefix, columns, exclude_contains=[], include_contains=none) -%}
+{% macro helplines_sources(prefix, columns, exclude_contains=[], include_contains=none, require_columns=[]) -%}
     {%- set db = var('helplines_raw_database', 'raw') -%}
     {%- set sch = var('helplines_raw_schema', 'share_point') -%}
     {%- set aliases = columns.keys() | list -%}
@@ -44,6 +46,11 @@
             {%- endif -%}
         {%- endfor -%}
     {%- endif -%}
+    {%- for t in tables.keys() | list -%}
+        {%- for rc in require_columns -%}
+            {%- if rc not in tables[t] and t in tables -%}{%- do tables.pop(t) -%}{%- endif -%}
+        {%- endfor -%}
+    {%- endfor -%}
     {%- if tables | length == 0 %}
     select
         cast(null as varchar) as source_table,

@@ -13,7 +13,7 @@ read as ROLE_DEV through parity.sf_connect (same JWT auth as ~/.dbt/profiles.yml
       --sf HELPLINES.PUBLIC.PARTNER_HISTORY_CAB --out docs/parity/helplines_cab_months.csv
 
 UT1 spellings the aggregator normalises (Information seeking, Assessment, Advocacy/Appropriate
-Person) and a literal 'NA' in UT2 (history written before the CSV map, 2026-09-17) are compared
+Person), the Scope sentinel '999.0' and a literal 'NA' in UT2 (history written before the CSV map, 2026-09-17) are compared
 normalised on both sides; a PARITY month whose raw UT labels still differ is flagged in the last
 column as map vintage drift (Snowflake history is never retagged when the map changes).
 
@@ -50,6 +50,8 @@ def sql(kind, table):
         if not raw and c == "ut1":  # label spellings the aggregator normalises anyway
             x = (f"CASE WHEN {x} = 'Advocacy/Appropriate Person' THEN 'Advocacy' WHEN {x} = 'Assessment' THEN 'Assessments' "
                  f"WHEN {x} = 'Information seeking' THEN 'Information Seeking' ELSE {x} END")
+        if c == "t2":  # Scope history stores the sentinel as '999.0' (numeric round trip in R); same value
+            x = f"CASE WHEN {x} = '999.0' THEN '999' ELSE {x} END"
         if not raw and c == "ut2":  # literal 'NA' predates the CSV map (2026-09-17); R now writes NULL
             x = f"NULLIF({x}, 'NA')"
         return f"COALESCE(CAST({x} AS VARCHAR), '~N~')"
@@ -115,7 +117,7 @@ def main():
     ns = sum(int(r[3] or 0) for r in rows)
     print(f"{a.duck} vs {a.sf.upper()}: rows duck={nd} sf={ns}; months {tally}")
     for r in rows:
-        if r[1] not in ("PARITY", "ONLY_SNOWFLAKE") or os.environ.get("PARITY_VERBOSE"):
+        if os.environ.get("PARITY_VERBOSE") and r[1] not in ("PARITY", "ONLY_SNOWFLAKE"):
             print("  ", r)
     if a.out:
         os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
