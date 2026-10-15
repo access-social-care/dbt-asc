@@ -1,0 +1,20 @@
+version: 2
+
+# Reference data the chatbot_la() port needs. STOPGAP: both are ascFuncs package
+# data (R/globals.R TENANT_LA_MAP, data/la_to_cassr). Replace with REFERENCE
+# tables once they land in MotherDuck natively; regenerate when ascFuncs changes.
+seeds:
+  - name: chatbot_la_to_cassr
+    description: ascFuncs::la_to_cassr reduced to (lower-case la_name, cassr_name). Used by cassr_converter().
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+      schema: staging
+      tags: ['chatbot']
+      column_types: {la_name: varchar, cassr_name: varchar}
+  - name: chatbot_tenant_la_map
+    description: ascFuncs::TENANT_LA_MAP, known tenant -> local authority associations used when no postcode LA was given.
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+      schema: staging
+      tags: ['chatbot']
+      column_types: {tenant_name: varchar, la_name: varchar}
