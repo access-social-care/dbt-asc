@@ -9,7 +9,7 @@ Per month and per side: row count plus an order-independent hash of the grouped 
 which column differs. Everything is pushed down as aggregates; SELECT only; Snowflake is
 read as ROLE_DEV through parity.sf_connect (same JWT auth as ~/.dbt/profiles.yml).
 
-  python scripts/parity/helplines_parity.py --duck analytics_dev.staging.partner_history_cab \
+  python scripts/parity/helplines_parity.py --duck staging.main.partner_history_cab \
       --sf HELPLINES.PUBLIC.PARTNER_HISTORY_CAB --out docs/parity/helplines_cab_months.csv
 
 UT1 spellings the aggregator normalises (Information seeking, Assessment, Advocacy/Appropriate

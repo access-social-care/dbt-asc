@@ -57,16 +57,15 @@ def main():
             cur.close()
 
     loc = duckdb.connect(":memory:")
-    loc.execute("ATTACH ':memory:' AS analytics_dev")
-    loc.execute("CREATE SCHEMA analytics_dev.staging")
-    loc.execute("CREATE SCHEMA analytics_dev.marts")
+    loc.execute("ATTACH ':memory:' AS staging")
+    loc.execute("ATTACH ':memory:' AS marts")
     loc.execute("ATTACH ':memory:' AS reference")
     # la_to_cassr lives in MotherDuck reference: take it read-only
     md = p.duck_connect()
     rows = md.execute("SELECT la_name, cassr_name FROM reference.main.la_to_cassr").fetchall()
     loc.execute("CREATE TABLE reference.main.la_to_cassr (la_name VARCHAR, cassr_name VARCHAR)")
     loc.executemany("INSERT INTO reference.main.la_to_cassr VALUES (?, ?)", rows)
-    loc.execute("CREATE TABLE analytics_dev.staging.helplines_partner_history "
+    loc.execute("CREATE TABLE staging.main.helplines_partner_history "
                 "(date DATE, month VARCHAR, t1 VARCHAR, t2 VARCHAR, ut1 VARCHAR, ut2 VARCHAR, la_name VARCHAR, la_code VARCHAR, org VARCHAR)")
     for part in PARTNERS:
         cache = os.environ.get("HELPLINES_CHECK_CACHE")  # optional pickle dir: Snowflake pulls take minutes
@@ -82,15 +81,15 @@ def main():
             chunk = g[i:i + 400]
             loc.execute(f"INSERT INTO {tmp} VALUES " + ",".join(["(?,?,?,?,?,?,?)"] * len(chunk)),
                         [v for row in chunk for v in row])
-        loc.execute("INSERT INTO analytics_dev.staging.helplines_partner_history "
+        loc.execute("INSERT INTO staging.main.helplines_partner_history "
                     f"SELECT d, m, NULL, NULL, ut1, NULL, la_name, la_code, org FROM {tmp}, range({tmp}.n)")
     log("history expanded")
-    loc.execute("CREATE TABLE analytics_dev.staging.helplines_stable_period AS " + compiled("staging/helplines/helplines_stable_period.sql"))
-    loc.execute("CREATE TABLE analytics_dev.marts.helplines_ongoing AS " + compiled("marts/helplines/helplines_ongoing.sql"))
+    loc.execute("CREATE TABLE staging.main.helplines_stable_period AS " + compiled("staging/helplines/helplines_stable_period.sql"))
+    loc.execute("CREATE TABLE marts.main.helplines_ongoing AS " + compiled("marts/helplines/helplines_ongoing.sql"))
     log("mart built")
-    period = loc.execute("SELECT * FROM analytics_dev.staging.helplines_stable_period LIMIT 3").fetchall()
+    period = loc.execute("SELECT * FROM staging.main.helplines_stable_period LIMIT 3").fetchall()
 
-    mine = loc.execute("SELECT month_date, ut1, la_name, n FROM analytics_dev.marts.helplines_ongoing").fetchall()
+    mine = loc.execute("SELECT month_date, ut1, la_name, n FROM marts.main.helplines_ongoing").fetchall()
     sf = srun("SELECT MONTH_DATE, UT1, LA_NAME, N FROM HELPLINES.PUBLIC.HELPLINES_AGGREGATED_FULL")
     key = lambda r: (str(r[0]), r[1], r[2] or "~N~", float(r[3]))
     A, B = sorted(map(key, mine)), sorted(map(key, sf))

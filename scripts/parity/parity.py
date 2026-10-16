@@ -4,7 +4,7 @@ Snowflake is READ-ONLY (ROLE_DEV, SELECT only, enforced in sf_query). Everything
 is pushed down as aggregates; no row data is fetched or written to the report.
 
 Usage (token + Snowflake env vars must already be set, never printed):
-  python scripts/parity/parity.py --duck analytics_dev.marts.norm_cld_assessments \
+  python scripts/parity/parity.py --duck marts.main.norm_cld_assessments \
       --sf EXTERNAL_DATA.NORMALISED.NORM_CLD_ASSESSMENTS \
       --keys area_code,area_unit,breakdown_dimension,breakdown_value,period_start \
       --out docs/parity/norm_cld_assessments.md
