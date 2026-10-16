@@ -1,4 +1,4 @@
-# Parity: `analytics_dev.staging.cld_published_population` vs `EXTERNAL_DATA.NORMALISED.CLD_PUBLISHED_POPULATION`
+# Parity: `staging.main.cld_published_population` vs `EXTERNAL_DATA.NORMALISED.CLD_PUBLISHED_POPULATION`
 
 - Date: 2026-10-15  |  Verdict: **PASS**
 - Rows: DuckDB 4510 vs Snowflake 4510 (match)

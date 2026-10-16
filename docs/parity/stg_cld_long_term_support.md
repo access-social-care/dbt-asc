@@ -1,4 +1,4 @@
-# Parity: `analytics_dev.staging.stg_cld_long_term_support` vs `EXTERNAL_DATA.RAW.STG_CLD_LONG_TERM_SUPPORT`
+# Parity: `staging.main.stg_cld_long_term_support` vs `EXTERNAL_DATA.RAW.STG_CLD_LONG_TERM_SUPPORT`
 
 - Date: 2026-10-15  |  Verdict: **PASS**
 - Rows: DuckDB 391950 vs Snowflake 391950 (match)

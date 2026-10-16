@@ -1,16 +1,16 @@
 # Parity summary: external data, reference data and freshness slice
 
-Date: 2026-10-15. `raw_external.main` holds 35 tables (32 + 3 CLD). DuckDB = MotherDuck `analytics_dev` (models) and `raw_external` / `reference` (sources). Snowflake read-only (ROLE_DEV). Per-table detail: the other files in this folder (summary only, no data rows).
+Date: 2026-10-15. `raw_external.main` holds 35 tables (32 + 3 CLD). DuckDB = MotherDuck `staging` and `marts` (models) and `raw_external` / `reference` (sources). Snowflake read-only (ROLE_DEV). Per-table detail: the other files in this folder (summary only, no data rows).
 
 ## Models built (`dbt build --target duckdb --select tag:external`: 43 of 43 PASS, 0 WARN)
 
 | model (DuckDB) | Snowflake equivalent | rows | key set | columns failing | verdict |
 |---|---|---|---|---|---|
-| `staging.stg_cld_assessments` | `EXTERNAL_DATA.RAW.STG_CLD_ASSESSMENTS` | 78390 = 78390 | match | 0 of 20 | PASS |
-| `staging.stg_cld_long_term_support` | `EXTERNAL_DATA.RAW.STG_CLD_LONG_TERM_SUPPORT` | 391950 = 391950 | match | 0 of 20 | PASS |
+| `staging.main.stg_cld_assessments` | `EXTERNAL_DATA.RAW.STG_CLD_ASSESSMENTS` | 78390 = 78390 | match | 0 of 20 | PASS |
+| `staging.main.stg_cld_long_term_support` | `EXTERNAL_DATA.RAW.STG_CLD_LONG_TERM_SUPPORT` | 391950 = 391950 | match | 0 of 20 | PASS |
 | `marts.norm_cld_assessments` | `EXTERNAL_DATA.NORMALISED.NORM_CLD_ASSESSMENTS` | 45063 = 45063 | match | 0 of 23 | PASS |
 | `marts.norm_cld_long_term_support` | `EXTERNAL_DATA.NORMALISED.NORM_CLD_LONG_TERM_SUPPORT` | 195733 = 195733 | match | 0 of 23 | PASS |
-| `staging.cld_published_population` (seed) | `EXTERNAL_DATA.NORMALISED.CLD_PUBLISHED_POPULATION` | 4510 = 4510 | match | 0 of 7 | PASS |
+| `staging.main.cld_published_population` (seed) | `EXTERNAL_DATA.NORMALISED.CLD_PUBLISHED_POPULATION` | 4510 = 4510 | match | 0 of 7 | PASS |
 
 `stg_cld_*` on DuckDB are pass-throughs over `raw_external.main.cld_*`, which already hold the stacked, typed, deduped output. The macro `cld_stacked_raw` renders the original Snowflake SQL on every other target. Parity of the pass-through is therefore parity of the loaded tables.
 
