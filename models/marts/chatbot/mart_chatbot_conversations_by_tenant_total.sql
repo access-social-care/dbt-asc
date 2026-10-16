@@ -22,7 +22,7 @@ SELECT
   MIN(created_at)                                          AS FIRST_CONVERSATION_DATE,
   MAX(created_at)                                          AS LAST_CONVERSATION_DATE,
   DATEDIFF('day', MIN(created_at), MAX(created_at))        AS DAYS_ACTIVE
-FROM {{ source('accessava', 'accessava') }}
+FROM {{ accessava_relation('accessava') }}
 WHERE tenant_name IS NOT NULL
 GROUP BY 1
 ORDER BY 2 DESC

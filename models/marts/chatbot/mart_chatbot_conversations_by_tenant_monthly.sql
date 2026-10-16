@@ -22,7 +22,7 @@ SELECT
   COUNT(DISTINCT transcript_id)             AS UNIQUE_CONVERSATIONS,
   MIN(created_at)                           AS FIRST_CONVERSATION_DATE,
   MAX(created_at)                           AS LAST_CONVERSATION_DATE
-FROM {{ source('accessava', 'accessava') }}
+FROM {{ accessava_relation('accessava') }}
 WHERE tenant_name IS NOT NULL
 GROUP BY 1, 2
 ORDER BY 2 DESC, 1

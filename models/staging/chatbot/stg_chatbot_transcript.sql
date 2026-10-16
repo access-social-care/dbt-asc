@@ -9,7 +9,8 @@
   copy of Postgres directly, so there is nothing to page or cache.
 
   Rules, in R order:
-    1. dedupe by id (R: !duplicated(id)); Fivetran soft deletes dropped.
+    1. drop Fivetran soft deletes, then dedupe by id keeping the latest live row
+       (R: !duplicated(id)).
     2. test-user removal: names miriam/fin/test/kari/testing taken from
        raw_tracker_record user_input (macro chatbot_tracker_name_answer).
     3. entry_day / entry_month / entry_week (UTC day, macros).
@@ -30,15 +31,17 @@
   TRUE for all 4.7M rows, so empty is '{}' or '[]'.
 */
 
-with src as (
+with live as (
+    -- Soft deletes are dropped BEFORE picking the latest row. Fivetran keys this
+    -- table by ctid (no primary key), so a Postgres UPDATE lands as a new live
+    -- row plus a soft-deleted twin of the old version, and the twin can carry
+    -- the newer _fivetran_synced. Latest-then-drop-deleted would lose the
+    -- transcript (b46e3c19-7a47-420b-b34b-9b85620be2ed was the only such id).
     select *
     from {{ source('chatbot_postgres', 'actions_transcript') }}
+    where not coalesce(_fivetran_deleted, false)
     qualify row_number() over (
-        partition by id order by _fivetran_synced desc nulls last, updated_at desc nulls last) = 1
-),
-
-live as (
-    select * from src where not coalesce(_fivetran_deleted, false)
+        partition by id order by updated_at desc nulls last, _fivetran_synced desc nulls last) = 1
 ),
 
 test_ids as (

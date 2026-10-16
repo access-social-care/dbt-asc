@@ -29,15 +29,13 @@
   identical either way (neither joins).
 */
 
-with src as (
+with live as (
+    -- Soft deletes dropped before the latest-row pick (see stg_chatbot_transcript).
     select *
     from {{ source('chatbot_postgres', 'actions_transcriptevent') }}
+    where not coalesce(_fivetran_deleted, false)
     qualify row_number() over (
         partition by id order by _fivetran_synced desc nulls last) = 1
-),
-
-live as (
-    select * from src where not coalesce(_fivetran_deleted, false)
 ),
 
 lagged as (

@@ -55,13 +55,13 @@ SELECT
 
 FROM (
     {{ split_to_rows(
-        source('accessava', 'accessava'), 'topic_entry_point', '; ',
+        accessava_relation('accessava'), 'topic_entry_point', '; ',
         ['la_name', 'created_at', 'age', 'lettercode', 'transcript_id', 'topic_entry_point'],
         'topic_value', outer=true) }}
     -- No la_name filter here (removed 2026-09-17) — see header comment.
     -- NULL la_name rows are kept, not dropped.
 ) a
-LEFT JOIN {{ source('accessava', 'accessava_locality') }} l
+LEFT JOIN {{ accessava_relation('accessava_locality') }} l
     ON a.transcript_id = l.transcript_id
 LEFT JOIN {{ source('reference', 'topic_entry_point_map') }} m
     ON LOWER(a.topic_value) = LOWER(TRIM(m.topic_entry_point))
