@@ -161,11 +161,16 @@ Decisions only. Setup and commands: [profiles/profiles.yml](profiles/profiles.ym
   `helplines`, `wisetime`, `cross_source`), never by forking models.
 - Every command carries `--profiles-dir profiles --target duckdb`. The default target in
   `~/.dbt` is Snowflake prod, so a bare run would write to prod.
-- One MotherDuck database, `analytics_dev`, with two schemas: `staging` (staging, intermediate,
-  seeds) and `marts` (marts, normalised). Snowflake layers, roles and envs are not recreated.
-  `raw`, `raw_external`, `reference` are inputs and are never written by dbt.
-- `generate_schema_name` has a `target.type == 'duckdb'` branch ahead of the Snowflake logic. The
-  Snowflake branch is a grant boundary and stays byte-identical; verify any edit with
+- Layers are MotherDuck DATABASES (owner convention), schema `main`: `raw` and `raw_external`
+  (inputs, including anything we land, e.g. `raw.contentful`, `raw.chatbot`), `staging`
+  (staging, intermediate, seeds, dbt tests), `marts` (marts and normalised), `reference`
+  (input). dbt writes only `staging` and `marts`. Snowflake layers, roles and envs are not
+  recreated. Connection: `path: md:staging` plus `attach: md:marts` in
+  [profiles/profiles.yml](profiles/profiles.yml) (`path: md:` alone is rejected by dbt-duckdb).
+- `generate_database_name` (new) routes by folder: marts/normalised models -> `marts`, all else
+  -> `staging`; non-duckdb returns dbt's default exactly. `generate_schema_name`'s duckdb branch
+  returns `main`, both ahead of the Snowflake logic. The Snowflake
+  branches is a grant boundary and stays byte-identical; verify any edit with
   `dbt ls --target prod --output json --output-keys name schema database resource_type`
   before and after (diff must be empty).
 - Sources are target-conditional: accessava -> `raw.aa_postgres_public`, helplines ->
