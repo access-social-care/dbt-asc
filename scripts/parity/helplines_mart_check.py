@@ -13,6 +13,7 @@ import argparse
 import os
 import sys
 
+import pickle
 import time
 
 import duckdb
@@ -68,7 +69,12 @@ def main():
     loc.execute("CREATE TABLE analytics_dev.staging.helplines_partner_history "
                 "(date DATE, month VARCHAR, t1 VARCHAR, t2 VARCHAR, ut1 VARCHAR, ut2 VARCHAR, la_name VARCHAR, la_code VARCHAR, org VARCHAR)")
     for part in PARTNERS:
-        g = srun(f'SELECT "DATE", "MONTH", "UT1", "LA_NAME", "LA_CODE", "ORG", COUNT(*) FROM HELPLINES.PUBLIC.PARTNER_HISTORY_{part} GROUP BY ALL')
+        cache = os.environ.get("HELPLINES_CHECK_CACHE")  # optional pickle dir: Snowflake pulls take minutes
+        cf = os.path.join(cache, f"{part}.pkl") if cache else None
+        g = pickle.load(open(cf, "rb")) if cf and os.path.exists(cf) else srun(f'SELECT "DATE", "MONTH", "UT1", "LA_NAME", "LA_CODE", "ORG", COUNT(*) FROM HELPLINES.PUBLIC.PARTNER_HISTORY_{part} GROUP BY ALL')
+        if cf and not os.path.exists(cf):
+            os.makedirs(cache, exist_ok=True)
+            pickle.dump(g, open(cf, "wb"))
         log(f"{part}: {len(g)} grouped rows from Snowflake")
         tmp = f"grouped_{part.lower()}"
         loc.execute(f"CREATE TEMP TABLE {tmp} (d DATE, m VARCHAR, ut1 VARCHAR, la_name VARCHAR, la_code VARCHAR, org VARCHAR, n BIGINT)")
@@ -95,6 +101,17 @@ def main():
         sb[r] = sb.get(r, 0) + 1
     only_a = sum(max(v - sb.get(k, 0), 0) for k, v in sa.items())
     only_b = sum(max(v - sa.get(k, 0), 0) for k, v in sb.items())
+    def by(rows, i):
+        d = {}
+        for r in rows:
+            d[r[i]] = d.get(r[i], 0) + r[3]
+        return d
+
+    def top(i, k=8):
+        a_, b_ = by(A, i), by(B, i)
+        diff = sorted(((a_.get(x, 0) - b_.get(x, 0), x) for x in set(a_) | set(b_)), key=lambda t: -abs(t[0]))
+        return [(x if i != 2 else (x if x == "~N~" else "LA"), round(dv)) for dv, x in diff[:k]]
+    diag = {"month": top(0, 6), "ut1": top(1, 9), "null-LA rows (sum n)": (round(by(A, 2).get("~N~", 0)), round(by(B, 2).get("~N~", 0)))}
     months_a, months_b = {r[0][:7] for r in A}, {r[0][:7] for r in B}
     text = [
         "# Mart logic check: dbt SQL on Snowflake's own partner history vs live HELPLINES_AGGREGATED_FULL", "",
@@ -102,6 +119,9 @@ def main():
         f"- Rows: dbt logic {len(A)} vs Snowflake mart {len(B)}; sum(n) {sum(r[3] for r in A):.0f} vs {sum(r[3] for r in B):.0f}",
         f"- Months: {len(months_a)} vs {len(months_b)}; months only in one side: {sorted(months_a ^ months_b)[:12]}",
         f"- Rows only in dbt logic: {only_a}; rows only in Snowflake mart: {only_b}",
+        f"- sum(n) difference (dbt minus Snowflake) by month: {diag['month']}",
+        f"- ... by UT1: {diag['ut1']}",
+        f"- sum(n) on NULL LA_NAME, dbt vs Snowflake: {diag['null-LA rows (sum n)']}",
         f"- Verdict: **{'PASS' if only_a == 0 and only_b == 0 else 'DIFFERS'}**",
     ]
     print("\n".join(text))
