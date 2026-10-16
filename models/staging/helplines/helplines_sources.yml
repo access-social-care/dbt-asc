@@ -9,3 +9,9 @@ sources:
     tables:
       - name: la_name_map
         description: ascFuncs::la_map (lower-case raw LA text to a name in all_geo_to_la_map, or 999). Stage 3 of local_authority_fixer().
+      - name: ons_lad_2025
+        description: ascFuncs::la_25 reduced to distinct (lad_code, lad_name). Stage 1 of local_authority_fixer(). Published once by scripts/seed/publish_la_reference.py.
+      - name: geo_to_la
+        description: ascFuncs::all_geo_to_la_map (la_code, geo_name, lower-cased name). Stages 2 and 3 of local_authority_fixer().
+      - name: la_to_cassr
+        description: ascFuncs::la_to_cassr (lower-case LA name to CASSR name). Used by cassr_converter().

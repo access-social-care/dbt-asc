@@ -50,11 +50,12 @@ def main():
     loc.execute("ATTACH ':memory:' AS analytics_dev")
     loc.execute("CREATE SCHEMA analytics_dev.staging")
     loc.execute("CREATE SCHEMA analytics_dev.marts")
-    # la_to_cassr is a seed: take it from MotherDuck read-only
+    loc.execute("ATTACH ':memory:' AS reference")
+    # la_to_cassr lives in MotherDuck reference: take it read-only
     md = p.duck_connect()
-    rows = md.execute("SELECT la_name, cassr_name FROM analytics_dev.staging.helplines_la_to_cassr").fetchall()
-    loc.execute("CREATE TABLE analytics_dev.staging.helplines_la_to_cassr (la_name VARCHAR, cassr_name VARCHAR)")
-    loc.executemany("INSERT INTO analytics_dev.staging.helplines_la_to_cassr VALUES (?, ?)", rows)
+    rows = md.execute("SELECT la_name, cassr_name FROM reference.main.la_to_cassr").fetchall()
+    loc.execute("CREATE TABLE reference.main.la_to_cassr (la_name VARCHAR, cassr_name VARCHAR)")
+    loc.executemany("INSERT INTO reference.main.la_to_cassr VALUES (?, ?)", rows)
     loc.execute("CREATE TABLE analytics_dev.staging.helplines_partner_history "
                 "(date DATE, month VARCHAR, t1 VARCHAR, t2 VARCHAR, ut1 VARCHAR, ut2 VARCHAR, la_name VARCHAR, la_code VARCHAR, org VARCHAR)")
     for part in PARTNERS:

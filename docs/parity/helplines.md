@@ -33,7 +33,7 @@ UT1 spelling variants the aggregator normalises, UT2 literal `NA` and Scope's `9
 | Scope | partner_history_scope | DIFFERS | 0 / 0 / 21 / 40 / 0 | LA name and code match in every month. 14 months: same counts, but T1 text differs (trailing spaces such as `direct payments `, relabelled topics) so rows fail the map. 7 months (2025-05..12): Snowflake holds an earlier export with different labels and counts; the SharePoint sheets are later re-exports |
 | Age UK | partner_history_age_uk | DIFFERS | 0 / 0 / 87 / 0 / 7 | Snowflake holds first-read snapshots; the SharePoint pairs are later re-exports (trailing spaces in T2, more LA filled, a few cases added or removed). ONLY_DUCKDB: 2019-01..03 and 2026-07..10, outside Snowflake history. Unrecoverable from raw |
 
-Mart (`marts.helplines_aggregated_full`, `staging.helplines_stable_period`): built (263 rows, 2024-04..2026-03, primary stable period 24 months,
+Mart (`marts.helplines_ongoing`, `staging.helplines_stable_period`): built (263 rows, 2024-04..2026-03, primary stable period 24 months,
 5.6 partners average). Month totals sit within 1-10% of Snowflake for 2024-04..2026-03 and differ where Age UK and Scope differ; Snowflake's mart
 spans 2020-01..2026-05 because its history is fuller. `scripts/parity/helplines_mart_check.py` (dbt SQL on Snowflake's own history vs the live
 mart) is written but NOT RUN: the MotherDuck daily compute limit was reached. Mart logic is therefore unverified in isolation.
@@ -60,3 +60,9 @@ stable period present. These replace the promote scripts' shape check and row-co
 ## Gaps
 
 Mart isolation check not run (limit). Age UK, Scope not reproducible from current raw. Pre-coverage months exist only in Snowflake. Pairing of Age UK files depends on Fivetran table names. Source tables are discovered at run time, so `dbt ls` shows no lineage to raw.
+
+## 2026-10-16 changes (owner decisions)
+
+- Mart renamed `helplines_aggregated_full` to `helplines_ongoing` (the State of the Nation output will be promoted alongside it). The Snowflake source keeps its table name.
+- Stable period now requires 6 partners (was 5, as in `data_discriminator.R`). The primary stable period shrinks from 2024-04..2026-03 (263 mart rows) to 2024-10..2025-12 (165 rows). This deliberately differs from Snowflake until the R is retired.
+- The ONS LAD, geography-to-LA and LA-to-CASSR lookups moved from dbt seeds to MotherDuck `reference.main` (`ons_lad_2025`, `geo_to_la`, `la_to_cassr`), published once by `scripts/seed/publish_la_reference.py`.

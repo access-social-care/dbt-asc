@@ -58,5 +58,5 @@
 
 {# cassr_converter(): lower-case the LA name, look up the CASSR name. NULL if absent. #}
 {% macro helplines_cassr_name(la_name_col) -%}
-    (select c.cassr_name from {{ ref('helplines_la_to_cassr') }} c where c.la_name = lower({{ la_name_col }}) limit 1)
+    (select c.cassr_name from {{ source('reference_la', 'la_to_cassr') }} c where c.la_name = lower({{ la_name_col }}) limit 1)
 {%- endmacro %}

@@ -48,7 +48,7 @@
    (load_to_snowflake.R). DuckDB: this project builds it from the Fivetran partner files. #}
 {% macro helplines_aggregated_relation() -%}
     {%- if target.type == 'duckdb' -%}
-        {{ ref('helplines_aggregated_full') }}
+        {{ ref('helplines_ongoing') }}
     {%- else -%}
         {{ source('helplines', 'helplines_aggregated_full') }}
     {%- endif -%}

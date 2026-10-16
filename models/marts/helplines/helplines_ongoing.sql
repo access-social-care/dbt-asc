@@ -1,8 +1,9 @@
 {{ config(enabled=(target.type == 'duckdb'), tags=['helplines']) }}
 
 /*
-  HELPLINES.PUBLIC.HELPLINES_AGGREGATED_FULL (data_aggregator.R). One row per LA x month x UT1
-  with N = records, over the six monthly partners:
+  Ongoing partner helplines mart (HELPLINES.PUBLIC.HELPLINES_AGGREGATED_FULL, data_aggregator.R). One row per LA x month x UT1
+  with N = records, over the six monthly partners. Named ongoing because the State of the Nation
+  output is promoted alongside it and must stay distinguishable:
     1. months inside the primary stable period (all data if there is none);
     2. year >= 2019 (MIN_YEAR in data_aggregator.R; coverage analysis uses 2020 - recorded conflict);
     3. England only: LA_CODE NULL (region-level partners CAB, Carers UK, Ealing) or starting 'E';
