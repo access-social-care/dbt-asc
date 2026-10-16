@@ -1,0 +1,15 @@
+# DuckDB / MotherDuck target. Repo-local so ~/.dbt (prod, dev) is untouched.
+#
+# Always run with BOTH flags:
+#   dbt <cmd> --profiles-dir profiles --target duckdb
+# (the default target in ~/.dbt is Snowflake prod; --target keeps every command
+# explicit even though this file only defines duckdb).
+#
+# Auth: MOTHERDUCK_TOKEN env var, read by DuckDB itself. No secret in this file.
+asc:
+  target: duckdb
+  outputs:
+    duckdb:
+      type: duckdb
+      path: "md:analytics_dev"
+      threads: 4

@@ -34,6 +34,8 @@ Thumbs.db
 
 # Credentials - NEVER commit profiles.yml (should be in ~/.dbt/)
 profiles.yml
+# Repo-local DuckDB profile: no secrets (token comes from MOTHERDUCK_TOKEN)
+!profiles/profiles.yml
 
 # Environment
 .env

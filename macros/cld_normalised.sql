@@ -73,7 +73,7 @@
 WITH raw_counts AS (
 
     SELECT *
-    FROM {{ ref(raw_model) }}
+    FROM {{ cld_raw_relation(raw_model) }}
     {#- Suppressed cells are NULL, and a rate from an unknown numerator is
         meaningless rather than zero. Excluded rather than carried as NULL,
         for the same reason the published join is inner.  #}
@@ -134,7 +134,7 @@ SELECT
     ROUND(
         {#- Cast before dividing: both operands are integers and Snowflake
             would otherwise do integer division on the intermediate.  #}
-        (r.value::FLOAT / pub.population::FLOAT) * 100000,
+        (r.value::DOUBLE / pub.population::DOUBLE) * 100000,
         2
     )                                         AS rate_per_100k_published,
 
@@ -145,7 +145,7 @@ SELECT
     CASE
         WHEN elig.population IS NULL THEN NULL
         ELSE ROUND(
-            (r.value::FLOAT / elig.population::FLOAT) * 100000,
+            (r.value::DOUBLE / elig.population::DOUBLE) * 100000,
             2
         )
     END                                       AS rate_per_100k_eligible,

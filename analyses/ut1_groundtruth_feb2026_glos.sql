@@ -1,3 +1,4 @@
+{{ config(enabled=target.type != 'duckdb') }}
 /*
   Groundtruth: helplines_advicepro_accessava vs raw sources,
   filtered to Gloucestershire x February 2026.
