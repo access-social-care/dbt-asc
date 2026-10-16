@@ -13,6 +13,7 @@ models:
         description: Last day of the month.
         tests: [not_null]
       - name: ut1
+        description: First-tier universal theme, the mapped topic of the contact.
         tests:
           - not_null
           - accepted_values:

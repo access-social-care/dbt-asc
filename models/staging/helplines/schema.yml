@@ -9,8 +9,10 @@ models:
     description: ascFuncs::local_authority_fixer() as a lookup (lower-cased raw LA text to LA code and name).
     columns:
       - name: original_lower
+        description: Lower-cased raw geography text as it appears in partner files (LA, ward or place name). One text can map to several la_code values.
         tests: [not_null]
       - name: la_code
+        description: ONS geography code of the local authority the text resolves to (GSS code).
         tests: [not_null, helplines_gss_code]
 
   - name: helplines_partner_history
@@ -20,16 +22,35 @@ models:
       - helplines_min_rows: {min_rows: 600000}
     columns:
       - name: org
+        description: Partner code. mencap and rnib are annual grain; the other six are monthly.
         tests:
           - not_null
           - accepted_values: {values: [ia, cab, ealing, age_uk, carers_uk, scope, mencap, rnib]}
+      - name: month
+        description: Calendar month of date, as text in YYYY-MM form.
+      - name: t1
+        description: Partner's own first-tier topic label, before mapping to universal themes.
+      - name: t2
+        description: Partner's own second-tier topic label, before mapping to universal themes.
+      - name: ut1
+        description: First-tier universal theme mapped from the partner's t1 and t2. NULL means no mapping exists for that pair.
       - name: la_code
+        description: ONS geography code of the local authority. NULL where the partner reports no local authority or the area cannot be resolved.
         tests: [helplines_gss_code]
 
   - name: helplines_stable_period
     description: Stable periods of the six monthly partners; the first row is the primary period.
     tests:
       - helplines_min_rows: {min_rows: 1, config: {severity: warn}}
+    columns:
+      - name: period_start
+        description: First month of the stable period (YYYY-MM).
+      - name: period_end
+        description: Last month of the stable period (YYYY-MM).
+      - name: n_months
+        description: Number of months in the period. Periods must run at least helplines_min_consecutive_months (default 3).
+      - name: avg_partners
+        description: Average number of monthly partners with data per month in the period. A month counts as stable at helplines_min_partners (default 5) or more.
 
   - name: partner_history_ia
     description: Independent Age. Rolling 12-month workbooks, unique() over topic/county/day as in parse_ia().
