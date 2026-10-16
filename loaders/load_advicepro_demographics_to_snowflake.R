@@ -7,6 +7,12 @@
 ##   Demographics are recorded at time of case creation and do not change.
 ##   Full replace is safe and keeps the table in sync with the AdvicePro source.
 ##
+## The report returns one row per case x disability type (multi-select), so
+## the loader collapses to one row per case_reference. The table holds ALL
+## ticked disability types joined by ';' (sorted, no space) in
+## what_type_of_disability_do_you_consider_you_have. A value containing ';'
+## means the person has more than one type.
+##
 ## The table is joined to ADVICEPRO_CASEWORK on case_reference by stg_advicepro
 ## to add age/agegroup dimensions to the LA Data Product.
 ##
@@ -80,13 +86,62 @@ if (!"case_reference" %in% names(df)) {
 df <- df %>%
   mutate(case_reference = toupper(trimws(case_reference)))
 
-## Dedup on case_reference — keep the first occurrence if duplicates exist
-n_before <- nrow(df)
-df <- df %>% distinct(case_reference, .keep_all = TRUE)
-n_dupes <- n_before - nrow(df)
-if (n_dupes > 0) {
-  log_warn("Dropped {n_dupes} duplicate case_reference rows")
+## Collapse to one row per case_reference. The report returns one row per
+## case x disability type (multi-select question), so keep every type:
+##   - single-value columns: first non-NA value across the case's rows
+##   - disability type: sorted unique non-NA values joined with ";"
+TYPE_COL   <- "what_type_of_disability_do_you_consider_you_have"
+SINGLE_COLS <- c(
+  "age_range", "gender", "do_you_have_a_disability", "ethnic_origin"
+)
+
+if (!TYPE_COL %in% names(df)) {
+  stop("Expected column '", TYPE_COL, "' not found.", call. = FALSE)
 }
+
+first_non_na <- function(x) x[!is.na(x)][1]
+
+collapse_types <- function(x) {
+  x <- sort(unique(x[!is.na(x)]))
+  if (length(x) == 0) NA_character_ else paste(x, collapse = ";")
+}
+
+## Conflict check: non-type values should be identical across a case's rows
+n_conflict_cases <- df %>%
+  group_by(case_reference) %>%
+  summarise(
+    conflict = any(vapply(
+      across(any_of(SINGLE_COLS)),
+      function(x) dplyr::n_distinct(x[!is.na(x)]) > 1,
+      logical(1)
+    )),
+    .groups = "drop"
+  ) %>%
+  pull(conflict) %>%
+  sum()
+if (n_conflict_cases > 0) {
+  log_warn(
+    "{n_conflict_cases} case(s) have conflicting non-type values across rows; ",
+    "first non-NA value kept"
+  )
+}
+
+col_order <- names(df)
+n_before <- nrow(df)
+df <- df %>%
+  group_by(case_reference) %>%
+  summarise(
+    across(-all_of(TYPE_COL), first_non_na),
+    "{TYPE_COL}" := collapse_types(.data[[TYPE_COL]]),
+    .groups = "drop"
+  ) %>%
+  select(all_of(col_order))
+n_collapsed <- n_before - nrow(df)
+n_multi_type <- sum(grepl(";", df[[TYPE_COL]], fixed = TRUE), na.rm = TRUE)
+log_info(
+  "Collapsed {n_collapsed} rows into {nrow(df)} cases; ",
+  "{n_multi_type} cases have more than one disability type"
+)
 
 log_info("Final: {nrow(df)} rows ready for upload")
 

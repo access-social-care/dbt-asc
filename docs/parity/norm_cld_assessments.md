@@ -1,4 +1,4 @@
-# Parity: `analytics_dev.marts.norm_cld_assessments` vs `EXTERNAL_DATA.NORMALISED.NORM_CLD_ASSESSMENTS`
+# Parity: `marts.main.norm_cld_assessments` vs `EXTERNAL_DATA.NORMALISED.NORM_CLD_ASSESSMENTS`
 
 - Date: 2026-10-15  |  Verdict: **PASS**
 - Rows: DuckDB 45063 vs Snowflake 45063 (match)

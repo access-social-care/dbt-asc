@@ -98,7 +98,7 @@ models:
         # so this follows that convention rather than inventing one.
         # EXTERNAL_DATA_DEV must exist first - see
         # loaders/sql/create_external_data_database.sql.
-        +database: "{{ target.database if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
+        +database: "{{ 'staging' if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
         +materialized: table
         +tags: ['external']
         # DuckDB: enabled as a pass-through over raw_external.main.cld_* (already
@@ -116,7 +116,7 @@ models:
         # kinds of number and should not both be reachable by one careless
         # SELECT *, per the four-stage architecture documented in
         # loaders/sql/create_external_data_database.sql.
-        +database: "{{ target.database if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
+        +database: "{{ 'marts' if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
         +materialized: table
         +tags: ['external']
         +schema: normalised
@@ -205,7 +205,7 @@ seeds:
       # never changes is a constant; re-fetching it every quarter forever
       # would be pointless work and would imply a freshness it does not have.
       # Regenerate it only if DHSC actually revises the denominator.
-      +database: "{{ target.database if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
+      +database: "{{ 'staging' if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
       +schema: normalised
       +tags: ['external']
       +column_types:
