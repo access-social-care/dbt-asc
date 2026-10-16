@@ -1,0 +1,197 @@
+version: 2
+
+models:
+  - name: persona_bridge
+    description: One row per transcript_id x persona value, split from accessava.persona. Port of PERSONA_BRIDGE.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('accessava')
+              field: transcript_id
+      - name: persona
+        description: One value from the delimited persona list on accessava, split on ';', trimmed, empty values dropped. A value repeated within one list gives repeated rows.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('persona_dim')
+              field: persona
+  - name: persona_dim
+    description: Distinct persona values with a surrogate key (alphabetical, from 1). Port of PERSONA_DIM.
+    columns:
+      - name: persona_id
+        description: Surrogate key, ROW_NUMBER over the values in alphabetical (binary) order, starting at 1.
+        tests: [unique, not_null]
+      - name: persona
+        tests: [unique, not_null]
+  - name: supercategory_bridge
+    description: One row per transcript_id x supercategories value, split from accessava.supercategories. Port of SUPERCATEGORY_BRIDGE.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('accessava')
+              field: transcript_id
+      - name: supercategories
+        description: One value from the delimited supercategories list on accessava, split on ';', trimmed, empty values dropped. A value repeated within one list gives repeated rows.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('supercategory_dim')
+              field: supercategories
+  - name: supercategory_dim
+    description: Distinct supercategories values with a surrogate key (alphabetical, from 1). Port of SUPERCATEGORY_DIM.
+    columns:
+      - name: supercategory_id
+        description: Surrogate key, ROW_NUMBER over the values in alphabetical (binary) order, starting at 1.
+        tests: [unique, not_null]
+      - name: supercategories
+        tests: [unique, not_null]
+  - name: category_bridge
+    description: One row per transcript_id x categories value, split from accessava.categories. Port of CATEGORY_BRIDGE.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('accessava')
+              field: transcript_id
+      - name: categories
+        description: One value from the delimited categories list on accessava, split on ';', trimmed, empty values dropped. A value repeated within one list gives repeated rows.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('category_dim')
+              field: categories
+  - name: category_dim
+    description: Distinct categories values with a surrogate key (alphabetical, from 1). Port of CATEGORY_DIM.
+    columns:
+      - name: category_id
+        description: Surrogate key, ROW_NUMBER over the values in alphabetical (binary) order, starting at 1.
+        tests: [unique, not_null]
+      - name: categories
+        tests: [unique, not_null]
+  - name: csi_bridge
+    description: One row per transcript_id x csis value, split from accessava.csis. Port of CSI_BRIDGE.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('accessava')
+              field: transcript_id
+      - name: csis
+        description: One value from the delimited csis list on accessava, split on ';', trimmed, empty values dropped. A value repeated within one list gives repeated rows.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('csi_dim')
+              field: csis
+  - name: csi_dim
+    description: Distinct csis values with a surrogate key (alphabetical, from 1). Port of CSI_DIM.
+    columns:
+      - name: csi_id
+        description: Surrogate key, ROW_NUMBER over the values in alphabetical (binary) order, starting at 1.
+        tests: [unique, not_null]
+      - name: csis
+        tests: [unique, not_null]
+  - name: topic_entry_point_bridge
+    description: One row per transcript_id x topic_entry_point value, split from accessava.topic_entry_point. Port of TOPIC_ENTRY_POINT_BRIDGE.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('accessava')
+              field: transcript_id
+      - name: topic_entry_point
+        description: One value from the delimited topic_entry_point list on accessava, split on ';', trimmed, empty values dropped. A value repeated within one list gives repeated rows.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('topic_entry_point_dim')
+              field: topic_entry_point
+  - name: topic_entry_point_dim
+    description: Distinct topic_entry_point values with a surrogate key (alphabetical, from 1). Port of TOPIC_ENTRY_POINT_DIM.
+    columns:
+      - name: topic_entry_point_id
+        description: Surrogate key, ROW_NUMBER over the values in alphabetical (binary) order, starting at 1.
+        tests: [unique, not_null]
+      - name: topic_entry_point
+        tests: [unique, not_null]
+  - name: letter_code_bridge
+    description: One row per transcript_id x lettercode value, split from accessava.lettercode. Port of LETTER_CODE_BRIDGE.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('accessava')
+              field: transcript_id
+      - name: lettercode
+        description: One value from the delimited lettercode list on accessava, split on ';', trimmed, empty values dropped. A value repeated within one list gives repeated rows.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('letter_code_dim')
+              field: lettercode
+  - name: letter_code_dim
+    description: Distinct lettercode values with a surrogate key (alphabetical, from 1). Port of LETTER_CODE_DIM.
+    columns:
+      - name: letter_code_id
+        description: Surrogate key, ROW_NUMBER over the values in alphabetical (binary) order, starting at 1.
+        tests: [unique, not_null]
+      - name: lettercode
+        tests: [unique, not_null]
+  - name: consumed_resource_bridge
+    description: One row per transcript_id x consumed_resources value, split from accessava.consumed_resources. Port of CONSUMED_RESOURCE_BRIDGE.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('accessava')
+              field: transcript_id
+      - name: consumed_resources
+        description: One value from the delimited consumed_resources list on accessava, split on ';', trimmed, empty values dropped. A value repeated within one list gives repeated rows.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('consumed_resource_dim')
+              field: consumed_resources
+  - name: consumed_resource_dim
+    description: Distinct consumed_resources values with a surrogate key (alphabetical, from 1). Port of CONSUMED_RESOURCE_DIM.
+    columns:
+      - name: consumed_resource_id
+        description: Surrogate key, ROW_NUMBER over the values in alphabetical (binary) order, starting at 1.
+        tests: [unique, not_null]
+      - name: consumed_resources
+        tests: [unique, not_null]
+  - name: accessava
+    description: One row per AccessAva conversation (transcript_id) for reporting tenants, with the demographic, topic, feedback and journey features joined on. DuckDB replacement for the table AVA.PUBLIC.ACCESSAVA; tenants containing UAT or APDAS_SQUARESPACE are excluded.
+    columns:
+      - name: transcript_id
+        tests: [unique, not_null]
+      - name: created_at
+        description: UTC calendar day the conversation started (a date, not a timestamp).
+        tests: [not_null]
+      - name: tenant_name
+        description: Reporting tenant name, with any _prod suffix removed and underscores replaced by spaces.
+        tests: [not_null]
+      - name: county
+        description: Always NULL. Kept so the columns match AVA.PUBLIC.ACCESSAVA.
+      - name: persona
+        description: Persona codes joined with '; '. Split to one row per value in persona_bridge.
+      - name: supercategories
+        description: Supercategories joined with '; ', mapped from the topics discussed. categories and csis are aligned with it, position for position.
+      - name: topic_entry_point
+        description: Topic entry points joined with '; ', for example 'Start; Money'.
+      - name: entry_month
+        tests: [not_null]
+  - name: accessava_locality
+    description: Geography of each AccessAva conversation (local authority, ward, constituency, NHS ICB and other area names and codes), taken from the first actions_locality row per transcript_id. Not joined into accessava.
+    columns:
+      - name: transcript_id
+        tests: [unique, not_null]

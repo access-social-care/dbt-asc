@@ -57,7 +57,7 @@ SELECT
     NULLIF(TRIM(a.disability_text), '')                     AS DISABILITY_TYPE_RAW,
     NULLIF(TRIM(a.ethnicity), '')                           AS ETHNICITY_RAW
 
-FROM {{ source('accessava', 'accessava') }} a
+FROM {{ accessava_relation('accessava') }} a
 LEFT JOIN lk l_age ON l_age.feature = 'AGE'             AND l_age.key = LOWER(TRIM(a.age_range))
 LEFT JOIN lk l_eth ON l_eth.feature = 'ETHNICITY'       AND l_eth.key = LOWER(TRIM(a.ethnicity))
 LEFT JOIN lk l_dt  ON l_dt.feature  = 'DISABILITY_TYPE' AND l_dt.key  = LOWER(TRIM(a.disability_text))

@@ -1,0 +1,320 @@
+version: 2
+
+# Group B feature models: one per ascFuncs chatbot_* function, keyed on transcript_id.
+# Row-count tests: a feature never has more rows than there are events, and every
+# transcript_id exists in actions_transcript. Parity: docs/parity/chatbot_features_b.md
+
+models:
+- name: int_chatbot_category_map
+  description: 'Embedded ascFuncs category_map lookup used by int_chatbot_s_c_csi. One row per (kind, matcher).
+
+    '
+  tags:
+  - chatbot
+  columns:
+  - name: kind
+    tests:
+    - not_null
+    - accepted_values:
+        values:
+        - s
+        - c
+        - csi
+  - name: matcher
+    tests:
+    - not_null
+  - name: value
+    tests:
+    - not_null
+  tests:
+  - dbt_utils.unique_combination_of_columns:
+      combination_of_columns:
+      - kind
+      - matcher
+- name: int_chatbot_persona
+  description: 'Port of chatbot_persona. persona: distinct Contentful persona codes (1, 2, 3) from Source = true events, joined ''; '' in first-seen order. One conversation may have several personas.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  - dbt_utils.expression_is_true:
+      expression: regexp_full_match(persona, '[123](; [123])*')
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: persona
+    description: Persona codes, e.g. '1' or '1; 3'. Never NULL.
+    tests:
+    - not_null
+- name: int_chatbot_s_c_csi
+  description: 'Port of chatbot_s_c_csi. Mapped supercategories, categories and case specific issues, ''; ''-delimited aligned lists. A column that is only ''NA'' is NULL.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  - dbt_utils.expression_is_true:
+      expression: supercategories <> 'NA' and length(supercategories) > 0
+  - dbt_utils.expression_is_true:
+      expression: categories <> 'NA' and length(categories) > 0
+  - dbt_utils.expression_is_true:
+      expression: csis <> 'NA' and length(csis) > 0
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: supercategories
+    description: '''; ''-delimited, mapped through category_map. NULL when only unmapped.'
+  - name: categories
+    description: Same length as supercategories (aligned lists).
+  - name: csis
+    description: Case specific issues, aligned with supercategories.
+- name: int_chatbot_letters_downloaded
+  description: 'Port of chatbot_letters_downloaded. Transcripts with a Download letter event or tracker mention.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  - dbt_utils.expression_is_true:
+      expression: lettercode <> 'NA' and length(lettercode) > 0
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: lettercode
+    description: Letter codes at each Download letter event, ';'-delimited, duplicates kept. NULL for tracker-only or unknown.
+  - name: letter_downloaded
+    description: Always TRUE.
+    tests:
+    - not_null
+    - accepted_values:
+        values:
+        - true
+        quote: false
+- name: int_chatbot_autocomplete_starts
+  description: 'Port of chatbot_autocomplete_starts. Flag model: a row exists only where the flag is TRUE.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: autocomplete_start
+    description: Always TRUE.
+    tests:
+    - not_null
+    - accepted_values:
+        values:
+        - true
+        quote: false
+- name: int_chatbot_autocomplete_finish
+  description: 'Port of chatbot_autocomplete_finish. Flag model: a row exists only where the flag is TRUE.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: autocomplete_finish
+    description: Always TRUE.
+    tests:
+    - not_null
+    - accepted_values:
+        values:
+        - true
+        quote: false
+- name: int_chatbot_factsheets_templates
+  description: 'Port of chatbot_factsheets_templates. Flag model: a row exists only where the flag is TRUE.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: factsheets_templates
+    description: Always TRUE.
+    tests:
+    - not_null
+    - accepted_values:
+        values:
+        - true
+        quote: false
+- name: int_chatbot_rasa
+  description: 'Port of chatbot_rasa. Flag model: a row exists only where the flag is TRUE.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: rasa
+    description: Always TRUE.
+    tests:
+    - not_null
+    - accepted_values:
+        values:
+        - true
+        quote: false
+- name: int_chatbot_topic_entry_point
+  description: 'Port of chatbot_topic_entry_point. Distinct topic entry points, ''; ''-delimited in first-seen order.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  - dbt_utils.expression_is_true:
+      expression: length(topic_entry_point) > 0 and topic_entry_point not like '%; ; %' and not starts_with(topic_entry_point, '; ')
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: topic_entry_point
+    description: e.g. 'Start; Money'. Never NULL or empty.
+    tests:
+    - not_null
+- name: int_chatbot_consumed_resources
+  description: 'Port of chatbot_consumed_asc_resources. Distinct ''resource|topic'' pairs, '';''-delimited in first-seen order.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  - dbt_utils.expression_is_true:
+      expression: list_bool_and(list_transform(string_split(consumed_resources, ';'), x -> contains(x, '|')))
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: consumed_resources
+    description: Every ';' item contains a '|'. Topic may be the text 'NA'.
+    tests:
+    - not_null
+- name: int_chatbot_age_of_person
+  description: 'Port of chatbot_age_of_person. The last distinct age answer in first-seen order.
+
+    '
+  tags:
+  - chatbot
+  tests:
+  - dbt_utils.fewer_rows_than:
+      compare_model: ref('stg_chatbot_transcript_event')
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: age
+    description: Age group of the person with needs.
+    tests:
+    - not_null
+    - accepted_values:
+        values:
+        - 18-64
+        - Under 18
+        - 65+
+- name: int_chatbot_conversation_source
+  description: 'Port of chatbot_conversation_source. Referring page split at the first ''?''. One row per transcript with a referring page.
+
+    '
+  tags:
+  - chatbot
+  columns:
+  - name: transcript_id
+    description: Conversation key, one row per transcript.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        to: source('chatbot_postgres', 'actions_transcript')
+        field: id
+  - name: referring_page_url
+    description: Part before the first '?'. NULL when empty.
+  - name: referring_page_parameters
+    description: Part after the first '?'. NULL when absent or empty.
+  tests:
+  - dbt_utils.expression_is_true:
+      expression: length(referring_page_url) > 0
+  - dbt_utils.expression_is_true:
+      expression: length(referring_page_parameters) > 0
