@@ -15,7 +15,7 @@
 
 with completion_texts as (
     select text
-    from {{ source('chatbot_raw', 'contentful_data') }}
+    from {{ ref('stg_contentful_data') }}
     where regexp_matches(name, '3B -which option suits you - download letter|1 safeguarding 3f')
 ),
 

@@ -11,7 +11,7 @@
 
 with contentful as (
     select distinct id, t_topicentrypoint
-    from {{ source('chatbot_raw', 'contentful_data') }}
+    from {{ ref('stg_contentful_data') }}
     where t_topicentrypoint is not null
 ),
 

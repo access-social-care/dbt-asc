@@ -37,13 +37,13 @@ sources:
       - name: nlu_conversationsession
       - name: nlu_nluconversationlog
 
-  - name: chatbot_raw
+  - name: chatbot_contentful
     description: |
-      Inputs seeded into the `raw` database (raw.contentful, raw.chatbot) because the producer does not
-      write MotherDuck yet. STOPGAP: Contentful must eventually land in
-      MotherDuck natively; until then scripts/seed/seed_contentful.py copies
-      AVA.PUBLIC.CONTENTFUL_DATA (Snowflake, read-only) and Snowflake cannot be
-      retired.
+      Contentful content metadata landed natively in MotherDuck `raw`. Producer:
+      chatbot_content's daily QC job (content_quality_assurance.Rmd). STOPGAP
+      until that job writes MotherDuck itself: scripts/seed/land_contentful_raw.py
+      copies AVA.PUBLIC.CONTENTFUL_DATA (Snowflake, read-only), so Snowflake
+      cannot be retired yet. Read through stg_contentful_data, not directly.
     database: "{{ 'raw' if target.type == 'duckdb' else 'ava' }}"
     schema: "{{ 'contentful' if target.type == 'duckdb' else 'public' }}"
     config:
@@ -51,11 +51,19 @@ sources:
     tables:
       - name: contentful_data
         description: |
-          Contentful content metadata, lower-case column names (as
-          .load_contentful_data() returns them). Key columns used by the base
-          layer: id (Contentful entry id) and lettercode.
+          One row per Contentful entry and button, lower-case column names,
+          26 T_* BOOLEAN flags. id is not unique (one row per button_id).
+
+  - name: chatbot_raw
+    description: |
+      Inputs seeded into the `raw` database (raw.chatbot) because the producer
+      does not write MotherDuck yet.
+    database: "{{ 'raw' if target.type == 'duckdb' else 'ava' }}"
+    schema: "{{ 'chatbot' if target.type == 'duckdb' else 'public' }}"
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+    tables:
       - name: form_demographics
-        schema: chatbot
         description: |
           External equalities-form responses matched to transcripts
           (ascFuncs inst/extdata/demographics_matched.RDS, about 170 rows).
