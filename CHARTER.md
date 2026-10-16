@@ -172,6 +172,62 @@ Decisions only. Setup and commands: [profiles/profiles.yml](profiles/profiles.ym
 - CLD rates are monthly counts over frozen published denominators (inner join, so areas with no
   denominator are dropped), rounded to 2 dp.
 
+### Port decisions: chatbot, helplines, external (2026-10)
+
+Apply once the matching `feat/duckdb-*` branches merge. Where they contradict the DuckDB
+section above (stg_cld_* disabled, `cld_raw_relation`, accessava missing), these win.
+
+Chatbot
+- The R chatbot extractors (`ascFuncs` `chatbot_*`) are replaced by one dbt model per function,
+  keyed on `transcript_id`. `stg_chatbot_transcript_event` is the `tr_ev` equivalent and is
+  rebuilt from the Fivetran copy in `raw.aa_postgres_public` on every run. The id-paged
+  downloads, `.rds`/`.fst` caches, `last_id_*.txt` position files and `data.csv` are retired.
+- Rendering `report.Rmd` and exporting `data.csv` were one job. In dbt they are separate.
+- Test users are removed by two independent rules, as in R: the tracker `user_input` name for
+  transcripts, and the answer to "What should I call you?" for events.
+- Fivetran soft deletes are dropped before the latest row per id is chosen, so a live row with a
+  newer deleted twin is kept.
+- `is_reporting_tenant` flags UAT and APDAS_SQUARESPACE tenants as non-reporting instead of
+  deleting them; ACCESSAVA filters on it.
+- One conversation may have several personas (`'1; 3'`, first-seen order). Delimiters follow R:
+  `'; '` for persona, topic_entry_point, supercategories, categories, csis; `';'` for lettercode
+  and consumed_resources. An answer of the text `NA` is NULL; mixed values are kept.
+- ethnicity and age_range keep the latest answer per transcript so `transcript_id` stays unique.
+- Mirrored R quirks, kept for parity until the owner decides: `person_type` holds the bot's
+  follow-up message because R sorts descending before `lag()` (var
+  `chatbot_person_type_fix_order` gives the real answers); `feedback` compares across
+  transcripts; `age` keeps the last distinct answer in first-seen order.
+- Tracker-derived flags read the live tracker and can be TRUE where the old R snapshot was NULL.
+  Only about 445 transcripts (2014 to 2023) have a tracker, so newer data cannot change.
+- Contentful metadata is a snapshot seeded from Snowflake `CONTENTFUL_DATA` into
+  `analytics_dev.landing`. Snowflake cannot be retired for chatbot until Contentful lands in
+  MotherDuck natively.
+- The LA-to-CASSR map, tenant-to-LA map and category map are static copies of `ascFuncs` data.
+- Form demographics (170 transcripts, `demographics_matched.RDS`) are loaded by script into
+  `landing`, never committed: PII-adjacent.
+
+Helplines
+- Partner files arrive as one `raw.share_point` table per file or sheet. `helplines_sources`
+  finds them by name prefix at run time, so new monthly drops need no code change.
+- One `partner_history_<partner>` model per partner unions, cleans and picks one version per
+  month; `helplines_partner_history` unites them; `helplines_aggregated_full` is the mart.
+  dbt tests replace the promote scripts' shape check.
+- Version choice is "fullest month wins, ties to the earlier table name" (Fivetran carries no
+  load order, so R's first-seen rule cannot be reproduced). Age UK takes the earliest-ending pair.
+- The stable period needs 5 partners, as the code does; the old charter said 6.
+- History is retagged on every build, so a topic map change rewrites history. Snowflake never did.
+- Not implemented (reparse branch only): the shared UT1 rule set, one source per partner per
+  month with the 3% fallback stop, Carers UK and Age UK full series.
+- Open: Scope and Age UK exports carry trailing spaces in labels. R does not trim, so those rows
+  fail the map and leave the mart silently. Trim before the join or accept the loss.
+
+External
+- `stg_cld_*` are pass-throughs over `raw_external.main.cld_*`; `cld_raw_relation` is removed.
+- Census and LANN tables map to the duckdb-only source `reference_external`; `ascfr_salt` is
+  `ascfr_extract` on MotherDuck via a per-target `identifier`.
+- Freshness on duckdb is `max(_extracted_at)` per source, replacing `snowflake_staleness_check.R`
+  for external sources.
+
 ---
 
 ## Audit triggers
