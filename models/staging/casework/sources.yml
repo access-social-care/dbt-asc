@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  # Landed by the AdvicePro extract (case_data), one row per case x topic as
+  # returned by the per-year ReportRunner reports. All VARCHAR except
+  # report_year / landed_at. Sentinels ('9999/12', '[Not Specified]') are left
+  # as returned; stg_advicepro_cases cleans them. DuckDB/MotherDuck only.
+  - name: advicepro_raw
+    database: "{{ 'raw' if target.type == 'duckdb' else 'casework' }}"
+    schema: "{{ 'advicepro' if target.type == 'duckdb' else 'public' }}"
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+    tables:
+      - name: cases_raw
+        description: One row per case x topic per annual report, as landed.
+      - name: landing_log
+        description: One row per report fetch (rows fetched/landed, dropped columns, cap flag).
+
+  # Geography and mapping tables the ascFuncs LA standardiser uses
+  # (la_25 -> ons_lad_2025, all_geo_to_la_map -> geo_to_la, la_map ->
+  # la_name_map, la_to_cassr). Already in reference.main on MotherDuck.
+  - name: reference_geo
+    database: reference
+    schema: main
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+    tables:
+      - name: ons_lad_2025
+      - name: geo_to_la
+      - name: la_name_map
+      - name: la_to_cassr
