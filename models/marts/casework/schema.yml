@@ -1,0 +1,177 @@
+version: 2
+
+models:
+  - name: advicepro_casework
+    description: >
+      One row per AdvicePro case (case_reference), the MotherDuck equivalent of
+      CASEWORK.PUBLIC.ADVICEPRO_CASEWORK. number_of_cases is always 1. Topics
+      are not backfilled from Dynamics and case_level is not carried, so those
+      differ from Snowflake.
+    columns:
+      - name: case_reference
+        description: Primary key, one row per case.
+        tests:
+          - unique
+          - not_null
+      - name: case_status
+        tests:
+          - accepted_values:
+              values: ['Resolved', 'Active', 'Enquiry', 'Open (Active)', 'Cancelled', 'Closed Enquiry']
+              config:
+                severity: warn
+      - name: case_close_month
+        description: YYYY/MM; NULL for open cases (the AdvicePro 9999/12 sentinel is removed).
+      - name: case_level
+        description: Always NULL; the landed report does not carry it.
+      - name: number_of_cases
+        description: Always 1 (one row per case).
+        tests:
+          - accepted_values:
+              values: [1]
+      - name: la_name
+        description: CASSR name; NULL when the standardised local authority has no CASSR or the case has none.
+      - name: super_category
+        description: Semicolon-joined, sorted, de-duplicated; NULL when none recorded. Not paired with the group, use case_topic_bridge for that.
+      - name: opened_on
+        description: First day of case_open_month.
+        tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: closed_on
+        description: Last day of case_close_month; NULL for open cases.
+      - name: member_canonical_name
+        description: referred_from_account mapped to the canonical Monday.com name; unmapped names pass through unchanged.
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "(closed_on is null) = (case_close_month is null)"
+
+  - name: case_topic_bridge
+    description: >
+      One row per distinct case x (csi_group_raw, csi_raw) pair, the MotherDuck
+      equivalent of CASEWORK.PUBLIC.CASE_TOPIC_BRIDGE. It is built before the
+      topics are collapsed on advicepro_casework, so group and issue stay paired.
+    columns:
+      - name: case_reference
+        tests:
+          - not_null
+          - relationships:
+              to: ref('advicepro_casework')
+              field: case_reference
+      - name: s_c_csi_id
+        description: Key into reference.s_c_csi_map; NULL means the pair is not in the taxonomy (drift).
+        tests:
+          - relationships:
+              to: source('reference', 's_c_csi_map')
+              field: s_c_csi_id
+              config:
+                severity: warn
+          - not_null:
+              config:
+                severity: warn
+      - name: csi_group_raw
+        description: case_specific_issues_group as received, '<prefix> - <category>'.
+      - name: csi_raw
+        description: case_specific_issues as received; may equal the group when no specific issue was recorded.
+
+  - name: advicepro_super_category_bridge
+    description: One row per case x super category, split from advicepro_casework.super_category (CASEWORK.PUBLIC.SUPER_CATEGORY_BRIDGE).
+    columns:
+      - name: case_reference
+        tests:
+          - relationships:
+              to: ref('advicepro_casework')
+              field: case_reference
+      - name: super_category
+        tests:
+          - relationships:
+              to: ref('advicepro_super_category_dim')
+              field: super_category
+
+  - name: advicepro_super_category_dim
+    description: One row per distinct super category with a surrogate key (CASEWORK.PUBLIC.SUPER_CATEGORY_DIM).
+    columns:
+      - name: super_category_id
+        tests: [unique, not_null]
+      - name: super_category
+        tests:
+          - unique
+          - not_null
+          - unique_case_insensitive
+
+  - name: advicepro_csi_group_bridge
+    description: One row per case x issue group, split from advicepro_casework.case_specific_issues_group (CASEWORK.PUBLIC.CSI_GROUP_BRIDGE). It does not carry the group-to-issue pairing.
+    columns:
+      - name: case_reference
+        tests:
+          - relationships:
+              to: ref('advicepro_casework')
+              field: case_reference
+      - name: case_specific_issues_group
+        tests:
+          - relationships:
+              to: ref('advicepro_csi_group_dim')
+              field: case_specific_issues_group
+
+  - name: advicepro_csi_group_dim
+    description: One row per distinct issue group with a surrogate key (CASEWORK.PUBLIC.CSI_GROUP_DIM). Case-only duplicates fail because Power BI uses this as a one-side table.
+    columns:
+      - name: csi_group_id
+        tests: [unique, not_null]
+      - name: case_specific_issues_group
+        tests:
+          - unique
+          - not_null
+          - unique_case_insensitive
+
+  - name: advicepro_csi_bridge
+    description: One row per case x specific issue (CASEWORK.PUBLIC.CSI_BRIDGE). Named advicepro_ because marts.main already holds the chatbot csi_bridge.
+    columns:
+      - name: case_reference
+        tests:
+          - relationships:
+              to: ref('advicepro_casework')
+              field: case_reference
+      - name: case_specific_issues
+        tests:
+          - relationships:
+              to: ref('advicepro_csi_dim')
+              field: case_specific_issues
+
+  - name: advicepro_csi_dim
+    description: One row per distinct specific issue with a surrogate key (CASEWORK.PUBLIC.CSI_DIM). Native AdvicePro case variants are tolerated here and only warn.
+    columns:
+      - name: csi_id
+        tests: [unique, not_null]
+      - name: case_specific_issues
+        tests:
+          - unique
+          - not_null
+          - unique_case_insensitive:
+              config:
+                severity: warn
+
+  - name: advicepro_outcome_bridge
+    description: One row per case x outcome (CASEWORK.PUBLIC.OUTCOME_BRIDGE). Open cases have no outcome and no rows.
+    columns:
+      - name: case_reference
+        tests:
+          - relationships:
+              to: ref('advicepro_casework')
+              field: case_reference
+      - name: case_outcome
+        tests:
+          - relationships:
+              to: ref('advicepro_outcome_dim')
+              field: case_outcome
+
+  - name: advicepro_outcome_dim
+    description: One row per distinct case outcome with a surrogate key (CASEWORK.PUBLIC.OUTCOME_DIM).
+    columns:
+      - name: outcome_id
+        tests: [unique, not_null]
+      - name: case_outcome
+        tests:
+          - unique
+          - not_null
+          - unique_case_insensitive

@@ -38,8 +38,8 @@ WHERE la_name = 'Gloucestershire'
 -- ============ B3. Raw AdvicePro bridge pairs (must equal model AdvicePro total)
 SELECT COUNT(*) AS topic_pairs,
        COUNT(b.s_c_csi_id) AS resolved_to_taxonomy
-FROM {{ source('casework', 'advicepro_casework') }} c
-JOIN {{ source('casework', 'case_topic_bridge') }} b
+FROM {{ casework_relation('advicepro_casework') }} c
+JOIN {{ casework_relation('case_topic_bridge') }} b
   ON c.case_reference = b.case_reference
 WHERE c.la_name = 'Gloucestershire'
   AND TO_DATE(REPLACE(c.case_open_month, '/', '-') || '-01', 'YYYY-MM-DD') = '2026-02-01';

@@ -56,6 +56,14 @@ models:
           +tags: ['cross_source']
           +enabled: "{{ target.type != 'duckdb' }}"
 
+      casework:
+        # AdvicePro year reports landed raw in MotherDuck (raw.advicepro) ->
+        # the tables case_data/load_advicepro_to_snowflake.R writes to
+        # CASEWORK.PUBLIC. DuckDB only: Snowflake keeps the R loader.
+        +materialized: table
+        +tags: ['casework']
+        +enabled: "{{ target.type == 'duckdb' }}"
+
       ilta:
         # Per-record ILTA-mapped demographics (AccessAva + AdvicePro).
         +materialized: table
@@ -162,6 +170,12 @@ models:
         +tags: ['cross_source']
         +enabled: "{{ target.type != 'duckdb' }}"
 
+      casework:
+        # CASEWORK.PUBLIC equivalents (case table, bridges, dims). DuckDB only.
+        +materialized: table
+        +tags: ['casework']
+        +enabled: "{{ target.type == 'duckdb' }}"
+
       ilta:
         # ILTA funder-reporting marts consumed by Power BI. Own schema so the
         # BI reader role can be granted this and nothing else. Unsuppressed
@@ -191,6 +205,19 @@ quoting:
 # Seeds
 seeds:
   asc:
+    member_name_mapping:
+      # Copy of case_data/config/member_name_mapping_seed.csv (header
+      # lower-cased). Reference candidate: no MotherDuck home yet.
+      +tags: ['casework']
+      +enabled: "{{ target.type == 'duckdb' }}"
+      +column_types:
+        monday_name: varchar
+        advicepro_name: varchar
+        wisetime_name: varchar
+    advicepro_prefix_supercategory:
+      # prefix_to_supercat from the loader. Reference candidate.
+      +tags: ['casework']
+      +enabled: "{{ target.type == 'duckdb' }}"
     ilta_categories:
       +tags: ['cross_source']
       # ILTA category list + label order. Same schema as stg_ilta_* (the only

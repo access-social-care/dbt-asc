@@ -1,0 +1,81 @@
+version: 2
+
+models:
+  - name: stg_advicepro_cases
+    description: >
+      AdvicePro report rows as landed in raw.advicepro.cases_raw, one row per
+      case x topic per annual report. Blank strings and '[Not Specified]'
+      become NULL in every text column and the '9999/12' close-month
+      sentinel becomes NULL.
+    columns:
+      - name: case_reference
+        tests:
+          - not_null
+
+  - name: int_advicepro_la_lookup
+    description: >
+      One row per distinct AdvicePro local_authority value with the ONS local
+      authority name and code the standardiser gives it. Values that match
+      nothing keep NULL la_name and la_code (reported by the warn test).
+    columns:
+      - name: local_authority
+        tests:
+          - unique
+          - not_null
+      - name: la_code
+        description: ONS code; NULL means the value did not match any ONS name or alias.
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+  - name: int_advicepro_case_topics
+    description: >
+      One row per distinct case x (group, issue) pair from the pre-collapse
+      report rows, with the group prefix, the canonical supercategory and the
+      matched s_c_csi_id. Cases with no topic have no rows.
+    columns:
+      - name: supercat_canon
+        description: Supercategory for the group prefix; NULL means an unknown prefix (add it to the advicepro_prefix_supercategory seed and to s_c_csi_map).
+        tests:
+          - not_null
+      - name: s_c_csi_id
+        description: NULL means the pair is not in reference.s_c_csi_map (taxonomy drift).
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+  - name: int_advicepro_cases
+    description: >
+      One row per case_reference. Topics, categories and outcomes are
+      collapsed to sorted ';'-delimited strings across all annual reports; the
+      other fields come from the best row (closed first, then latest close
+      month, then latest open month).
+    columns:
+      - name: case_reference
+        tests:
+          - unique
+          - not_null
+
+seeds:
+  - name: member_name_mapping
+    description: >
+      Copy of case_data/config/member_name_mapping_seed.csv. One row per
+      AdvicePro (and WiseTime) member name with its canonical Monday.com name.
+    columns:
+      - name: advicepro_name
+        tests:
+          - unique:
+              config:
+                where: "advicepro_name is not null"
+
+  - name: advicepro_prefix_supercategory
+    description: >
+      The loader's prefix_to_supercat map: the abbreviation before the first
+      ' - ' in case_specific_issues_group and the supercategory it stands for.
+    columns:
+      - name: prefix
+        tests:
+          - unique
+          - not_null

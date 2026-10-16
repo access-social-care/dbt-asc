@@ -71,7 +71,7 @@ SELECT
     NULLIF(TRIM(d.what_type_of_disability_do_you_consider_you_have), '') AS DISABILITY_TYPE_RAW,
     NULLIF(TRIM(d.ethnic_origin), '')                       AS ETHNICITY_RAW
 
-FROM {{ source('casework', 'advicepro_casework') }} c
+FROM {{ casework_relation('advicepro_casework') }} c
 LEFT JOIN {{ source('casework', 'advicepro_demographics') }} d
     ON c.case_reference = d.case_reference
 LEFT JOIN lk l_gen ON l_gen.feature = 'GENDER'          AND l_gen.key = LOWER(TRIM(d.gender))

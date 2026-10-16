@@ -72,9 +72,9 @@ SELECT
     0                                                                                 AS HAS_LETTER,
     loc.county                                                                        AS LOCALITY_NAME
 
-FROM {{ source('casework', 'advicepro_casework') }} c
+FROM {{ casework_relation('advicepro_casework') }} c
 
-LEFT JOIN {{ source('casework', 'case_topic_bridge') }} b
+LEFT JOIN {{ casework_relation('case_topic_bridge') }} b
     ON c.case_reference = b.case_reference
 
 LEFT JOIN {{ source('reference', 's_c_csi_map') }} m
