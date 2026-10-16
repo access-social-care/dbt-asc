@@ -11,5 +11,11 @@ asc:
   outputs:
     duckdb:
       type: duckdb
-      path: "md:analytics_dev"
+      # Connect to `staging` (the default database) and attach `marts` so both are
+      # writable in one connection. generate_database_name routes every model;
+      # raw, raw_external and reference are auto-attached read-only inputs.
+      path: "md:staging"
+      attach:
+        - path: "md:marts"
+          alias: marts
       threads: 4

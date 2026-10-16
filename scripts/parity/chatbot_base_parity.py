@@ -32,9 +32,8 @@ import duckdb
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import parity  # noqa: E402  (reuses sf_connect + SELECT-only guard)
 
-MD = "md:analytics_dev"
-TR = "md.staging.stg_chatbot_transcript"
-EV = "md.staging.stg_chatbot_transcript_event"
+TR = "staging.main.stg_chatbot_transcript"
+EV = "staging.main.stg_chatbot_transcript_event"
 
 
 def table(rows, headers):
@@ -52,8 +51,9 @@ def main():
     ap.add_argument("--out", help="markdown summary path")
     a = ap.parse_args()
 
-    c = duckdb.connect()
-    c.execute(f"ATTACH '{MD}' AS md")
+    if not os.environ.get("MOTHERDUCK_TOKEN"):
+        raise SystemExit("MOTHERDUCK_TOKEN unset")
+    c = duckdb.connect("md:")
 
     # --- Snowflake ACCESSAVA slim copy (ids, dates, tenant only) ---
     scon = parity.sf_connect()
