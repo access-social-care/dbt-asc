@@ -26,6 +26,11 @@ models:
   asc:
     # Config defaults for all models
     +materialized: table
+    # DuckDB only: write schema.yml descriptions to MotherDuck as table and
+    # column comments. Snowflake targets keep dbt's default (not persisted).
+    +persist_docs:
+      relation: "{{ target.type == 'duckdb' }}"
+      columns: "{{ target.type == 'duckdb' }}"
       
     staging:
       # Thin selection/rename layer over raw sources
