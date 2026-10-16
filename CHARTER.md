@@ -230,7 +230,7 @@ Helplines
   dbt tests replace the promote scripts' shape check.
 - Version choice is "fullest month wins, ties to the earlier table name" (Fivetran carries no
   load order, so R's first-seen rule cannot be reproduced). Age UK takes the earliest-ending pair.
-- The stable period needs 6 partners (owner decision, 2026-10-16); `data_discriminator.R` still says 5 until it is retired, so the DuckDB mart deliberately differs from Snowflake. The mart is `helplines_ongoing`, named so the State of the Nation output promoted alongside it stays distinguishable.
+- The stable period needs 5 partners, as `data_discriminator.R` does. Trying 6 shrank the mart from 24 to 15 months, so it stays 5 until the State of the Nation data is combined (dbt-asc#147). The mart is `helplines_ongoing`, named so the State of the Nation output promoted alongside it stays distinguishable.
 - History is retagged on every build, so a topic map change rewrites history. Snowflake never did.
 - The LA lookup inputs (ONS LAD names, geography to LA, LA to CASSR) live in MotherDuck `reference.main` (`ons_lad_2025`, `geo_to_la`, `la_to_cassr`), not as dbt seeds; `helplines_la_lookup` derives from them.
 - Not implemented (reparse branch only): the shared UT1 rule set, one source per partner per
