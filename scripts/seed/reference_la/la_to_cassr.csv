@@ -1,0 +1,356 @@
+la_name,cassr_name
+northumberland,Northumberland
+gateshead,Gateshead
+newcastle upon tyne,Newcastle upon Tyne
+north tyneside,North Tyneside
+south tyneside,South Tyneside
+sunderland,Sunderland
+hartlepool,Hartlepool
+middlesbrough,Middlesbrough
+redcar and cleveland,Redcar and Cleveland
+stockton-on-tees,Stockton-on-Tees
+darlington,Darlington
+barnsley,Barnsley
+doncaster,Doncaster
+rotherham,Rotherham
+sheffield,Sheffield
+bradford,Bradford
+calderdale,Calderdale
+kirklees,Kirklees
+leeds,Leeds
+wakefield,Wakefield
+east riding of yorkshire,East Riding of Yorkshire
+north east lincolnshire,North East Lincolnshire
+north lincolnshire,North Lincolnshire
+york,York
+bolton,Bolton
+bury,Bury
+manchester,Manchester
+oldham,Oldham
+rochdale,Rochdale
+salford,Salford
+stockport,Stockport
+tameside,Tameside
+trafford,Trafford
+wigan,Wigan
+knowsley,Knowsley
+liverpool,Liverpool
+sefton,Sefton
+st. helens,St. Helens
+wirral,Wirral
+halton,Halton
+warrington,Warrington
+blackburn with darwen,Blackburn with Darwen
+blackpool,Blackpool
+cheshire east,Cheshire East
+cheshire west and chester,Cheshire West and Chester
+birmingham,Birmingham
+coventry,Coventry
+dudley,Dudley
+sandwell,Sandwell
+solihull,Solihull
+walsall,Walsall
+wolverhampton,Wolverhampton
+stoke-on-trent,Stoke-on-Trent
+shropshire,Shropshire
+derby,Derby
+leicester,Leicester
+rutland,Rutland
+nottingham,Nottingham
+luton,Luton
+milton keynes,Milton Keynes
+bracknell forest,Bracknell Forest
+west berkshire,West Berkshire
+reading,Reading
+slough,Slough
+windsor and maidenhead,Windsor and Maidenhead
+wokingham,Wokingham
+southend-on-sea,Southend-on-Sea
+thurrock,Thurrock
+peterborough,Peterborough
+bedford,Bedford
+central bedfordshire,Central Bedfordshire
+camden,Camden
+greenwich,Greenwich
+hackney,Hackney
+hammersmith and fulham,Hammersmith and Fulham
+islington,Islington
+kensington and chelsea,Kensington and Chelsea
+lambeth,Lambeth
+lewisham,Lewisham
+southwark,Southwark
+tower hamlets,Tower Hamlets
+wandsworth,Wandsworth
+westminster,Westminster
+city of london,City of London
+barking and dagenham,Barking and Dagenham
+barnet,Barnet
+bexley,Bexley
+brent,Brent
+bromley,Bromley
+croydon,Croydon
+ealing,Ealing
+enfield,Enfield
+haringey,Haringey
+harrow,Harrow
+havering,Havering
+hillingdon,Hillingdon
+hounslow,Hounslow
+kingston upon thames,Kingston upon Thames
+merton,Merton
+newham,Newham
+redbridge,Redbridge
+richmond upon thames,Richmond upon Thames
+sutton,Sutton
+waltham forest,Waltham Forest
+"bournemouth, christchurch and poole","Bournemouth, Christchurch and Poole"
+isle of wight,Isle of Wight
+dorset,Dorset
+portsmouth,Portsmouth
+southampton,Southampton
+brighton and hove,Brighton and Hove
+wiltshire,Wiltshire
+swindon,Swindon
+cornwall,Cornwall
+isles of scilly,Isles of Scilly
+bath and north east somerset,Bath and North East Somerset
+north somerset,North Somerset
+south gloucestershire,South Gloucestershire
+plymouth,Plymouth
+torbay,Torbay
+buckinghamshire,Buckinghamshire
+west northamptonshire,West Northamptonshire
+north northamptonshire,North Northamptonshire
+north yorkshire,North Yorkshire
+lancashire,Lancashire
+warwickshire,Warwickshire
+staffordshire,Staffordshire
+worcestershire,Worcestershire
+lincolnshire,Lincolnshire
+derbyshire,Derbyshire
+leicestershire,Leicestershire
+nottinghamshire,Nottinghamshire
+hertfordshire,Hertfordshire
+norfolk,Norfolk
+oxfordshire,Oxfordshire
+suffolk,Suffolk
+essex,Essex
+cambridgeshire,Cambridgeshire
+surrey,Surrey
+west sussex,West Sussex
+hampshire,Hampshire
+east sussex,East Sussex
+kent,Kent
+gloucestershire,Gloucestershire
+somerset,Somerset
+devon,Devon
+"kingston upon hull, city of","Kingston upon Hull, City of"
+"herefordshire, county of","Herefordshire, County of"
+"bristol, city of","Bristol, City of"
+durham county,County Durham
+telford and wrekin,Telford and Wrekin
+westmoreland,Westmorland and Furness
+medway,Medway
+durham,County Durham
+telford and the wrekin,Telford and Wrekin
+westmorland and furness,Westmorland and Furness
+medway towns,Medway
+kingston upon hull,"Kingston upon Hull, City of"
+herefordshire,"Herefordshire, County of"
+bristol,"Bristol, City of"
+cumberland,Cumberland
+county durham,County Durham
+christchurch,"Bournemouth, Christchurch and Poole"
+huntingdonshire,Cambridgeshire
+south cambridgeshire,Cambridgeshire
+fenland,Cambridgeshire
+east cambridgeshire,Cambridgeshire
+cambridge,Cambridgeshire
+allerdale,Cumberland
+carlisle,Cumberland
+copeland,Cumberland
+amber valley,Derbyshire
+chesterfield,Derbyshire
+high peak,Derbyshire
+south derbyshire,Derbyshire
+derbyshire dales,Derbyshire
+erewash,Derbyshire
+north east derbyshire,Derbyshire
+bolsover,Derbyshire
+east devon,Devon
+teignbridge,Devon
+exeter,Devon
+south hams,Devon
+west devon,Devon
+mid devon,Devon
+north devon,Devon
+torridge,Devon
+west purbeck,Dorset
+wealden,East Sussex
+rother,East Sussex
+lewes,East Sussex
+eastbourne,East Sussex
+hastings,East Sussex
+chelmsford,Essex
+epping forest,Essex
+colchester,Essex
+tendring,Essex
+basildon,Essex
+maldon,Essex
+braintree,Essex
+harlow,Essex
+rochford,Essex
+uttlesford,Essex
+castle point,Essex
+brentwood,Essex
+stroud,Gloucestershire
+cheltenham,Gloucestershire
+forest of dean,Gloucestershire
+cotswold,Gloucestershire
+tewkesbury,Gloucestershire
+gloucester,Gloucestershire
+new forest,Hampshire
+winchester,Hampshire
+eastleigh,Hampshire
+havant,Hampshire
+east hampshire,Hampshire
+hart,Hampshire
+test valley,Hampshire
+fareham,Hampshire
+basingstoke and deane,Hampshire
+rushmoor,Hampshire
+gosport,Hampshire
+st albans,Hertfordshire
+north hertfordshire,Hertfordshire
+east hertfordshire,Hertfordshire
+dacorum,Hertfordshire
+hertsmere,Hertfordshire
+watford,Hertfordshire
+three rivers,Hertfordshire
+broxbourne,Hertfordshire
+welwyn hatfield,Hertfordshire
+stevenage,Hertfordshire
+ruislip,Hillingdon
+ashford,Kent
+canterbury,Kent
+folkestone and hythe,Kent
+maidstone,Kent
+thanet,Kent
+tonbridge and malling,Kent
+tunbridge wells,Kent
+gravesham,Kent
+sevenoaks,Kent
+swale,Kent
+dover,Kent
+dartford,Kent
+kingston,Kingston upon Thames
+preston,Lancashire
+lancaster,Lancashire
+west lancashire,Lancashire
+wyre,Lancashire
+chorley,Lancashire
+fylde,Lancashire
+south ribble,Lancashire
+pendle,Lancashire
+burnley,Lancashire
+rossendale,Lancashire
+hyndburn,Lancashire
+ribble valley,Lancashire
+halton-with-aughton,Lancashire
+charnwood,Leicestershire
+harborough,Leicestershire
+blaby,Leicestershire
+hinckley and bosworth,Leicestershire
+north west leicestershire,Leicestershire
+melton,Leicestershire
+oadby and wigston,Leicestershire
+east lindsey,Lincolnshire
+south kesteven,Lincolnshire
+west lindsey,Lincolnshire
+north kesteven,Lincolnshire
+south holland,Lincolnshire
+lincoln,Lincolnshire
+boston,Lincolnshire
+yorkshire and the humber,
+england,
+west yorkshire,
+merseyside,
+south yorkshire,
+tyne and wear,
+south norfolk,Norfolk
+broadland,Norfolk
+breckland,Norfolk
+north norfolk,Norfolk
+king's lynn and west norfolk,Norfolk
+norwich,Norfolk
+great yarmouth,Norfolk
+harrogate,North Yorkshire
+scarborough,North Yorkshire
+hambleton,North Yorkshire
+selby,North Yorkshire
+craven,North Yorkshire
+ryedale,North Yorkshire
+richmondshire,North Yorkshire
+rushcliffe,Nottinghamshire
+newark and sherwood,Nottinghamshire
+gedling,Nottinghamshire
+broxtowe,Nottinghamshire
+mansfield,Nottinghamshire
+ashfield,Nottinghamshire
+bassetlaw,Nottinghamshire
+cherwell,Oxfordshire
+south oxfordshire,Oxfordshire
+vale of white horse,Oxfordshire
+oxford,Oxfordshire
+west oxfordshire,Oxfordshire
+ilford town,Redbridge
+south somerset,Somerset
+mendip,Somerset
+somerset west and taunton,Somerset
+sedgemoor,Somerset
+lichfield,Staffordshire
+stafford,Staffordshire
+staffordshire moorlands,Staffordshire
+east staffordshire,Staffordshire
+newcastle-under-lyme,Staffordshire
+south staffordshire,Staffordshire
+cannock chase,Staffordshire
+tamworth,Staffordshire
+east suffolk,Suffolk
+west suffolk,Suffolk
+mid suffolk,Suffolk
+ipswich,Suffolk
+babergh,Suffolk
+guildford,Surrey
+reigate and banstead,Surrey
+tandridge,Surrey
+waverley,Surrey
+mole valley,Surrey
+elmbridge,Surrey
+surrey heath,Surrey
+epsom and ewell,Surrey
+runnymede,Surrey
+woking,Surrey
+spelthorne,Surrey
+rugby,Warwickshire
+stratford-on-avon,Warwickshire
+nuneaton and bedworth,Warwickshire
+warwick,Warwickshire
+north warwickshire,Warwickshire
+horsham,West Sussex
+arun,West Sussex
+chichester,West Sussex
+mid sussex,West Sussex
+worthing,West Sussex
+crawley,West Sussex
+adur,West Sussex
+south lakeland,Westmorland and Furness
+eden,Westmorland and Furness
+barrow-in-furness,Westmorland and Furness
+cumbria,Cumberland
+wychavon,Worcestershire
+bromsgrove,Worcestershire
+redditch,Worcestershire
+malvern hills,Worcestershire
+wyre forest,Worcestershire
+worcester,Worcestershire

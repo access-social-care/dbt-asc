@@ -32,6 +32,6 @@ SELECT
     0                                                              AS HAS_LETTER,
     NULL::VARCHAR                                                  AS LOCALITY_NAME
 
-FROM {{ source('helplines', 'helplines_aggregated_full') }}
+FROM {{ helplines_aggregated_relation() }}
 
 WHERE LA_NAME IS NOT NULL

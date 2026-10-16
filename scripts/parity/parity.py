@@ -39,7 +39,7 @@ def guard(sql):
 
 def duck_connect():
     if not os.environ.get("MOTHERDUCK_TOKEN"):
-        raise SystemExit("MOTHERDUCK_TOKEN unset")
+        raise SystemExit("MOTHERDUCK_TOKEN not set")  # never fall back to a browser login
     return duckdb.connect("md:")
 
 
