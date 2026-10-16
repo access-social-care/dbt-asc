@@ -156,11 +156,11 @@ def part_star(x, cutoff):
         b_sf = (f"select transcript_id, {val}, row_number() over (partition by transcript_id, {val} order by 1) as rn "
                 f"from ava.public.{sfname}_bridge where transcript_id in ({sf_ids})")
         b_md = (f"select transcript_id, {val}, row_number() over (partition by transcript_id, {val} order by 1) as rn "
-                f"from marts.{model}_bridge where transcript_id in ({md_ids})")
+                f"from marts.main.{model}_bridge where transcript_id in ({md_ids})")
         r, _ = x.compare(b_sf, b_md, ["transcript_id", val, "rn"])
         md.append(f"| {sfname}_BRIDGE | {verdict(r)} | {r['both']} | {r['only_sf_rows']} | {r['only_dbt_rows']} | cutoff {cutoff} |")
         d_sf = f"select {key}, {val} from ava.public.{sfname}_dim"
-        d_md = f"select {key}, {val} from marts.{model}_dim"
+        d_md = f"select {key}, {val} from marts.main.{model}_dim"
         r2, _ = x.compare(d_sf, d_md, [val])
         idd = r2["cols"][0] if r2["cols"] else None
         note = f"surrogate key diff {idd[3]}" if idd else ""
