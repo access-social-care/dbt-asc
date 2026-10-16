@@ -1,4 +1,4 @@
-# Parity: `analytics_dev.marts.norm_cld_long_term_support` vs `EXTERNAL_DATA.NORMALISED.NORM_CLD_LONG_TERM_SUPPORT`
+# Parity: `marts.main.norm_cld_long_term_support` vs `EXTERNAL_DATA.NORMALISED.NORM_CLD_LONG_TERM_SUPPORT`
 
 - Date: 2026-10-15  |  Verdict: **PASS**
 - Rows: DuckDB 195733 vs Snowflake 195733 (match)
