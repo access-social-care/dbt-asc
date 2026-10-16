@@ -98,6 +98,36 @@ and no mapping change recovers it.
 
 ---
 
+## One AdvicePro case = one person
+
+Every AdvicePro case is **one person**. No case has more than one human attached. Counting
+cases is counting people.
+
+**Why a report can show more rows than cases.** AdvicePro's "What type of disability" question
+is multi-select, so equalities reports list a case once per type ticked. Checked 2026-10-13
+for Apr-Sep 2026: the per-case report has 214 rows but only 187 distinct cases (186 once the
+test case `Test4` is removed); the 27 extra rows are 9 cases with two types, 6 with three and
+2 with four. The casework table and the annual AdvicePro report agree on the 187.
+
+What this means for the models:
+- Count **distinct case references**, never report rows. A person with several types ticked
+  is one person: `stg_ilta_advicepro` puts them under `Other` for disability.
+- The loader for report `FD7DXGL4` collapses the repeated rows to one row per case and joins
+  the types with `;`. FD7DXGL4 only has cases where something was filled in, but it holds every
+  answered value (it reproduces the full per-case report line for line); casework is the
+  denominator.
+- A version of the equalities report **without a Case Reference column** (the API run of
+  `HS6T5CH9`) cannot be de-duplicated: it merges identical blank rows into one row with a
+  "Number of Person with Care Needs" count (not a headcount) and still repeats multi-type
+  cases. Do not use it for counts.
+- AdvicePro forces a Yes/No on "Do you have a disability", so a `No` with nothing else
+  answered is a default, not a response (155 of 161 `No` in Apr-Sep 2025). ILTA models treat
+  it as `Not recorded`.
+- AdvicePro test cases (`Test1`, `Test3`, `Test4`...) exist in `ADVICEPRO_CASEWORK`; exclude
+  them from any count.
+
+---
+
 ## `stg_la_queries` is the integration point
 
 `stg_la_queries.sql` is the single UNION ALL that combines AdvicePro cases and
@@ -182,3 +212,4 @@ Re-read and update this charter when:
 - A new mart model is added
 - The pipeline cron schedule changes
 - A source moves onto or off MotherDuck (update the disabled-on-duckdb list above)
+- AdvicePro report `HS6T5CH9` or `FD7DXGL4` changes layout, or the count column stops collapsing rows
