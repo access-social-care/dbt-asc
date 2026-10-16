@@ -12,7 +12,7 @@
     la_name; la_code is kept from the standardiser.
   - Topics, categories and outcomes are collapsed over ALL of a case's rows
     (every annual report) to sorted, de-duplicated ';'-delimited strings.
-    Sort is binary (C-locale) order.
+    Sort is case-insensitive (base R sort() on the production VM uses a\n    locale collation, not binary): lower(value), then the value, lower-case\n    first.
   - Every other column comes from ONE row per case: closed beats Active, then
     latest close month (open cases sort as '0000/00'), then latest open month.
     Remaining ties: earliest report_year, then local authority text.
@@ -41,14 +41,37 @@ with_cassr as (
         on lower(r.la_name_std) = c.la_name
 ),
 
+topic_values as (
+    select distinct case_reference, 'super_category' as field, super_category as v
+    from with_cassr where super_category is not null
+    union all
+    select distinct case_reference, 'group', case_specific_issues_group
+    from with_cassr where case_specific_issues_group is not null
+    union all
+    select distinct case_reference, 'issues', case_specific_issues
+    from with_cassr where case_specific_issues is not null
+    union all
+    select distinct case_reference, 'outcome', case_outcome
+    from with_cassr where case_outcome is not null
+),
+
+collapsed as (
+    select
+        case_reference,
+        field,
+        string_agg(v, ';' order by lower(v), v desc) as s
+    from topic_values
+    group by case_reference, field
+),
+
 topics as (
     select
         case_reference,
-        nullif(string_agg(distinct super_category, ';' order by super_category), '')                         as super_category,
-        nullif(string_agg(distinct case_specific_issues_group, ';' order by case_specific_issues_group), '') as case_specific_issues_group,
-        nullif(string_agg(distinct case_specific_issues, ';' order by case_specific_issues), '')             as case_specific_issues,
-        nullif(string_agg(distinct case_outcome, ';' order by case_outcome), '')                             as case_outcome
-    from with_cassr
+        max(s) filter (where field = 'super_category') as super_category,
+        max(s) filter (where field = 'group')          as case_specific_issues_group,
+        max(s) filter (where field = 'issues')         as case_specific_issues,
+        max(s) filter (where field = 'outcome')        as case_outcome
+    from collapsed
     group by case_reference
 ),
 
@@ -96,4 +119,4 @@ select
                   + interval 1 month - interval 1 day as date)
     end                                                         as closed_on
 from dated d
-join topics t using (case_reference)
+left join topics t using (case_reference)
