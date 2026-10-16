@@ -235,11 +235,11 @@ Chatbot
 - Tracker-derived flags read the live tracker and can be TRUE where the old R snapshot was NULL.
   Only about 445 transcripts (2014 to 2023) have a tracker, so newer data cannot change.
 - Contentful metadata is a snapshot seeded from Snowflake `CONTENTFUL_DATA` into
-  `analytics_dev.landing`. Snowflake cannot be retired for chatbot until Contentful lands in
+  `raw.contentful`. Snowflake cannot be retired for chatbot until Contentful lands in
   MotherDuck natively.
 - The LA-to-CASSR map, tenant-to-LA map and category map are static copies of `ascFuncs` data.
 - Form demographics (170 transcripts, `demographics_matched.RDS`) are loaded by script into
-  `landing`, never committed: PII-adjacent. They should land in MotherDuck natively, as should
+  `raw.chatbot.form_demographics`, never committed: PII-adjacent. They should land in MotherDuck natively, as should
   Contentful; the seed scripts then go away.
 - ACCESSAVA is one row per reporting-tenant `transcript_id`, built in dbt from the `int_chatbot_*`
   models. `data.csv`, the `report.Rmd` export step and `data_uploader.R` are retired for it.
