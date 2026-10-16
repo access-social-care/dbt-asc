@@ -14,7 +14,7 @@
 
 with contentful as (
     select distinct id, t_supercategory, t_category, t_casespecificissue
-    from {{ source('chatbot_landing', 'contentful_data') }}
+    from {{ ref('stg_contentful_data') }}
     where t_supercategory is not null
 ),
 

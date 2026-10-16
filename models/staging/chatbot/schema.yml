@@ -76,3 +76,33 @@ models:
           - relationships:
               to: source('chatbot_postgres', 'tenants_tenant')
               field: organisation_name
+
+  - name: stg_contentful_data
+    description: |
+      Contentful content metadata from raw.contentful.contentful_data, passed
+      through unchanged (lower-case columns). One row per entry and button:
+      id repeats when an entry has several buttons.
+    tags: [chatbot]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [id, button_id]
+    columns:
+      - name: id
+        description: Contentful entry id.
+        tests: [not_null]
+      - name: button_id
+        description: Contentful button entry id; NULL when the entry has none.
+      - name: lettercode
+        description: Letter code for the entry; NULL when none.
+      - name: t_persona
+        description: Persona code (1, 2, 3); NULL when the entry carries none.
+        tests:
+          - accepted_values:
+              values: [1, 2, 3]
+              quote: false
+      - name: t_source
+        description: TRUE for source entries.
+        tests:
+          - accepted_values:
+              values: [true, false]
+              quote: false

@@ -35,6 +35,6 @@
 - The R `tr_total_convos.fst` is a static Feb 2026 snapshot; dbt derives the same set live (tr non-empty tracker union tr_ev first events).
 - Deliberate deviations: contentful_id NULL instead of text "null"; lettercode follows current Contentful (R cache predates content renames).
 - R chain was not re-run (it would overwrite the VM-style caches); comparison used the R cached tr/tr_ev outputs (2026-02-18/19).
-- Contentful must land in MotherDuck natively; until then seed_contentful.py is a stopgap and Snowflake cannot be retired.
+- Contentful now lands natively in MotherDuck raw.contentful.contentful_data (scripts/seed/land_contentful_raw.py, stopgap until the chatbot_content QC job writes it); read via stg_contentful_data. Snowflake cannot be retired until that job writes MotherDuck.
 
 Reproduce: `python scripts/parity/chatbot_base_parity.py --cutoff 2026-10-13 --r-tr r_tr.csv --r-trev r_trev.csv --r-cutoff 2026-02-18 --out docs/parity/chatbot_base.md` (CSVs from `Rscript scripts/parity/export_r_cache.R <cache_dir> <out_dir>`).
