@@ -1,0 +1,108 @@
+version: 2
+
+models:
+  - name: stg_chatbot_transcript
+    description: |
+      Cleaned chatbot transcripts (port of ascFuncs chatbot_process_tr). One row
+      per widget session. See the model header for the rules and what dbt
+      replaces. Feature models reference it with ref('stg_chatbot_transcript').
+    columns:
+      - name: id
+        description: Transcript UUID (Postgres actions_transcript.id).
+        tests: [unique, not_null]
+      - name: transcript_id
+        description: Alias of id, the name the feature functions use.
+        tests: [unique, not_null]
+      - name: created_at
+        tests: [not_null]
+      - name: entry_day
+        description: UTC date of created_at.
+        tests: [not_null]
+      - name: entry_month
+        description: "YYYY-MM"
+        tests: [not_null]
+      - name: entry_week
+        description: "YYYY-WW, lubridate week() numbering"
+        tests: [not_null]
+      - name: tenant_name
+        description: tenants_tenant.organisation_name. Never NULL or 'AccessAva #test'.
+        tests:
+          - not_null
+          - relationships:
+              to: source('chatbot_postgres', 'tenants_tenant')
+              field: organisation_name
+      - name: is_reporting_tenant
+        description: FALSE for tenants containing UAT or APDAS_SQUARESPACE (report.Rmd drops them before data.csv / ACCESSAVA).
+        tests: [not_null]
+      - name: is_engaged
+        description: Non-empty raw_tracker_record ('{}' or '[]' = empty). tr_total_convos rule.
+
+  - name: stg_chatbot_transcript_event
+    description: |
+      Cleaned chatbot transcript events (port of ascFuncs chatbot_process_tr_ev),
+      the `tr_ev` input of every chatbot_* feature function. One row per event.
+    columns:
+      - name: id
+        description: Event id (Postgres actions_transcriptevent.id).
+        tests: [unique, not_null]
+      - name: transcript_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('chatbot_postgres', 'actions_transcript')
+              field: id
+      - name: created_at
+        tests: [not_null]
+      - name: bot_or_user
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['bot', 'user', 'slot']
+      - name: entry_month
+        tests: [not_null]
+      - name: entry_week
+        tests: [not_null]
+      - name: contentful_id
+        description: raw_record .cms_response.id; NULL when absent.
+      - name: lettercode
+        description: Contentful lettercode for contentful_id; NULL when none.
+      - name: is_reporting_tenant
+        description: FALSE for tenants containing UAT or APDAS_SQUARESPACE.
+        tests: [not_null]
+      - name: tenant_name
+        description: Event's own tenant. Never NULL or 'AccessAva #test'.
+        tests:
+          - not_null
+          - relationships:
+              to: source('chatbot_postgres', 'tenants_tenant')
+              field: organisation_name
+
+  - name: stg_contentful_data
+    description: |
+      Contentful content metadata from raw.contentful.contentful_data, passed
+      through unchanged (lower-case columns). One row per entry and button:
+      id repeats when an entry has several buttons.
+    tags: [chatbot]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [id, button_id]
+    columns:
+      - name: id
+        description: Contentful entry id.
+        tests: [not_null]
+      - name: button_id
+        description: Contentful button entry id; NULL when the entry has none.
+      - name: lettercode
+        description: Letter code for the entry; NULL when none.
+      - name: t_persona
+        description: Persona code (1, 2, 3); NULL when the entry carries none.
+        tests:
+          - accepted_values:
+              values: [1, 2, 3]
+              quote: false
+      - name: t_source
+        description: TRUE for source entries.
+        tests:
+          - accepted_values:
+              values: [true, false]
+              quote: false

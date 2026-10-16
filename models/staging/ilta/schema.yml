@@ -15,8 +15,8 @@ models:
   - name: stg_ilta_advicepro
     description: |
       One row per AdvicePro case with ILTA-mapped GENDER/AGE/DISABILITY/
-      ETHNICITY (or a status) plus raw values. Demographics cover a small share
-      of cases. See model header.
+      ETHNICITY (or a status) plus raw values. Every case is one person. See
+      model header for the disability rules and test-case exclusion.
     columns:
       - name: RECORD_ID
         tests:

@@ -1,0 +1,222 @@
+version: 2
+
+# Group A feature models: one model per ascFuncs chatbot_* function, keyed on
+# transcript_id, output columns named as the R function returns them. Parity
+# against AVA.PUBLIC.ACCESSAVA: docs/parity/chatbot_features_a.md.
+# Every model's transcript_id is a subset of the base event transcripts (or, for
+# total_convos, base events plus engaged transcripts).
+
+models:
+  - name: int_chatbot_total_convos
+    description: |
+      chatbot_total_convos(). One row per conversation: engaged transcripts
+      (non-empty tracker) plus the first event of every event transcript, with
+      the tenant's region and organisation type. Not filtered to reporting
+      tenants.
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "(select count(*) from {{ ref('int_chatbot_total_convos') }}) >= (select count(distinct transcript_id) from {{ ref('stg_chatbot_transcript_event') }})"
+    columns:
+      - name: transcript_id
+        tests: [not_null, unique]
+      - name: created_at
+        tests: [not_null]
+      - name: tenant_name
+        tests:
+          - not_null
+          - relationships:
+              to: source('chatbot_postgres', 'tenants_tenant')
+              field: organisation_name
+      - name: engaged
+        description: Always 1 (R numeric flag).
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1]
+              quote: false
+      - name: region
+        description: Tenant's Region subgroup(s), comma-joined; NULL when none.
+      - name: organisation_type
+        description: Tenant's Organisation Type subgroup(s), comma-joined; NULL when none.
+
+  - name: int_chatbot_completions
+    description: chatbot_completions(). Transcripts that reached a completion point (letter download or safeguarding step).
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript')
+      - name: completed
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true]
+              quote: false
+
+  - name: int_chatbot_ethnicity
+    description: chatbot_ethnicity(). Answer to the ethnicity question; one row per transcript (latest answer).
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: ethnicity
+        tests:
+          - not_null
+          - dbt_utils.not_accepted_values:
+              values: ['Skip this question', 'back', '']
+
+  - name: int_chatbot_age_group
+    description: chatbot_age_group(). Answer to the age question (output column age_range); one row per transcript (latest answer).
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: age_range
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Under 16', '16 - 17', '18 - 25', '26 - 35', '36 - 45', '46 - 64', '65+', 'Skip this question']
+
+  - name: int_chatbot_person_type
+    description: |
+      chatbot_person_type(). KNOWN R BUG mirrored by default: the value is the
+      text after the question in DESCENDING time order, i.e. mostly the bot
+      message "Thanks! Remember you can skip...". Var chatbot_person_type_fix_order
+      switches to the correct answers. See the model header.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: person_type
+        tests:
+          - not_null
+          - dbt_utils.not_accepted_values:
+              values: ['Skip this question', 'back', '']
+
+  - name: int_chatbot_disability
+    description: chatbot_disability(). Yes/No answer (disability_n_y) and condition answers (disability_text, ';'-joined, sorted).
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "disability_n_y is not null or disability_text is not null"
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: disability_n_y
+        tests:
+          - dbt_utils.not_accepted_values:
+              values: ['Skip this question', 'back', '']
+      - name: disability_text
+        tests:
+          - dbt_utils.not_accepted_values:
+              values: ['Skip this question', 'back', '']
+
+  - name: int_chatbot_armed_forces
+    description: chatbot_armed_forces(). Answer to the final demographics question (output column armed_service).
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: armed_service
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Yes', 'No', 'Skip question']
+
+  - name: int_chatbot_la
+    description: |
+      chatbot_la(). Local authority as the CASSR name, from a postcode or typed
+      name, else inferred from the tenant. la_name is NULL where the name has no
+      CASSR mapping (R keeps those rows).
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: la_name
+        description: CASSR name. Mostly populated; NULL = unmapped LA text.
+        tests:
+          - dbt_utils.not_null_proportion:
+              at_least: 0.9
+
+  - name: int_chatbot_time_spent
+    description: chatbot_time_spent(). Seconds between the first and last event (by id) of each transcript.
+    tests:
+      - chatbot_rows_match_base:
+          base_model: ref('stg_chatbot_transcript_event')
+    columns:
+      - name: transcript_id
+        tests: [not_null, unique]
+      - name: dif
+        description: Whole seconds.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 2592000
+
+  - name: int_chatbot_churn
+    description: chatbot_churn(). Last non-blank text of each transcript and the furthest journey stage reached.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: churn_point
+        tests: [not_null]
+      - name: churn_category
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['1 before topic', '2 reached topic list', '3 got to letter', '4 got to feedback', '5 end, no letter']
+
+  - name: int_chatbot_ratings
+    description: chatbot_ratings(). Mean of Poor=1 / Okay=2 / Great=3 button presses per transcript.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: rating
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 3
+
+  - name: int_chatbot_feedback
+    description: |
+      chatbot_feedback(). Free-text feedback, several answers joined with
+      ' |||ALSO||| '. Contains user free text: restrict access like the events.
+    columns:
+      - name: transcript_id
+        tests:
+          - not_null
+          - unique
+          - chatbot_ids_in_base:
+              base_model: ref('stg_chatbot_transcript_event')
+      - name: user_feedback
+        tests: [not_null]

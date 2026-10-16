@@ -8,7 +8,9 @@ Source models (dbt-asc, schema `PUBLIC_ILTA` in `ANALYTICS`; dbt prefixes the ta
 | `dim_ilta_category` | feature x ILTA category (incl. status rows) | Dimension |
 | (build in Power BI) `DimDate` | one row per month | Date table |
 
-`record_count` = AccessAva conversations + AdvicePro cases. **Not unique clients.** Say so on every page footer.
+`record_count` = AccessAva conversations + AdvicePro people (one per case). **Not unique clients.** Say so on every page footer.
+
+**AdvicePro source = report FD7DXGL4** (`CASEWORK.PUBLIC.ADVICEPRO_DEMOGRAPHICS`), joined to the casework table, which is the denominator (every case, test cases excluded). Every AdvicePro case is one person, so cases = people. FD7DXGL4 only has rows for cases where something was filled in, but it holds every answered value: for Apr-Sep 2026 it reproduces the full per-case report line for line. The loader keeps one row per case with all ticked disability types joined by `;`.
 
 ## Model
 
@@ -47,6 +49,19 @@ Consistently Collected? =
 IF ( [Completeness %] >= 0.9, "Yes", "No" )
 ```
 
+```dax
+-- Prefer not to say as the ILTA return reports it: everything not in an answered line.
+-- Answered lines = reported categories except 'Prefer not to say'. Use as a card or total row with one FEATURE in context, not split by category (use ALL on the category column inside the measure if a matrix needs it).
+ILTA Prefer not to say (return basis) =
+VAR answered =
+    CALCULATE (
+        [Records],
+        dim_ilta_category[IS_REPORTED] = TRUE (),
+        dim_ilta_category[ILTA_CATEGORY] <> "Prefer not to say"
+    )
+RETURN [Records] - answered
+```
+
 `Records` ignores the `IS_REPORTED` filter on purpose; each FEATURE sums to the same total, so put only one FEATURE in context (page per feature) or the total is counted four times.
 
 ## Pages
@@ -58,14 +73,16 @@ IF ( [Completeness %] >= 0.9, "Yes", "No" )
 ## Rules baked into the data (tell users)
 
 - **AccessAva has no gender.** Rows are `Not collected`; they are excluded from gender completeness. Gender is AdvicePro only.
-- **Disability** is derived: 'No' -> No disability; a stated type -> its ILTA label; 'Yes' with no type -> **Other**. ILTA has no "unspecified" bucket; confirm this is acceptable.
+- **Disability** is derived (rules agreed 2026-10-12/13), in this order: 'No' with at least one of age/gender/ethnicity answered -> No disability; two or more types ticked -> **Other** (same as the maps' 'Multiple Impairments'); one type -> its ILTA label; 'Yes' with no type -> **Other** (ILTA has no unspecified line); a 'No' with nothing else answered -> Not recorded.
+- **AdvicePro default 'No'.** AdvicePro records 'No' to "Do you have a disability" as a default (155 of 161 'No' answers in Apr-Sep 2025 had age, gender and ethnicity all blank). A 'No' with none of those answered is **Not recorded**, not No disability. AccessAva 'No' is always taken at face value.
+- **Prefer not to say on the return = total - answered lines.** Last year's return was built this way (every record that is not in one of the answered categories counts as Prefer not to say, including blanks). Use `ILTA Prefer not to say (return basis)` below, not the `Prefer not to say` category row, which only counts explicit answers.
 - **Age is lossy.** Source bands do not match ILTA bands: AccessAva `26-45` -> 25-34, `46-64` -> 45-54; AdvicePro `35 - 49` -> 35-44, `50 - 64` -> 55-64. AccessAva `65+` -> 65-74 (cannot give 75 Plus). Treat age counts as indicative.
 - AccessAva coarse `AGE` (Under 18 / 18-64 / 65+, ~15% populated) is ignored; only `AGE_RANGE` (<1% populated) is used.
 - `Unmapped` rows are shown, never dropped.
 
 ## Data volumes (dev, 2026-10-01)
 
-AccessAva 26,992 conversations, under 2% with any demographic; AdvicePro 2,822 cases, about 5% with demographics. Expect "Consistently collected = No" for all four sections, and small numbers per category. Do not publish LA x month cuts externally: the mart is **not small-number suppressed** (counts of 1-2 occur). Grant the `PUBLIC_ILTA` schema only to the BI reader role, or add suppression (`la_suppress` pattern) before widening access.
+AccessAva about 27,000 conversations, under 2% with any demographic; AdvicePro about 190 cases per six months, roughly a quarter with any demographic answered. Expect "Consistently collected = No" for all four sections, and small numbers per category. Do not publish LA x month cuts externally: the mart is **not small-number suppressed** (counts of 1-2 occur). Grant the `PUBLIC_ILTA` schema only to the BI reader role, or add suppression (`la_suppress` pattern) before widening access.
 
 ## Known map defects (REFERENCE.PUBLIC, fix at source; not changed here)
 
