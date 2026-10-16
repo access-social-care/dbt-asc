@@ -11,7 +11,7 @@
 
 with contentful as (
     select distinct id, cast(t_persona as bigint) as t_persona
-    from {{ source('chatbot_landing', 'contentful_data') }}
+    from {{ source('chatbot_raw', 'contentful_data') }}
     where t_persona is not null
 ),
 
