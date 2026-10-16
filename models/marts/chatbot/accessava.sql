@@ -15,7 +15,7 @@
   Steps after the join, in R order:
     1. form demographics (process_raw_data): coalesce(in-chatbot answer, form
        answer) for ethnicity, age_range, person_type, disability_n_y,
-       armed_service. Source: landing.chatbot_form_demographics, seeded from
+       armed_service. Source: raw.chatbot.form_demographics, seeded from
        ascFuncs demographics_matched.RDS (scripts/seed/seed_form_demographics.py).
     2. report.Rmd: drop tenants containing UAT or APDAS_SQUARESPACE; tenant tidy
        (strip _prod/_Prod, underscore to space); entry_month = YYYY-MM of
@@ -44,7 +44,7 @@ with spine as (
 ),
 
 form as (
-    select * from {{ source('chatbot_landing', 'chatbot_form_demographics') }}
+    select * from {{ source('chatbot_raw', 'form_demographics') }}
 )
 
 select

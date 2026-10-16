@@ -22,7 +22,7 @@
 - Bridges are not distinct (a value repeated in one list repeats in the bridge), as in R; the row-number comparison covers duplicates.
 - The dedupe_by_id step of prepare_accessava is a no-op in dbt: every feature model is one row per transcript_id (unique tests).
 - ACCESSAVA `county` is NULL for all rows in Snowflake (stale export column); kept as NULL for column parity.
-- Form demographics: 170 rows seeded by scripts/seed/seed_form_demographics.py into analytics_dev.landing.chatbot_form_demographics; nothing derived from the RDS is in the repo. Flag for quality-officer review.
+- Form demographics: 170 rows seeded by scripts/seed/seed_form_demographics.py into raw.chatbot.form_demographics; nothing derived from the RDS is in the repo. Flag for quality-officer review.
 - stg_chatbot_transcript_event soft-delete change was not rebuilt (zero affected ids; a rebuild scans raw_record).
 
 ## ACCESSAVA

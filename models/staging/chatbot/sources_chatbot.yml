@@ -54,7 +54,8 @@ sources:
           Contentful content metadata, lower-case column names (as
           .load_contentful_data() returns them). Key columns used by the base
           layer: id (Contentful entry id) and lettercode.
-      - name: chatbot_form_demographics
+      - name: form_demographics
+        schema: chatbot
         description: |
           External equalities-form responses matched to transcripts
           (ascFuncs inst/extdata/demographics_matched.RDS, about 170 rows).
