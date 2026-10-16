@@ -40,7 +40,7 @@ normalised as (
             when 'Information seeking' then 'Information Seeking'
             else ut1
         end as ut1,
-        {{ helplines_cassr_name('la_name') }} as la_name
+        {{ helplines_cassr_name('in_scope.la_name') }} as la_name
     from in_scope
 ),
 
@@ -64,5 +64,5 @@ select
     month_date,
     ut1,
     cast(n as double) as n,
-    {{ helplines_cassr_name('la_name') }} as la_name
+    {{ helplines_cassr_name('counted.la_name') }} as la_name
 from counted

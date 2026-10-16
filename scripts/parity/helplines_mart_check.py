@@ -2,11 +2,11 @@
 
 The month-level parity of the partner models is limited by what is still on SharePoint. This
 isolates the mart: it copies the Snowflake PARTNER_HISTORY_* tables (as grouped aggregates, then
-expanded locally), runs the compiled dbt SQL of helplines_stable_period and helplines_aggregated_full
+expanded locally), runs the compiled dbt SQL of helplines_stable_period and helplines_ongoing
 against them in an in-memory DuckDB, and compares the result to the live Snowflake mart.
 Snowflake is read-only (ROLE_DEV, SELECT). Nothing is written to MotherDuck.
 
-Run `dbt compile --target duckdb --select helplines_stable_period helplines_aggregated_full` first.
+Run `dbt compile --target duckdb --select helplines_stable_period helplines_ongoing` first.
   python scripts/parity/helplines_mart_check.py [--out docs/parity/helplines_mart_check.md]
 """
 import argparse
@@ -69,10 +69,10 @@ def main():
         loc.execute("INSERT INTO analytics_dev.staging.helplines_partner_history "
                     f"SELECT d, m, NULL, NULL, ut1, NULL, la_name, la_code, org FROM {tmp}, range({tmp}.n)")
     loc.execute("CREATE TABLE analytics_dev.staging.helplines_stable_period AS " + compiled("staging/helplines/helplines_stable_period.sql"))
-    loc.execute("CREATE TABLE analytics_dev.marts.helplines_aggregated_full AS " + compiled("marts/helplines/helplines_aggregated_full.sql"))
+    loc.execute("CREATE TABLE analytics_dev.marts.helplines_ongoing AS " + compiled("marts/helplines/helplines_ongoing.sql"))
     period = loc.execute("SELECT * FROM analytics_dev.staging.helplines_stable_period LIMIT 3").fetchall()
 
-    mine = loc.execute("SELECT month_date, ut1, la_name, n FROM analytics_dev.marts.helplines_aggregated_full").fetchall()
+    mine = loc.execute("SELECT month_date, ut1, la_name, n FROM analytics_dev.marts.helplines_ongoing").fetchall()
     sf = srun("SELECT MONTH_DATE, UT1, LA_NAME, N FROM HELPLINES.PUBLIC.HELPLINES_AGGREGATED_FULL")
     key = lambda r: (str(r[0]), r[1], r[2] or "~N~", float(r[3]))
     A, B = sorted(map(key, mine)), sorted(map(key, sf))

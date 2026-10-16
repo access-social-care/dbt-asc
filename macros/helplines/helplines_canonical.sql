@@ -56,7 +56,9 @@
     strftime({{ date_col }}, '%Y-%m')
 {%- endmacro %}
 
-{# cassr_converter(): lower-case the LA name, look up the CASSR name. NULL if absent. #}
+{# cassr_converter(): lower-case the LA name, look up the CASSR name. NULL if absent.
+   Pass a QUALIFIED column (alias.la_name): the subquery has its own la_name column, and an
+   unqualified la_name binds to it instead of the outer row, silently returning an arbitrary CASSR. #}
 {% macro helplines_cassr_name(la_name_col) -%}
     (select c.cassr_name from {{ source('reference_la', 'la_to_cassr') }} c where c.la_name = lower({{ la_name_col }}) limit 1)
 {%- endmacro %}
