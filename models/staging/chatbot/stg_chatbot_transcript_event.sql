@@ -55,7 +55,7 @@ test_ids as (
 
 lettercodes as (
     select distinct lettercode, id as contentful_id
-    from {{ source('chatbot_landing', 'contentful_data') }}
+    from {{ source('chatbot_raw', 'contentful_data') }}
     where lettercode is not null and id is not null
 ),
 

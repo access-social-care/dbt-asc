@@ -37,15 +37,15 @@ sources:
       - name: nlu_conversationsession
       - name: nlu_nluconversationlog
 
-  - name: chatbot_landing
+  - name: chatbot_raw
     description: |
-      Inputs seeded into analytics_dev.landing because the producer does not
+      Inputs seeded into the `raw` database (raw.contentful, raw.chatbot) because the producer does not
       write MotherDuck yet. STOPGAP: Contentful must eventually land in
       MotherDuck natively; until then scripts/seed/seed_contentful.py copies
       AVA.PUBLIC.CONTENTFUL_DATA (Snowflake, read-only) and Snowflake cannot be
       retired.
-    database: "{{ target.database if target.type == 'duckdb' else 'ava' }}"
-    schema: landing
+    database: "{{ 'raw' if target.type == 'duckdb' else 'ava' }}"
+    schema: "{{ 'contentful' if target.type == 'duckdb' else 'public' }}"
     config:
       enabled: "{{ target.type == 'duckdb' }}"
     tables:

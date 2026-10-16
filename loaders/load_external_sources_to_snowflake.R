@@ -121,8 +121,20 @@ LANDING_SCHEMA <- "LANDING"
 ## absorb. Land 2024-25 first (scripts/backfill_asc_workforce_history.py in the
 ## checker repo), then let the live run append 2025-26. The old wide table
 ## REFERENCE.PUBLIC.ASC_WORKFORCE is no longer written and has no consumers.
+##
+## The other annual releases were added the same day (people_receiving_care,
+## dols, ombudsman, ascof, safeguarding_adults): none has a period column
+## inside its file, so overwriting kept only the latest year. Their old
+## REFERENCE.PUBLIC tables are no longer written. The first landing run loads
+## the current on-disk CSV as the first vintage (NO_UPDATE defers to the
+## per-vintage guard); earlier years come from a backfill.
 LANDING_DATASETS <- c(
   "asc_workforce",
+  "people_receiving_care",
+  "dols",
+  "ombudsman",
+  "ascof",
+  "safeguarding_adults",
   "cld_long_term_support",
   "cld_long_term_support_gender",
   "cld_long_term_support_ethnicity",
