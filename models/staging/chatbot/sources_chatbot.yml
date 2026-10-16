@@ -54,16 +54,16 @@ sources:
           One row per Contentful entry and button, lower-case column names,
           26 T_* BOOLEAN flags. id is not unique (one row per button_id).
 
-  - name: chatbot_landing
+  - name: chatbot_raw
     description: |
-      Inputs seeded into analytics_dev.landing because the producer does not
-      write MotherDuck yet.
-    database: "{{ target.database if target.type == 'duckdb' else 'ava' }}"
-    schema: landing
+      Inputs seeded into the `raw` database (raw.chatbot) because the producer
+      does not write MotherDuck yet.
+    database: "{{ 'raw' if target.type == 'duckdb' else 'ava' }}"
+    schema: "{{ 'chatbot' if target.type == 'duckdb' else 'public' }}"
     config:
       enabled: "{{ target.type == 'duckdb' }}"
     tables:
-      - name: chatbot_form_demographics
+      - name: form_demographics
         description: |
           External equalities-form responses matched to transcripts
           (ascFuncs inst/extdata/demographics_matched.RDS, about 170 rows).

@@ -30,8 +30,8 @@ import duckdb
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import parity  # noqa: E402  (reuses sf_connect + SELECT-only guard)
 
-MD = "md:analytics_dev"
-SCHEMA = "md.staging"
+MD = "md:staging"
+SCHEMA = "md.main"
 SF_COLS = ["transcript_id", "created_at", "tenant_name", "engaged", "region", "organisation_type",
            "completed", "ethnicity", "age_range", "person_type", "disability_n_y", "disability_text",
            "armed_service", "la_name", "dif", "churn_point", "churn_category", "rating", "user_feedback"]
@@ -105,6 +105,8 @@ def main():
     ap.add_argument("--out", help="markdown summary path")
     a = ap.parse_args()
 
+    if not os.environ.get("MOTHERDUCK_TOKEN"):
+        raise SystemExit("MOTHERDUCK_TOKEN unset")
     c = duckdb.connect()
     c.execute(f"ATTACH '{MD}' AS md")
     pull_accessava(c, a.cutoff, a.sf_cache)

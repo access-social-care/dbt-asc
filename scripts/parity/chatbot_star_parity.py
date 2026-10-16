@@ -1,7 +1,7 @@
 """Parity for the chatbot star layer: accessava, bridges, dims, locality, downstream marts.
 
 Oracle: Snowflake AVA.PUBLIC.* (and ANALYTICS marts), SELECT only (ROLE_DEV, JWT key auth).
-DuckDB side: analytics_dev.marts.* on MotherDuck, SELECT only. Both sides are pulled as
+DuckDB side: marts.main.* on MotherDuck, SELECT only. Both sides are pulled as
 text into a private temp directory, compared by a local in-memory DuckDB, and the temp
 files are removed. Only counts reach stdout / the report: no data rows are printed.
 
@@ -67,7 +67,7 @@ class Ctx:
             raise SystemExit("MOTHERDUCK_TOKEN is not set")
         self.tmp = tempfile.mkdtemp(prefix="star_parity_")
         self.sf = parity.sf_connect()
-        self.md = duckdb.connect("md:analytics_dev")
+        self.md = duckdb.connect("md:")
         self.local = duckdb.connect()
         self.n = 0
 
@@ -143,14 +143,14 @@ def part_accessava(x, cutoff):
             "letter_downloaded, autocomplete_start, autocomplete_finish, factsheets_templates, rasa, "
             "topic_entry_point, consumed_resources, age, referring_page_url, referring_page_parameters, entry_month")
     res, _ = x.compare(f"select {cols} from ava.public.accessava where created_at <= date '{cutoff}'",
-                       f"select {cols} from marts.accessava where created_at <= date '{cutoff}'", ["transcript_id"])
+                       f"select {cols} from marts.main.accessava where created_at <= date '{cutoff}'", ["transcript_id"])
     return ["## ACCESSAVA", ""] + table_md(f"accessava vs AVA.PUBLIC.ACCESSAVA (created_at <= {cutoff}): {verdict(res)}", res), res
 
 
 def part_star(x, cutoff):
     md = ["## Bridges and dimensions", "", "| object | verdict | rows both | only SF | only dbt | note |", "|---|---|---|---|---|---|"]
     sf_ids = f"select transcript_id from ava.public.accessava where created_at <= date '{cutoff}'"
-    md_ids = f"select transcript_id from marts.accessava where created_at <= date '{cutoff}'"
+    md_ids = f"select transcript_id from marts.main.accessava where created_at <= date '{cutoff}'"
     detail = []
     for sfname, model, val, key in STAR:
         b_sf = (f"select transcript_id, {val}, row_number() over (partition by transcript_id, {val} order by 1) as rn "
@@ -177,8 +177,8 @@ def part_locality(x, cutoff):
     res, _ = x.compare(
         f"select {cols} from ava.public.accessava_locality where transcript_id in "
         f"(select transcript_id from ava.public.accessava where created_at <= date '{cutoff}')",
-        f"select {cols} from marts.accessava_locality where transcript_id in "
-        f"(select transcript_id from marts.accessava where created_at <= date '{cutoff}')", ["transcript_id"])
+        f"select {cols} from marts.main.accessava_locality where transcript_id in "
+        f"(select transcript_id from marts.main.accessava where created_at <= date '{cutoff}')", ["transcript_id"])
     return ["## Locality", ""] + table_md(f"accessava_locality vs AVA.PUBLIC.ACCESSAVA_LOCALITY (transcripts in ACCESSAVA at {cutoff}): {verdict(res)}", res), res
 
 
@@ -200,7 +200,7 @@ def part_marts(x, cutoff):
             "max(created_at) as last_conversation_date from ava.public.accessava where tenant_name is not null "
             f"group by 1, 2 having date_trunc('month', created_at) < date '{first}'")
     md_m = ("select tenant_name, cast(conversation_month as date) as conversation_month, conversation_count, unique_conversations, first_conversation_date, "
-            f"last_conversation_date from marts.mart_chatbot_conversations_by_tenant_monthly where conversation_month < date '{first}'")
+            f"last_conversation_date from marts.main.mart_chatbot_conversations_by_tenant_monthly where conversation_month < date '{first}'")
     r, _ = x.compare(sf_m, md_m, ["tenant_name", "conversation_month"])
     md += table_md(f"mart_chatbot_conversations_by_tenant_monthly vs model SQL on AVA.PUBLIC.ACCESSAVA (months before {first}): {verdict(r)}", r)
     out.append(("mart_chatbot_conversations_by_tenant_monthly", r))
@@ -210,23 +210,23 @@ def part_marts(x, cutoff):
             f"where tenant_name is not null and created_at <= date '{cutoff}' group by 1")
     md_t = ("select tenant_name, count(*) as total_conversations, count(distinct transcript_id) as unique_conversations, "
             "min(created_at) as first_conversation_date, max(created_at) as last_conversation_date, "
-            "date_diff('day', min(created_at), max(created_at)) as days_active from marts.accessava "
+            "date_diff('day', min(created_at), max(created_at)) as days_active from marts.main.accessava "
             f"where tenant_name is not null and created_at <= date '{cutoff}' group by 1")
     r, _ = x.compare(sf_t, md_t, ["tenant_name"])
-    md += table_md(f"tenant_total logic, cutoff {cutoff} (aggregation re-run both sides; the model itself is the same SQL as marts.mart_chatbot_conversations_by_tenant_total): {verdict(r)}", r)
+    md += table_md(f"tenant_total logic, cutoff {cutoff} (aggregation re-run both sides; the model itself is the same SQL as marts.main.mart_chatbot_conversations_by_tenant_total): {verdict(r)}", r)
     out.append(("mart_chatbot_conversations_by_tenant_total", r))
     # stg_ilta_accessava: Snowflake table exists (ANALYTICS.PUBLIC_ILTA_STAGING).
     ic = ["record_id", "source_system", "month_date", "la_name", "org_name", "gender", "age", "disability", "ethnicity",
           "gender_raw", "age_raw", "disability_yn_raw", "disability_type_raw", "ethnicity_raw"]
     sf_i = f"select {', '.join(ic)} from analytics.public_ilta_staging.stg_ilta_accessava where record_id in (select transcript_id from ava.public.accessava where created_at <= date '{cutoff}')"
-    md_i = f"select {', '.join(ic)} from staging.stg_ilta_accessava where record_id in (select transcript_id from marts.accessava where created_at <= date '{cutoff}')"
+    md_i = f"select {', '.join(ic)} from staging.main.stg_ilta_accessava where record_id in (select transcript_id from marts.main.accessava where created_at <= date '{cutoff}')"
     r, _ = x.compare(sf_i, md_i, ["record_id"])
     md += table_md(f"stg_ilta_accessava vs ANALYTICS.PUBLIC_ILTA_STAGING.STG_ILTA_ACCESSAVA (conversations in ACCESSAVA at {cutoff}): {verdict(r)}", r)
     out.append(("stg_ilta_accessava", r))
     # stg_accessava: grain conversation x topic, no unique key; multiset of full-row hashes.
     sc = ["la_name", "query_date", "source_system", "query_count", "segment", "ut2", "age_band", "has_letter", "locality_name"]
     sf_s = hashed(sc, "analytics.public_la_product_staging.stg_accessava", f"query_date <= date '{cutoff}'")
-    md_s = hashed(sc, "staging.stg_accessava", f"query_date <= date '{cutoff}'")
+    md_s = hashed(sc, "staging.main.stg_accessava", f"query_date <= date '{cutoff}'")
     r, _ = x.compare(sf_s, md_s, ["k", "rn"])
     md += table_md(f"stg_accessava vs ANALYTICS.PUBLIC_LA_PRODUCT_STAGING.STG_ACCESSAVA (query_date <= {cutoff}, full-row multiset): {verdict(r)}", r)
     out.append(("stg_accessava", r))

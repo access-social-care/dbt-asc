@@ -22,8 +22,8 @@ import duckdb
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import parity  # noqa: E402
 
-EV = "md.staging.stg_chatbot_transcript_event"
-TR = "md.staging.stg_chatbot_transcript"
+EV = "md.main.stg_chatbot_transcript_event"
+TR = "md.main.stg_chatbot_transcript"
 
 # (model, [(accessava column, model column, kind)]) ; kind 'text' or 'bool'
 FEATURES = [
@@ -53,8 +53,10 @@ def main():
     a = ap.parse_args()
 
     cols = [c for _, cs in FEATURES for c, _, _ in cs]
+    if not os.environ.get("MOTHERDUCK_TOKEN"):
+        raise SystemExit("MOTHERDUCK_TOKEN unset")
     c = duckdb.connect()
-    c.execute("ATTACH 'md:analytics_dev' AS md")
+    c.execute("ATTACH 'md:staging' AS md")
 
     scon = parity.sf_connect()
     cur = scon.cursor()
@@ -90,7 +92,7 @@ def main():
           "| model.column | ACCESSAVA non-null | dbt non-null | equal | differ | ACCESSAVA only | dbt only | dbt-only ids |",
           "|---|---|---|---|---|---|---|---|"]
     for model, cs in FEATURES:
-        c.execute(f"CREATE OR REPLACE TABLE m AS SELECT * FROM md.staging.{model}")
+        c.execute(f"CREATE OR REPLACE TABLE m AS SELECT * FROM md.main.{model}")
         dup = c.execute("SELECT COUNT(*) - COUNT(DISTINCT transcript_id) FROM m").fetchone()[0]
         extra = c.execute("""SELECT COUNT(*) FROM m WHERE transcript_id IN (SELECT transcript_id FROM base_u)
                              AND transcript_id NOT IN (SELECT transcript_id FROM sf)""").fetchone()[0]

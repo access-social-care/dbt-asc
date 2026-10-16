@@ -1,7 +1,7 @@
 """Seed the external equalities-form demographics into MotherDuck.
 
-Target: analytics_dev.landing.chatbot_form_demographics (full replace on each run).
-Read by dbt as source('chatbot_landing', 'chatbot_form_demographics') on the DuckDB
+Target: raw.chatbot.form_demographics (full replace on each run).
+Read by dbt as source('chatbot_raw', 'form_demographics') on the DuckDB
 target; the accessava model coalesces it into ethnicity, age_range, person_type,
 disability_n_y and armed_service exactly as ascFuncs::process_raw_data does.
 
@@ -31,7 +31,7 @@ import duckdb
 DEFAULT_RDS = r"C:\o\_ASC\ascFuncs\inst\extdata\demographics_matched.RDS"
 DEFAULT_RSCRIPT = r"C:\Program Files\R\R-4.5.1\bin\Rscript.exe"
 COLS = ["transcript_id", "ethnicity", "age_range", "person_type", "disability_n_y", "armed_service"]
-DUCK_DB, DUCK_SCHEMA, DUCK_TABLE = "analytics_dev", "landing", "chatbot_form_demographics"
+DUCK_DB, DUCK_SCHEMA, DUCK_TABLE = "raw", "chatbot", "form_demographics"
 
 R_EXPORT = (
     "args <- commandArgs(trailingOnly = TRUE); "

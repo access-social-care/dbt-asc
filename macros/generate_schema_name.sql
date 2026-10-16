@@ -64,17 +64,11 @@
 
 {% macro generate_schema_name(custom_schema_name, node) -%}
 
-    {#- DuckDB/MotherDuck target: one database, two flat schemas, no Snowflake
-        layer names. marts and normalised models land in `marts`; everything
-        else (staging, intermediate, seeds, tests) in `staging`. The Snowflake
+    {#- DuckDB/MotherDuck target: layers are DATABASES (see generate_database_name),
+        so every model, seed and test lands in schema `main`. The Snowflake
         branch below is untouched: it is a grant-boundary guard.  #}
     {%- if target.type == 'duckdb' -%}
-        {%- if node is not none and node.resource_type is defined and node.resource_type == 'model'
-               and node.fqn | length > 2 and node.fqn[1] in ['marts', 'normalised'] -%}
-            marts
-        {%- else -%}
-            staging
-        {%- endif -%}
+        main
     {%- else -%}
 
     {%- set default_schema = target.schema -%}
