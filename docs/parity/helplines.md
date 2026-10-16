@@ -64,5 +64,5 @@ Mart isolation check not run (limit). Age UK, Scope not reproducible from curren
 ## 2026-10-16 changes (owner decisions)
 
 - Mart renamed `helplines_aggregated_full` to `helplines_ongoing` (the State of the Nation output will be promoted alongside it). The Snowflake source keeps its table name.
-- Stable period now requires 6 partners (was 5, as in `data_discriminator.R`). The primary stable period shrinks from 2024-04..2026-03 (263 mart rows) to 2024-10..2025-12 (165 rows). This deliberately differs from Snowflake until the R is retired.
+- Stable period stays at 5 partners (as `data_discriminator.R`). 6 was tried (window shrank to 2024-10..2025-12, 165 rows) and reverted; the owner will revisit once the State of the Nation data is combined (see the tracking issue). Mart row-count floor test is 200.
 - The ONS LAD, geography-to-LA and LA-to-CASSR lookups moved from dbt seeds to MotherDuck `reference.main` (`ons_lad_2025`, `geo_to_la`, `la_to_cassr`), published once by `scripts/seed/publish_la_reference.py`.

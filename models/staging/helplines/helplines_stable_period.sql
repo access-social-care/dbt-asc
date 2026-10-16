@@ -8,8 +8,9 @@
     - a month is stable when at least `helplines_min_partners` partners have any data in it;
     - a stable period is a run of at least `helplines_min_consecutive_months` stable months.
   The primary period is the first row: most months, ties broken by the latest end.
-  Thresholds: MIN_CONSECUTIVE_MONTHS = 3. The partner count is 6 by decision (2026-10-16); the R
-  code (data_discriminator.R) says 5, so this deliberately differs from Snowflake until R is retired.
+  Thresholds: MIN_CONSECUTIVE_MONTHS = 3 and MIN_PARTNERS_REQUIRED = 5, as in data_discriminator.R
+  (the charter and README say 6: recorded conflict, code wins). 6 was tried on 2026-10-16 and
+  reverted; the owner will revisit once the State of the Nation data is combined (see the tracking issue).
 */
 
 with data as (
@@ -45,7 +46,7 @@ per_month as (
 ),
 
 flagged as (
-    select month, n_with_data, n_with_data >= {{ var('helplines_min_partners', 6) }} as is_stable
+    select month, n_with_data, n_with_data >= {{ var('helplines_min_partners', 5) }} as is_stable
     from per_month
 ),
 
