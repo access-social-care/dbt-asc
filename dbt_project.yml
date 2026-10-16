@@ -106,10 +106,8 @@ models:
         +database: "{{ 'staging' if target.type == 'duckdb' else ('EXTERNAL_DATA' if target.name == 'prod' else 'EXTERNAL_DATA_DEV') }}"
         +materialized: table
         +tags: ['external']
-        # DuckDB: raw_external.main.cld_* already holds this layer's output
-        # (typed, deduped), and the landing tables it is built from are not on
-        # MotherDuck. norm_cld_* reads raw_external directly; see CHARTER.md.
-        +enabled: "{{ target.type != 'duckdb' }}"
+        # DuckDB: enabled as a pass-through over raw_external.main.cld_* (already
+        # this layer's output; landing is not on MotherDuck). See cld_stacked_raw.
         # Resolves to EXTERNAL_DATA.RAW verbatim rather than PUBLIC_RAW, via
         # the allowlist in macros/generate_schema_name.sql. Do not change
         # this value without reading that macro's header comment first.

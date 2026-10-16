@@ -32,6 +32,15 @@
 
 {% macro cld_stacked_raw(measure, source_age, source_gender, source_ethnicity, has_support_setting) %}
 
+{#- DuckDB/MotherDuck: raw_external.main.cld_* already holds this macro's output
+    (stacked, typed, deduped to the latest vintage; parity-checked column by
+    column against EXTERNAL_DATA.RAW.STG_CLD_*), and the append-only landing
+    tables it is built from are not on MotherDuck. The model is a pass-through
+    so the DAG and the model tests are identical on both targets.  #}
+{%- if target.type == 'duckdb' -%}
+SELECT * FROM {{ source('data_portal_landing', source_age) }}
+{%- else -%}
+
 {%- if has_support_setting -%}
     {%- set support_col = 'support_setting,' -%}
 {%- else -%}
@@ -213,4 +222,5 @@ SELECT
 FROM ranked
 WHERE vintage_rank = 1
 
+{%- endif -%}
 {% endmacro %}

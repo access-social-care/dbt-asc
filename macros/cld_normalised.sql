@@ -73,7 +73,7 @@
 WITH raw_counts AS (
 
     SELECT *
-    FROM {{ cld_raw_relation(raw_model) }}
+    FROM {{ ref(raw_model) }}
     {#- Suppressed cells are NULL, and a rate from an unknown numerator is
         meaningless rather than zero. Excluded rather than carried as NULL,
         for the same reason the published join is inner.  #}

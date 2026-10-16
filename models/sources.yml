@@ -387,53 +387,121 @@ sources:
       # Census 2021 raw UTLA tables
       - name: census_ts007a_utla
         description: "Census 2021 TS007a — population by single year of age, UTLA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_ts021_utla
         description: "Census 2021 TS021 — ethnic group, UTLA grain. Used by la_peer_signals_poc.R for per-100k rates."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_ts029_utla
         description: "Census 2021 TS029 — English language proficiency, UTLA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_ts038_utla
         description: "Census 2021 TS038 — disability (Equality Act), UTLA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_ts051_utla
         description: "Census 2021 TS051 — number of rooms, UTLA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_ts054_utla
         description: "Census 2021 TS054 — housing tenure, UTLA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_ts062_utla
         description: "Census 2021 TS062 — NS-SEC socioeconomic classification, UTLA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_ts067_utla
         description: "Census 2021 TS067 — highest qualification level, UTLA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_rm073_utla
         description: "Census 2021 RM073 — disability by age band, UTLA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: census_rm070_utla
         description: |
           Census 2021 RM070 (custom flexible table) — disability × age × ethnicity, UTLA grain.
           Source: ONS flexible table builder (15,750 rows).
           Reproduce at: https://www.ons.gov.uk/datasets/RM070/editions/2021/versions/1/filter-outputs/387852b1-4506-4ea3-b7fe-f3a6693614c5#get-data
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
 
       # LANN peer-grouping feature inputs (UTLA-level derived from Census 2021)
       - name: lann_ethnicity
         description: "LANN feature — ethnic group percentages by UTLA. Derived from TS021."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: lann_english_proficiency
         description: "LANN feature — English proficiency percentages by UTLA. Derived from TS029."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: lann_housing_tenure
         description: "LANN feature — housing tenure percentages by UTLA. Derived from TS054."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: lann_ns_sec
         description: "LANN feature — NS-SEC percentages by UTLA. Derived from TS062."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: lann_population_data
         description: "LANN feature — population by age band, UTLA grain. Derived from TS007a."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: lann_qualification_level
         description: "LANN feature — qualification level percentages by UTLA. Derived from TS067."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: lann_rooms
         description: "LANN feature — number of rooms percentages by UTLA. Derived from TS051."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: lann_area_sqkm
         description: "LANN feature — area in km², LSOA grain. From ONS Standard Area Measurements."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
       - name: lann_distance_to_sea
         description: "LANN feature — distance to nearest coastline (km), LSOA grain."
+        config:
+          enabled: "{{ target.type != 'duckdb' }}"  # lives in raw_external.main on duckdb: see source reference_external
 
       # Geographic lookups
       - name: lsoa21_to_utla22
         description: "ONS best-fit lookup: LSOA (2021) to UTLA (2022)."
       - name: sam_utla_2021
         description: "ONS Standard Area Measurements — UTLA grain, December 2021."
+
+  # DuckDB-only twin of the census_* / lann_* entries in `reference` above: on MotherDuck
+  # these 19 tables sit in raw_external.main, not reference.main. No model reads them (R
+  # signal_processing loaders do), so this is mapping and documentation only.
+  - name: reference_external
+    description: Census 2021 UTLA tables and LANN feature tables, as landed in raw_external.main on MotherDuck.
+    database: raw_external
+    schema: main
+    config:
+      enabled: "{{ target.type == 'duckdb' }}"
+    tables:
+      - name: census_rm070_utla
+      - name: census_ts007a_utla
+      - name: census_ts021_utla
+      - name: census_ts029_utla
+      - name: census_ts038_utla
+      - name: census_ts051_utla
+      - name: census_ts054_utla
+      - name: census_ts062_utla
+      - name: census_ts067_utla
+      - name: census_rm073_utla
+      - name: lann_ethnicity
+      - name: lann_english_proficiency
+      - name: lann_housing_tenure
+      - name: lann_ns_sec
+      - name: lann_population_data
+      - name: lann_qualification_level
+      - name: lann_rooms
+      - name: lann_area_sqkm
+      - name: lann_distance_to_sea
 
   # ── External data portal (external_source_freshness_checker) ───────────────
   # Fetched by asc-agent (fork: access-social-care/external_source_freshness_checker,
@@ -457,8 +525,16 @@ sources:
       UTLA/LA grain unless noted. Loader: dbt-asc/loaders/load_data_portal_to_snowflake.R.
     database: "{{ 'raw_external' if target.type == 'duckdb' else 'reference' }}"
     schema: "{{ 'main' if target.type == 'duckdb' else 'public' }}"
+    config:
+      # DuckDB has no metadata-based freshness (no LAST_ALTERED), so freshness reads
+      # max(_extracted_at), the asc-agent fetch time (naive US-Pacific wall clock, so up to
+      # ~8h early against UTC: immaterial against day-scale thresholds). Snowflake keeps
+      # metadata freshness: the expression renders to nothing there.
+      loaded_at_field: "{{ '_extracted_at' if target.type == 'duckdb' else none }}"
     tables:
       - name: ascfr_salt
+        # MotherDuck calls this table ascfr_extract (163 rows, same as ASCFR_SALT).
+        identifier: "{{ 'ascfr_extract' if target.type == 'duckdb' else 'ascfr_salt' }}"
         description: |
           ASCFR & SALT — adult social care activity and finance by LA (NHS Digital).
           2023-24 was the final release — SALT is discontinued; successor is CLD

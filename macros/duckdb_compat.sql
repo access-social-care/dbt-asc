@@ -4,17 +4,6 @@
   path is unchanged.
 #}
 
-{# Relation holding the typed, deduped CLD output that norm_cld_* reads.
-   Snowflake: the stg_cld_* model. DuckDB: raw_external.main.cld_* already is
-   that output (stg_cld_* are disabled), exposed as source data_portal_landing. #}
-{% macro cld_raw_relation(raw_model) -%}
-    {%- if target.type == 'duckdb' -%}
-        {{ source('data_portal_landing', raw_model | replace('stg_cld_', 'cld_')) }}
-    {%- else -%}
-        {{ ref(raw_model) }}
-    {%- endif -%}
-{%- endmacro %}
-
 {# One row per delimiter-separated item of `col`. Returns a SELECT of
    keep_cols plus out_col (TRIM-med item). outer=true keeps a NULL-input row
    as a single NULL item (Snowflake FLATTEN OUTER => TRUE). #}
