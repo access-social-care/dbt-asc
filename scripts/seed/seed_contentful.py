@@ -1,7 +1,7 @@
 """Seed AVA.PUBLIC.CONTENTFUL_DATA (Snowflake, read-only) into MotherDuck.
 
-Target: analytics_dev.landing.contentful_data (full replace on each run).
-Read by dbt as source('chatbot_landing', 'contentful_data') on the DuckDB target.
+Target: raw.contentful.contentful_data (full replace on each run).
+Read by dbt as source('chatbot_raw', 'contentful_data') on the DuckDB target.
 
 STOPGAP. Contentful must eventually land in MotherDuck natively (the producer is
 chatbot_content's daily QC run, which still writes Snowflake). Until it does,
@@ -21,7 +21,7 @@ import snowflake.connector
 import yaml
 
 SF_TABLE = ("AVA", "PUBLIC", "CONTENTFUL_DATA")
-DUCK_DB, DUCK_SCHEMA, DUCK_TABLE = "analytics_dev", "landing", "contentful_data"
+DUCK_DB, DUCK_SCHEMA, DUCK_TABLE = "raw", "contentful", "contentful_data"
 
 TYPE_MAP = {
     "TEXT": "VARCHAR", "VARCHAR": "VARCHAR", "FLOAT": "DOUBLE", "BOOLEAN": "BOOLEAN",
@@ -51,6 +51,8 @@ def duck_type(sf_type, scale):
 
 
 def main():
+    if not os.environ.get("MOTHERDUCK_TOKEN"):
+        sys.exit("MOTHERDUCK_TOKEN unset")
     db, sch, tab = SF_TABLE
     scon = sf_connect()
     cur = scon.cursor()
