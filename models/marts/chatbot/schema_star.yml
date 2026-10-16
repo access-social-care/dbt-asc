@@ -162,3 +162,19 @@ models:
         tests: [unique, not_null]
       - name: consumed_resources
         tests: [unique, not_null]
+  - name: accessava
+    description: DuckDB replacement for AVA.PUBLIC.ACCESSAVA (see model header). One row per reporting-tenant conversation.
+    columns:
+      - name: transcript_id
+        tests: [unique, not_null]
+      - name: created_at
+        tests: [not_null]
+      - name: tenant_name
+        tests: [not_null]
+      - name: entry_month
+        tests: [not_null]
+  - name: accessava_locality
+    description: Port of chatbot_locality(); one row per transcript_id.
+    columns:
+      - name: transcript_id
+        tests: [unique, not_null]
