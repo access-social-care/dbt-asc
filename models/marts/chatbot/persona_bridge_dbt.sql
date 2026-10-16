@@ -21,7 +21,7 @@ SELECT
     transcript_id                    AS TRANSCRIPT_ID,
     persona_value                    AS PERSONA
 FROM (
-    {{ split_to_rows(source('accessava', 'accessava'), 'persona', ';',
+    {{ split_to_rows(accessava_relation('accessava'), 'persona', ';',
                      ['transcript_id', 'persona'], 'persona_value') }}
 ) s
 WHERE persona IS NOT NULL
