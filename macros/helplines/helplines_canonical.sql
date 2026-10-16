@@ -62,3 +62,15 @@
 {% macro helplines_cassr_name(la_name_col) -%}
     (select c.cassr_name from {{ source('reference_la', 'la_to_cassr') }} c where c.la_name = lower({{ la_name_col }}) limit 1)
 {%- endmacro %}
+
+{# reparse norm_t(): trim, lower-case, blank or 'na' -> '999'. #}
+{% macro helplines_norm_t(col) -%}
+    case when {{ col }} is null or trim(lower({{ col }})) in ('', 'na') then '999' else trim(lower({{ col }})) end
+{%- endmacro %}
+
+{# reparse norm_t_loose(): norm_t, then curly quotes/dashes/underscores/ampersands and spacing flattened. #}
+{% macro helplines_norm_t_loose(col) -%}
+    trim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(
+        replace(replace(regexp_replace(regexp_replace(regexp_replace({{ helplines_norm_t(col) }}, '[‘’‛`]', '''', 'g'), '[“”]', '"', 'g'), '[–—−]', '-', 'g'), '_', ' '), '&', ' and '),
+        '\s*-\s*', ' - ', 'g'), '\s*/\s*', '/', 'g'), '[.,;:!?]+$', '', 'g'), '\s+', ' ', 'g'), '^\s+|\s+$', '', 'g'), '\s+', ' ', 'g'))
+{%- endmacro %}

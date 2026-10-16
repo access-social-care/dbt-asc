@@ -13,6 +13,8 @@ import argparse
 import os
 import sys
 
+import time
+
 import duckdb
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -24,6 +26,13 @@ if not os.environ.get("MOTHERDUCK_TOKEN"):
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PARTNERS = ["IA", "CAB", "EALING", "AGEUK", "CARERSUK", "SCOPE", "MENCAP", "RNIB"]
+
+
+T0 = time.time()
+
+
+def log(msg):
+    print(f"[{time.time() - T0:6.0f}s] {msg}", file=sys.stderr, flush=True)
 
 
 def compiled(path):
@@ -60,6 +69,7 @@ def main():
                 "(date DATE, month VARCHAR, t1 VARCHAR, t2 VARCHAR, ut1 VARCHAR, ut2 VARCHAR, la_name VARCHAR, la_code VARCHAR, org VARCHAR)")
     for part in PARTNERS:
         g = srun(f'SELECT "DATE", "MONTH", "UT1", "LA_NAME", "LA_CODE", "ORG", COUNT(*) FROM HELPLINES.PUBLIC.PARTNER_HISTORY_{part} GROUP BY ALL')
+        log(f"{part}: {len(g)} grouped rows from Snowflake")
         tmp = f"grouped_{part.lower()}"
         loc.execute(f"CREATE TEMP TABLE {tmp} (d DATE, m VARCHAR, ut1 VARCHAR, la_name VARCHAR, la_code VARCHAR, org VARCHAR, n BIGINT)")
         for i in range(0, len(g), 400):  # multi-row inserts: executemany is far too slow here
@@ -68,8 +78,10 @@ def main():
                         [v for row in chunk for v in row])
         loc.execute("INSERT INTO analytics_dev.staging.helplines_partner_history "
                     f"SELECT d, m, NULL, NULL, ut1, NULL, la_name, la_code, org FROM {tmp}, range({tmp}.n)")
+    log("history expanded")
     loc.execute("CREATE TABLE analytics_dev.staging.helplines_stable_period AS " + compiled("staging/helplines/helplines_stable_period.sql"))
     loc.execute("CREATE TABLE analytics_dev.marts.helplines_ongoing AS " + compiled("marts/helplines/helplines_ongoing.sql"))
+    log("mart built")
     period = loc.execute("SELECT * FROM analytics_dev.staging.helplines_stable_period LIMIT 3").fetchall()
 
     mine = loc.execute("SELECT month_date, ut1, la_name, n FROM analytics_dev.marts.helplines_ongoing").fetchall()

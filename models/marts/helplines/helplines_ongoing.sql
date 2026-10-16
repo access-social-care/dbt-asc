@@ -40,8 +40,9 @@ normalised as (
             when 'Information seeking' then 'Information Seeking'
             else ut1
         end as ut1,
-        {{ helplines_cassr_name('in_scope.la_name') }} as la_name
+        c1.cassr_name as la_name
     from in_scope
+    left join {{ source('reference_la', 'la_to_cassr') }} c1 on c1.la_name = lower(in_scope.la_name)
 ),
 
 kept as (
@@ -61,8 +62,9 @@ counted as (
 )
 
 select
-    month_date,
-    ut1,
-    cast(n as double) as n,
-    {{ helplines_cassr_name('counted.la_name') }} as la_name
+    counted.month_date,
+    counted.ut1,
+    cast(counted.n as double) as n,
+    c2.cassr_name as la_name
 from counted
+left join {{ source('reference_la', 'la_to_cassr') }} c2 on c2.la_name = lower(counted.la_name)
