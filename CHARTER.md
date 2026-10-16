@@ -204,7 +204,23 @@ Chatbot
   MotherDuck natively.
 - The LA-to-CASSR map, tenant-to-LA map and category map are static copies of `ascFuncs` data.
 - Form demographics (170 transcripts, `demographics_matched.RDS`) are loaded by script into
-  `landing`, never committed: PII-adjacent.
+  `landing`, never committed: PII-adjacent. They should land in MotherDuck natively, as should
+  Contentful; the seed scripts then go away.
+- ACCESSAVA is one row per reporting-tenant `transcript_id`, built in dbt from the `int_chatbot_*`
+  models. `data.csv`, the `report.Rmd` export step and `data_uploader.R` are retired for it.
+- The `report.Rmd` replacement of `'; '` with `,` and the persona relabel apply only to the
+  Monday export and never reach ACCESSAVA.
+- Every bridge splits on `;` with optional surrounding whitespace and squishes tokens. Bridges are
+  not distinct, as in R. Dim keys are a binary-order sort numbered from 1. `SUPERCATEGORY_DIM`
+  keeps the literal `NA`. Dim and bridge integrity is dbt tests (unique, not_null, relationships).
+- `add_surrogate_key` captures its argument by name (`ensym`), so the persona call that passes
+  the whole list is correct, not a bug.
+- `ACCESSAVA_LOCALITY` stands alone: first row per transcript in Postgres physical order (Fivetran
+  ctid). `county` is NULL for every ACCESSAVA row and stays NULL.
+- Fivetran keys `actions_transcript` by ctid, so an update lands as a live row plus a soft-deleted
+  twin. Soft-deleted rows are dropped first, then the latest live row per id is kept.
+- `accessava_relation()` points downstream models at the dbt ACCESSAVA on duckdb and the Snowflake
+  source otherwise.
 
 Helplines
 - Partner files arrive as one `raw.share_point` table per file or sheet. `helplines_sources`
