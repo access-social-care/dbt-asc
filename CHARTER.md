@@ -166,7 +166,7 @@ Decisions only. Setup and commands: [profiles/profiles.yml](profiles/profiles.ym
   (staging, intermediate, seeds, dbt tests), `marts` (marts and normalised), `reference`
   (input). dbt writes only `staging` and `marts`. Snowflake layers, roles and envs are not
   recreated. Connection: `path: md:staging` plus `attach: md:marts` in
-  [profiles/profiles.yml](profiles/profiles.yml) (`path: md:` alone is rejected by dbt-duckdb).
+  [profiles/profiles.yml](profiles/profiles.yml) (`path: md:` alone also works, tested 2026-10-16; the explicit form keeps `staging` as the default database so an unrouted model can never land in `my_db`).
 - `generate_database_name` (new) routes by folder: marts/normalised models -> `marts`, all else
   -> `staging`; non-duckdb returns dbt's default exactly. `generate_schema_name`'s duckdb branch
   returns `main`, both ahead of the Snowflake logic. The Snowflake
