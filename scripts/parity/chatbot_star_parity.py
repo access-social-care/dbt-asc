@@ -182,28 +182,54 @@ def part_locality(x, cutoff):
     return ["## Locality", ""] + table_md(f"accessava_locality vs AVA.PUBLIC.ACCESSAVA_LOCALITY (transcripts in ACCESSAVA at {cutoff}): {verdict(res)}", res), res
 
 
-MARTS = [
-    # (title, sf select, dbt select, keys)
-    ("mart_chatbot_conversations_by_tenant_total",
-     "select tenant_name, total_conversations, unique_conversations, first_conversation_date, last_conversation_date, days_active "
-     "from analytics.public.mart_chatbot_conversations_by_tenant_total",
-     "select tenant_name, total_conversations, unique_conversations, first_conversation_date, last_conversation_date, days_active "
-     "from marts.mart_chatbot_conversations_by_tenant_total", ["tenant_name"]),
-    ("mart_chatbot_conversations_by_tenant_monthly",
-     "select tenant_name, conversation_month, conversation_count, unique_conversations, first_conversation_date, last_conversation_date "
-     "from analytics.public.mart_chatbot_conversations_by_tenant_monthly",
-     "select tenant_name, conversation_month, conversation_count, unique_conversations, first_conversation_date, last_conversation_date "
-     "from marts.mart_chatbot_conversations_by_tenant_monthly", ["tenant_name", "conversation_month"]),
-]
+def hashed(cols, table, where):
+    """Multiset key for a table without a unique key: md5 of all columns plus an occurrence number."""
+    expr = " || '|' || ".join(f"coalesce(cast({c} as varchar), '~N~')" for c in cols)
+    return (f"select md5({expr}) as k, row_number() over (partition by md5({expr}) order by 1) as rn "
+            f"from {table} where {where}")
 
 
 def part_marts(x, cutoff):
-    md = ["## Downstream marts", ""]
+    md = ["## Downstream models", ""]
     out = []
-    for title, a, b, keys in MARTS:
-        r, _ = x.compare(a, b, keys)
-        md += table_md(f"{title}: {verdict(r)} (live tables, not cut off: the data moves between refreshes)", r)
-        out.append((title, r))
+    # Tenant marts: the two mart tables are not built in Snowflake today (no object in ANALYTICS), so the
+    # oracle is the model SQL run on AVA.PUBLIC.ACCESSAVA in Snowflake. Months before the cutoff month only.
+    first = cutoff[:7] + "-01"
+    sf_m = ("select tenant_name, date_trunc('month', created_at) as conversation_month, count(*) as conversation_count, "
+            "count(distinct transcript_id) as unique_conversations, min(created_at) as first_conversation_date, "
+            "max(created_at) as last_conversation_date from ava.public.accessava where tenant_name is not null "
+            f"group by 1, 2 having date_trunc('month', created_at) < date '{first}'")
+    md_m = ("select tenant_name, cast(conversation_month as date) as conversation_month, conversation_count, unique_conversations, first_conversation_date, "
+            f"last_conversation_date from marts.mart_chatbot_conversations_by_tenant_monthly where conversation_month < date '{first}'")
+    r, _ = x.compare(sf_m, md_m, ["tenant_name", "conversation_month"])
+    md += table_md(f"mart_chatbot_conversations_by_tenant_monthly vs model SQL on AVA.PUBLIC.ACCESSAVA (months before {first}): {verdict(r)}", r)
+    out.append(("mart_chatbot_conversations_by_tenant_monthly", r))
+    sf_t = ("select tenant_name, count(*) as total_conversations, count(distinct transcript_id) as unique_conversations, "
+            "min(created_at) as first_conversation_date, max(created_at) as last_conversation_date, "
+            "datediff('day', min(created_at), max(created_at)) as days_active from ava.public.accessava "
+            f"where tenant_name is not null and created_at <= date '{cutoff}' group by 1")
+    md_t = ("select tenant_name, count(*) as total_conversations, count(distinct transcript_id) as unique_conversations, "
+            "min(created_at) as first_conversation_date, max(created_at) as last_conversation_date, "
+            "date_diff('day', min(created_at), max(created_at)) as days_active from marts.accessava "
+            f"where tenant_name is not null and created_at <= date '{cutoff}' group by 1")
+    r, _ = x.compare(sf_t, md_t, ["tenant_name"])
+    md += table_md(f"tenant_total logic, cutoff {cutoff} (aggregation re-run both sides; the model itself is the same SQL as marts.mart_chatbot_conversations_by_tenant_total): {verdict(r)}", r)
+    out.append(("mart_chatbot_conversations_by_tenant_total", r))
+    # stg_ilta_accessava: Snowflake table exists (ANALYTICS.PUBLIC_ILTA_STAGING).
+    ic = ["record_id", "source_system", "month_date", "la_name", "org_name", "gender", "age", "disability", "ethnicity",
+          "gender_raw", "age_raw", "disability_yn_raw", "disability_type_raw", "ethnicity_raw"]
+    sf_i = f"select {', '.join(ic)} from analytics.public_ilta_staging.stg_ilta_accessava where record_id in (select transcript_id from ava.public.accessava where created_at <= date '{cutoff}')"
+    md_i = f"select {', '.join(ic)} from staging.stg_ilta_accessava where record_id in (select transcript_id from marts.accessava where created_at <= date '{cutoff}')"
+    r, _ = x.compare(sf_i, md_i, ["record_id"])
+    md += table_md(f"stg_ilta_accessava vs ANALYTICS.PUBLIC_ILTA_STAGING.STG_ILTA_ACCESSAVA (conversations in ACCESSAVA at {cutoff}): {verdict(r)}", r)
+    out.append(("stg_ilta_accessava", r))
+    # stg_accessava: grain conversation x topic, no unique key; multiset of full-row hashes.
+    sc = ["la_name", "query_date", "source_system", "query_count", "segment", "ut2", "age_band", "has_letter", "locality_name"]
+    sf_s = hashed(sc, "analytics.public_la_product_staging.stg_accessava", f"query_date <= date '{cutoff}'")
+    md_s = hashed(sc, "staging.stg_accessava", f"query_date <= date '{cutoff}'")
+    r, _ = x.compare(sf_s, md_s, ["k", "rn"])
+    md += table_md(f"stg_accessava vs ANALYTICS.PUBLIC_LA_PRODUCT_STAGING.STG_ACCESSAVA (query_date <= {cutoff}, full-row multiset): {verdict(r)}", r)
+    out.append(("stg_accessava", r))
     return md, out
 
 
