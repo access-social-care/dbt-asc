@@ -66,3 +66,13 @@ Mart isolation check not run (limit). Age UK, Scope not reproducible from curren
 - Mart renamed `helplines_aggregated_full` to `helplines_ongoing` (the State of the Nation output will be promoted alongside it). The Snowflake source keeps its table name.
 - Stable period stays at 5 partners (as `data_discriminator.R`). 6 was tried (window shrank to 2024-10..2025-12, 165 rows) and reverted; the owner will revisit once the State of the Nation data is combined (see the tracking issue). Mart row-count floor test is 200.
 - The ONS LAD, geography-to-LA and LA-to-CASSR lookups moved from dbt seeds to MotherDuck `reference.main` (`ons_lad_2025`, `geo_to_la`, `la_to_cassr`), published once by `scripts/seed/publish_la_reference.py`.
+
+## Mart isolation check, diagnosed (2026-10-16)
+
+Run: dbt SQL on Snowflake's own PARTNER_HISTORY_* vs the live HELPLINES_AGGREGATED_FULL (`scripts/parity/helplines_mart_check.py`, stable period 5 partners; details in `helplines_mart_check.md`).
+
+- 790 vs 24,743 rows was a model bug, now fixed. `helplines_cassr_name(la_name)` is a correlated subquery over the lookup table, which has its own `la_name` column; the unqualified argument bound to the lookup's column instead of the outer row, so the CASSR lookup returned an arbitrary name or NULL and nearly every LA collapsed to NULL (790 rows is about 77 months x 9 UT1 + a few). The comparison key was not at fault. Fix: the mart joins the lookup instead of using the subquery (the macro now documents that its argument must be qualified; partner models already pass qualified columns).
+- After the fix: 25,673 rows vs 24,743; sum(n) 676,229 vs 655,867 (+3.1%); the same 77 months; stable period 2020-01..2026-05.
+- The remainder is Snowflake's mart being older than Snowflake's history, not a logic difference. Applying the mart rules to the same history reproduces the mart's monthly totals exactly for the 26 months 2020-01..2022-02. From 2023-04 the history holds more rows: +800..1,300 a month, which is the Citizens Advice switch from the first Tableau export to the fuller one (2023-04: 8,345 vs 9,381 in the raw files), reloaded into history after the mart was built. From 2025-03 the mart holds more than the history (-200..-480 a month: later reloads of Independent Age, Scope and Ealing). 88% of the surplus is Information Seeking on NULL LA_NAME (CAB, Carers UK, Ealing are region-level).
+- Rows only on one side (1,650 dbt, 720 Snowflake) are keys whose count moved between the two vintages; none is a month or UT1 missing on one side.
+- Open: rerun the check after the next Snowflake mart load to confirm it goes to PASS on identical vintages.
